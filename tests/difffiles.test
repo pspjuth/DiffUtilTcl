@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 
 package require DiffUtil
 
@@ -213,3 +213,46 @@ test difffiles-6.2 {noempty} {CDiff knownbug} {
     RunTest $l1 $l2 -noempty
 } [list {5 0 5 1} {6 1 7 0}]
 
+test difffiles-7.1 {ignore digit} {
+    set l1 {a b123c x b02c   b13c d}
+    set l2 {a         b02c x      d}
+    list [RunTest $l1 $l2] [RunTest $l1 $l2 -nodigit]
+} [list [list {2 2 2 0} {5 1 3 1}] [list {4 2 4 0}]]
+
+test difffiles-7.2 {ignore digit} {
+    set l1 {a b123 12c 456   a76b93u x}
+    set l2 {a b2   1c  7890  a0b12u  x}
+    RunTest $l1 $l2 -nodigit
+} {}
+
+test difffiles-7.3.1 {ignore digit, preference} {CDiff} {
+    set l1 {a b123 b456 x}
+    set l2 {a b123      x}
+    set l3 {a b222      x}
+    set l4 {a b456      x}
+    list [RunTest $l1 $l2 -nodigit] \
+            [RunTest $l1 $l3 -nodigit] \
+            [RunTest $l1 $l4 -nodigit]
+} [list [list {3 1 3 0}] [list {3 1 3 0}] [list {2 1 2 0}]]
+
+test difffiles-7.3.2 {ignore digit, preference} {TclDiff} {
+    set l1 {a b123 b456 x}
+    set l2 {a b123      x}
+    set l3 {a b222      x}
+    set l4 {a b456      x}
+    list [RunTest $l1 $l2 -nodigit] \
+            [RunTest $l1 $l3 -nodigit] \
+            [RunTest $l1 $l4 -nodigit]
+} [list [list {3 1 3 0}] [list {3 1 3 0}] [list {3 1 3 0}]]
+
+test difffiles-8.1 {flag -regsub} {TclDiff} {
+    set l1 {axa byb aa bb}
+    set l2 {aya bxb ee ff}
+    list [RunTest $l1 $l2] [RunTest $l1 $l2 -regsub {{x|y} {}}]
+} [list [list {1 4 1 4}] [list {3 2 3 2}]]
+
+test difffiles-8.2 {flag -regsub} {TclDiff} {
+    set l1 {axa byb axa bb}
+    set l2 {    aya bxb ee ff}
+    list [RunTest $l1 $l2] [RunTest $l1 $l2 -regsub {{.*(y|x).*} {\1}}]
+} [list [list {1 4 1 4}] [list {1 1 1 0} {4 1 3 2}]]
