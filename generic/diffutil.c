@@ -94,13 +94,13 @@ UniCharFirst(ustring1, length1, ustring2, length2)
 }
 
 // Recursively look for common substrings in strings str1 and str2
-// res1 and res2 should point to list objects where the result
+// res should point to list object where the result
 // will be appended.
 static void
-CompareMidString(interp, obj1, obj2, res1, res2, wordparse)
+CompareMidString(interp, obj1, obj2, res, wordparse)
     Tcl_Interp *interp;
     Tcl_Obj *obj1, *obj2;
-    Tcl_Obj *res1, *res2;
+    Tcl_Obj *res;
     int wordparse;
 {
     Tcl_UniChar *str1, *str2;
@@ -114,15 +114,15 @@ CompareMidString(interp, obj1, obj2, res1, res2, wordparse)
     // Is str1 a substring of str2 ?
     if (len1 < len2) {
 	if ((t = UniCharFirst(str1, len1, str2, len2)) != -1) {
-	    Tcl_ListObjAppendElement(interp, res2,
+	    Tcl_ListObjAppendElement(interp, res, Tcl_NewObj());
+	    Tcl_ListObjAppendElement(interp, res,
 		    Tcl_NewUnicodeObj(str2, t));
-	    Tcl_ListObjAppendElement(interp, res2,
+	    Tcl_ListObjAppendElement(interp, res, obj1);
+	    Tcl_ListObjAppendElement(interp, res,
 		    Tcl_NewUnicodeObj(str2 + t, len1));
-	    Tcl_ListObjAppendElement(interp, res2,
+	    Tcl_ListObjAppendElement(interp, res, Tcl_NewObj());
+	    Tcl_ListObjAppendElement(interp, res,
 		    Tcl_NewUnicodeObj(str2 + t + len1, -1));
-	    Tcl_ListObjAppendElement(interp, res1, Tcl_NewObj());
-	    Tcl_ListObjAppendElement(interp, res1, obj1);
-	    Tcl_ListObjAppendElement(interp, res1, Tcl_NewObj());
 	    return;
 	}
     }
@@ -130,23 +130,23 @@ CompareMidString(interp, obj1, obj2, res1, res2, wordparse)
     // Is str2 a substring of str1 ?
     if (len2 < len1) {
 	if ((t = UniCharFirst(str2, len2, str1, len1)) != -1) {
-	    Tcl_ListObjAppendElement(interp, res1,
+	    Tcl_ListObjAppendElement(interp, res,
 		    Tcl_NewUnicodeObj(str1, t));
-	    Tcl_ListObjAppendElement(interp, res1,
+	    Tcl_ListObjAppendElement(interp, res, Tcl_NewObj());
+	    Tcl_ListObjAppendElement(interp, res,
 		    Tcl_NewUnicodeObj(str1 + t, len2));
-	    Tcl_ListObjAppendElement(interp, res1,
+	    Tcl_ListObjAppendElement(interp, res, obj2);
+	    Tcl_ListObjAppendElement(interp, res,
 		    Tcl_NewUnicodeObj(str1 + t + len2, -1));
-	    Tcl_ListObjAppendElement(interp, res2, Tcl_NewObj());
-	    Tcl_ListObjAppendElement(interp, res2, obj2);
-	    Tcl_ListObjAppendElement(interp, res2, Tcl_NewObj());
+	    Tcl_ListObjAppendElement(interp, res, Tcl_NewObj());
 	    return;
 	}
     }
 
     // Are they too short to be considered ?
     if (len1 < 4 || len2 < 4) {
-	Tcl_ListObjAppendElement(interp, res1, obj1);
-	Tcl_ListObjAppendElement(interp, res2, obj2);
+	Tcl_ListObjAppendElement(interp, res, obj1);
+	Tcl_ListObjAppendElement(interp, res, obj2);
         return;
     }
 
@@ -199,8 +199,8 @@ CompareMidString(interp, obj1, obj2, res1, res2, wordparse)
 
     if (foundlen < 0) {
 	// No common string found
-	Tcl_ListObjAppendElement(interp, res1, obj1);
-	Tcl_ListObjAppendElement(interp, res2, obj2);
+	Tcl_ListObjAppendElement(interp, res, obj1);
+	Tcl_ListObjAppendElement(interp, res, obj2);
         return;
     }
 
@@ -209,14 +209,14 @@ CompareMidString(interp, obj1, obj2, res1, res2, wordparse)
     apa2 = Tcl_NewUnicodeObj(str2, found2);
     Tcl_IncrRefCount(apa1);
     Tcl_IncrRefCount(apa2);
-    CompareMidString(interp, apa1, apa2, res1, res2, wordparse);
+    CompareMidString(interp, apa1, apa2, res, wordparse);
     Tcl_DecrRefCount(apa1);
     Tcl_DecrRefCount(apa2);
 
     // Handle middle (common) part
-    Tcl_ListObjAppendElement(interp, res1,
+    Tcl_ListObjAppendElement(interp, res,
 	    Tcl_NewUnicodeObj(str1 + found1, foundlen));
-    Tcl_ListObjAppendElement(interp, res2,
+    Tcl_ListObjAppendElement(interp, res,
 	    Tcl_NewUnicodeObj(str2 + found2, foundlen));
     
     // Handle right part, recursively
@@ -224,14 +224,13 @@ CompareMidString(interp, obj1, obj2, res1, res2, wordparse)
     apa2 = Tcl_NewUnicodeObj(str2 + found2 + foundlen, -1);
     Tcl_IncrRefCount(apa1);
     Tcl_IncrRefCount(apa2);
-    CompareMidString(interp, apa1, apa2, res1, res2, wordparse);
+    CompareMidString(interp, apa1, apa2, res, wordparse);
     Tcl_DecrRefCount(apa1);
     Tcl_DecrRefCount(apa2);
-
 }
 
 int
-CompareLinesObjCmd(dummy, interp, objc, objv)
+DiffStringsObjCmd(dummy, interp, objc, objv)
     ClientData dummy;    	/* Not used. */
     Tcl_Interp *interp;		/* Current interpreter. */
     int objc;			/* Number of arguments. */
@@ -244,39 +243,42 @@ CompareLinesObjCmd(dummy, interp, objc, objv)
     //char *line1, *line2, *s1, *s2, *e1, *e2, *prev, *prev2;
     Tcl_UniChar *word1, *word2;
     int wordflag;
-    Tcl_Obj *res1, *res2, *mid1, *mid2;
+    Tcl_Obj *res, *mid1, *mid2;
     static CONST char *options[] = {
-	"-b", "-w", "-word", (char *) NULL
+	"-nocase", "-i", "-b", "-w", "-words", (char *) NULL
     };
     enum options {
-	OPT_B, OPT_W, OPT_WORD
+	OPT_NOCASE, OPT_I, OPT_B, OPT_W, OPT_WORDS
     };	  
 
-    if (objc < 5) {
-        Tcl_WrongNumArgs(interp, 1, objv, "?opts? line1 line2 res1Name res2Name");
+    if (objc < 3) {
+        Tcl_WrongNumArgs(interp, 1, objv, "?opts? line1 line2");
 	return TCL_ERROR;
     }
     
-    for (t = 1; t < objc - 4; t++) {
+    for (t = 1; t < objc - 2; t++) {
 	if (Tcl_GetIndexFromObj(interp, objv[t], options, "option", 0,
 		&index) != TCL_OK) {
 	    return TCL_ERROR;
 	}
 	switch (index) {
+          case OPT_NOCASE :
+          case OPT_I :
+            break;
 	  case OPT_B:
 	    ignore = 1;
 	    break;
 	  case OPT_W:
 	    ignore = 2;
 	    break;
-	  case OPT_WORD:
+	  case OPT_WORDS:
 	    wordparse = 1;
 	    break;
 	}
     }
 
-    line1 = Tcl_GetUnicodeFromObj(objv[objc-4], &len1);
-    line2 = Tcl_GetUnicodeFromObj(objv[objc-3], &len2);
+    line1 = Tcl_GetUnicodeFromObj(objv[objc-2], &len1);
+    line2 = Tcl_GetUnicodeFromObj(objv[objc-1], &len2);
     
     s1 = line1;
     s2 = line2;
@@ -313,7 +315,7 @@ CompareLinesObjCmd(dummy, interp, objc, objv)
 	s1++;
 	s2++;
     }
-    if (wordparse) {
+    if (wordparse && s1 < e1 && s2 < e2) {
 	s1 = word1;
 	s2 = word2;
     }
@@ -343,41 +345,26 @@ CompareLinesObjCmd(dummy, interp, objc, objv)
 	e2 = word2;
     }
 
-    res1 = Tcl_NewListObj(0, NULL);
-    Tcl_IncrRefCount(res1);
-    Tcl_ListObjAppendElement(interp, res1, Tcl_NewUnicodeObj(line1, s1-line1));
-    res2 = Tcl_NewListObj(0, NULL);
-    Tcl_IncrRefCount(res2);
-    Tcl_ListObjAppendElement(interp, res2, Tcl_NewUnicodeObj(line2, s2-line2));
+    res = Tcl_NewListObj(0, NULL);
+    Tcl_IncrRefCount(res);
+    Tcl_ListObjAppendElement(interp, res, Tcl_NewUnicodeObj(line1, s1-line1));
+    Tcl_ListObjAppendElement(interp, res, Tcl_NewUnicodeObj(line2, s2-line2));
 
     if (e1 > s1 || e2 > s2) {
 	mid1 = Tcl_NewUnicodeObj(s1, e1 - s1);
 	mid2 = Tcl_NewUnicodeObj(s2, e2 - s2);
 	Tcl_IncrRefCount(mid1);
 	Tcl_IncrRefCount(mid2);
-	CompareMidString(interp, mid1, mid2, res1, res2, wordparse);
+	CompareMidString(interp, mid1, mid2, res, wordparse);
 	Tcl_DecrRefCount(mid1);
 	Tcl_DecrRefCount(mid2);
 
-	Tcl_ListObjAppendElement(interp, res1, Tcl_NewUnicodeObj(e1, -1));
-	Tcl_ListObjAppendElement(interp, res2, Tcl_NewUnicodeObj(e2, -1));
+	Tcl_ListObjAppendElement(interp, res, Tcl_NewUnicodeObj(e1, -1));
+	Tcl_ListObjAppendElement(interp, res, Tcl_NewUnicodeObj(e2, -1));
     }
 
-    if (Tcl_ObjSetVar2(interp, objv[objc-2], NULL, res1, TCL_LEAVE_ERR_MSG)
-	    == NULL) {
-	result = TCL_ERROR;
-	goto endCompareLines;
-    }
-
-    if (Tcl_ObjSetVar2(interp, objv[objc-1], NULL, res2, TCL_LEAVE_ERR_MSG)
-	    == NULL) {
-	result = TCL_ERROR;
-	goto endCompareLines;
-    }
-
-    endCompareLines:
-    Tcl_DecrRefCount(res1);
-    Tcl_DecrRefCount(res2);
+    Tcl_SetObjResult(interp, res);
+    Tcl_DecrRefCount(res);
     return result;
 }
 
@@ -398,7 +385,7 @@ EXPORT(int,Diffutil_Init) (Tcl_Interp *interp)
     }
 
     TCOC("DiffUtil::diffFiles", DiffFilesObjCmd);
-    TCOC("DiffUtil::compareLines", CompareLinesObjCmd);
+    TCOC("DiffUtil::diffStrings", DiffStringsObjCmd);
     Tcl_SetVar(interp, "DiffUtil::version", PACKAGE_VERSION, TCL_GLOBAL_ONLY);
 
     return TCL_OK;
