@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 
 package require DiffUtil
 
@@ -10,6 +10,10 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
     namespace import ::tcltest::*
 }
+
+# There are differences between the C and the Diff result.
+tcltest::testConstraint CDiff \
+        [expr {[info proc DiffUtil::ExecDiffFiles] == ""}]
 
 #----------------------------------------------------------------------
 
@@ -115,3 +119,40 @@ test difffiles-4.2 {range} -body {
 test difffiles-4.3 {range} -body {
     DiffUtil::diffFiles -range {-3 5 3 5} a b
 } -returnCodes 1 -result {bad range*} -match glob
+
+
+test difffiles-5.1 {priority} {
+    set l1 {a b c d e}
+    set l2 {a b c d f e E e}
+    RunTest $l1 $l2
+} [list {5 0 5 3}]
+
+test difffiles-5.2 {priority} {
+    set l1 {a b c d e}
+    set l2 {a b c d f e E}
+    RunTest $l1 $l2
+} [list {5 0 5 1} {6 0 7 1}]
+
+test difffiles-5.3 {priority} {CDiff} {
+    set l1 {a b c d e}
+    set l2 {a b c d f e E}
+    RunTest $l1 $l2 -nocase
+} [list {5 0 5 1} {6 0 7 1}]
+
+test difffiles-5.4 {priority} {
+    set l1 {a b c d e}
+    set l2 {a b c d f E E}
+    RunTest $l1 $l2 -nocase
+} [list {5 0 5 2}]
+
+test difffiles-5.5 {priority} {
+    set l1 {a b c d e f g h i j k l}
+    set l2 {a b c d X e f g h Y e f g h Z i j k l}
+    RunTest $l1 $l2
+} [list {5 0 5 1} {9 0 10 6}]
+
+test difffiles-5.6 {priority} {
+    set l1 {a b c d e f g h i j k l}
+    set l2 {a b c d X e f g h Y e f g h i j k l}
+    RunTest $l1 $l2
+} [list {5 0 5 6}]
