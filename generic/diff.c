@@ -6,7 +6,7 @@
  * Copyright (c) 2004, Peter Spjuth  (peter.spjuth@space.se)
  *
  ***********************************************************************
- * $Revision: 1.12 $
+ * $Revision: 1.13 $
  ***********************************************************************/
 
 #include <tcl.h>
@@ -72,7 +72,7 @@ typedef struct {
 /* A type to implement the Candidates in the LCS algorithm */
 typedef struct Candidate_T {
     /* Line numbers in files */
-    Line_T a, b;
+    Line_T line1, line2;
     /* A score value to select between similar candidates */
     unsigned long score;
     /* Hash value for the line in the second file */
@@ -288,8 +288,8 @@ NewCandidate(CandidateAlloc_T **first, Line_T a, Line_T b, Hash_T hash,
     c = &ca->candidates[ca->used];
     ca->used++;
 
-    c->a = a;
-    c->b = b;
+    c->line1 = a;
+    c->line2 = b;
     c->hash = hash;
     c->prev = prev;
     c->peer = peer;
@@ -365,14 +365,14 @@ merge(CandidateAlloc_T **firstCandidate,
         while (first <= last) {
             /*printf("First %ld  Last %ld\n", first, last);*/
             s = (first + last) / 2;
-            b1 = K[s]->b;
-            b2 = K[s+1]->b;
+            b1 = K[s]->line2;
+            b2 = K[s+1]->line2;
             if ((b1 < j && b2 > j) || b1 == j) {
                 break;
             }
             if (b2 == j) {
                 s = s + 1;
-                b1 = K[s]->b;
+                b1 = K[s]->line2;
                 break;
             }
             if (b2 < j) {
@@ -384,13 +384,13 @@ merge(CandidateAlloc_T **firstCandidate,
         }
         /*printf("j = %ld  s = %ld  b1 = %ld  b2 = %ld\n", j, s, b1, b2);*/
         if (b1 < j && b2 > j) {
-            if (ck == s + 1 /*&& c->a == i*/) {
+            if (ck == s + 1 /*&& c->line1 == i*/) {
                 /* 
                  * If there already is a candidate for this level,
                  * create this candidate as a peer but do not update K.
                  */
                 for (peer = c; peer->peer != NULL; peer = peer->peer) {
-                    if (peer->peer->a != peer->a) break;
+                    if (peer->peer->line1 != peer->line1) break;
                 }
                 newc = NewCandidate(firstCandidate, i, j, E[p].hash, c->prev,
                                     peer->peer);
@@ -420,12 +420,16 @@ merge(CandidateAlloc_T **firstCandidate,
                  * the search space for the next iteration.
                  * c is optimal if it's next to its previous candidate,
                  * but not if it has a peer in the same column.
+                 * And not if the previous line is empty.
                  */
                 if (c->prev != NULL &&
                     c->k > 1 &&
-                    (c->a - c->prev->a) <= 1 &&
-                    (c->b - c->prev->b) <= 1 &&
-                    (c->prev->peer == NULL || c->prev->peer->a < c->prev->a)) {
+                    c->prev->hash != 0 &&
+                    (c->line1 - c->prev->line1) <= 1 &&
+                    (c->line2 - c->prev->line2) <= 1 &&
+                    (c->prev->peer == NULL ||
+                     c->prev->peer->line1 < c->prev->line1)) {
+                    /* Optimal */
                     r = s + 1;
                 } else {
                     r = s;
@@ -441,7 +445,7 @@ merge(CandidateAlloc_T **firstCandidate,
              * We have a new candidate on the same row as one of the
              * candidates in K.
              */
-            if (ck == s /*&& c->a == i*/) {
+            if (ck == s /*&& c->line1 == i*/) {
                 /* 
                  * If there already is a candidate for this level,
                  * i.e. if K[s] is about to be updated,
@@ -456,12 +460,16 @@ merge(CandidateAlloc_T **firstCandidate,
                  * If this candidate is not optimally placed and if K[s] is
                  * optimally placed, we skip this candidate.
                  * It is optimal if it's next to its previous candidate.
+                 * Not if the previous candidate is an empty line.
                  */
-                register int ksoptimal = (s > 1 && K[s]->prev != NULL &&
-                                          (K[s]->a - K[s]->prev->a) <= 1 &&
-                                          (K[s]->b - K[s]->prev->b) <= 1);
+                register int ksoptimal =
+                    (s > 1                                  &&
+                     K[s]->prev != NULL                     &&
+                     K[s]->prev->hash != 0                  &&
+                     (K[s]->line1 - K[s]->prev->line1) <= 1 &&
+                     (K[s]->line2 - K[s]->prev->line2) <= 1);
                 if (!ksoptimal ||
-                    ((i - K[s-1]->a) <= 1 && (j - K[s-1]->b) <= 1)) {
+                    ((i - K[s-1]->line1) <= 1 && (j - K[s-1]->line2) <= 1)) {
 #endif /* SAME_ROW_OPT2 */
 #ifdef SAME_ROW_OPT
                     if ((m - i) + s >= *k) { 
@@ -472,7 +480,7 @@ merge(CandidateAlloc_T **firstCandidate,
                          */
                         tmp = K[s-1];
                         while (tmp != NULL) {
-                            if (tmp->a < i && tmp->b < j) break;
+                            if (tmp->line1 < i && tmp->line2 < j) break;
                             tmp = tmp->peer;
                         }
                         newc = NewCandidate(firstCandidate, i, j, E[p].hash,
@@ -511,24 +519,25 @@ ScoreCandidate(Candidate_T *c, P_T *P)
     bestc = c->prev;
 
     for (prev = c->prev; prev != NULL; prev = prev->peer) {
-        if (prev->b >= c->b) break;
+        if (prev->line2 >= c->line2) break;
         score = prev->score;
 
-        /* A jump increases score */
-        if (c->k > 1) {
-            if ((c->b - prev->b) > 1) score += 2;
-            if ((c->a - prev->a) > 1) score += 2;
-            if ((c->b - prev->b) > 1 && (c->a - prev->a) > 1) score--;
+        /* A jump increases score, unless the previous line is empty */
+        if (c->k > 1 && prev->hash != 0) {
+            if ((c->line2 - prev->line2) > 1) score += 2;
+            if ((c->line1 - prev->line1) > 1) score += 2;
+            if ((c->line2 - prev->line2) > 1 &&
+                (c->line1 - prev->line1) > 1) score--;
         }
         /* 
          * By doing less than or equal we favor matches earlier
          * in the file.
          */
         if (score < bestscore ||
-            (score == bestscore && bestc->b == prev->b)) {
+            (score == bestscore && bestc->line2 == prev->line2)) {
             /*printf("A %ld B %ld S %ld   Best A %ld B %ld S %ld\n",
-              prev->a , prev->b, score,
-              bestc->a, bestc->b, bestscore);*/
+                   prev->line1 , prev->line2, score,
+                   bestc->line1, bestc->line2, bestscore);*/
             bestscore = score;
             bestc = prev;
         }
@@ -536,7 +545,7 @@ ScoreCandidate(Candidate_T *c, P_T *P)
 
     c->score = bestscore;
     /* If the lines differ, its worse */
-    if (P[c->a].hash != c->hash) {
+    if (P[c->line1].hash != c->hash) {
         c->score += 5;
     }
     /*
@@ -592,7 +601,7 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
         }
         ready = 1;
         for (prev = c->prev; prev != NULL; prev = prev->peer) {
-            if (prev->b >= c->b) break;
+            if (prev->line2 >= c->line2) break;
             if (prev->score == 0) {
                 stack[sp++] = prev;
                 ready = 0;
@@ -663,7 +672,7 @@ LcsCore(Tcl_Interp *interp,
         for (i = k; i > 0; i--) {
             c = K[i];
             sprintf(buf, "K %ld %ld %ld 0 0 0 0 0  ",
-                    (long) c->a, (long) c->b, (long) i);
+                    (long) c->line1, (long) c->line2, (long) i);
             Tcl_DStringAppend(&ds, buf, -1);
         }
         
@@ -671,22 +680,25 @@ LcsCore(Tcl_Interp *interp,
         while (ca != NULL) {
             for (i = 0; i < ca->used; i++) {
                 c = &ca->candidates[i];
-                if (c->a <= 0 || c->a > m || c->b <= 0 || c->b > n) {
+                if (c->line1 <= 0 || c->line1 > m ||
+                    c->line2 <= 0 || c->line2 > n) {
                     continue;
                 }
                 sprintf(buf, "C %ld %ld %ld %ld ",
-                        (long) c->a, (long) c->b, (long) c->score,
+                        (long) c->line1, (long) c->line2, (long) c->score,
                         (long) c->wasK);
                 Tcl_DStringAppend(&ds, buf, -1);
                 peer = c->peer;
                 if (peer != NULL) {
-                    sprintf(buf, "%ld %ld ", (long) peer->a, (long) peer->b);
+                    sprintf(buf, "%ld %ld ", (long) peer->line1,
+                            (long) peer->line2);
                 } else {
                     sprintf(buf, "%ld %ld ", m + 1, n + 1);
                 }
                 Tcl_DStringAppend(&ds, buf, -1);
                 if (c->prev != NULL) {
-                    sprintf(buf, "%ld %ld ", (long) c->prev->a, (long) c->prev->b);
+                    sprintf(buf, "%ld %ld ", (long) c->prev->line1,
+                            (long) c->prev->line2);
                 } else {
                     sprintf(buf, "%d %d ", 0, 0);
                 }
@@ -722,11 +734,11 @@ LcsCore(Tcl_Interp *interp,
         bestss = 1000000000; 
         while (c != NULL) {
             primscore = c->score;
-            secscore  = labs(((long) m - (long) c->a) -
-                             ((long) n - (long) c->b));
-            score2 = labs((long) c->a - (long) c->b);
+            secscore  = labs(((long) m - (long) c->line1) -
+                             ((long) n - (long) c->line2));
+            score2 = labs((long) c->line1 - (long) c->line2);
             if (score2 < secscore) secscore = score2;
-            if (P[c->a].hash != c->hash) {
+            if (P[c->line1].hash != c->hash) {
                 /* Worse score if lines differ */
                 secscore += 100;
             }
@@ -741,8 +753,8 @@ LcsCore(Tcl_Interp *interp,
         c = bestc;
     }
     while (c != NULL) {
-        if (c->a < 0 || c->a > m) printf("GURKA\n");
-        J[c->a] = c->b;
+        if (c->line1 < 0 || c->line1 > m) printf("GURKA\n");
+        J[c->line1] = c->line2;
         c = c->prev;
     }
     
