@@ -6,7 +6,7 @@
  * Copyright (c) 2004, Peter Spjuth  (peter.spjuth@space.se)
  *
  ***********************************************************************
- * $Revision: 1.11 $
+ * $Revision: 1.12 $
  ***********************************************************************/
 
 #include <tcl.h>
@@ -1363,7 +1363,9 @@ DiffFilesObjCmd(dummy, interp, objc, objv)
  * Prepare the datastructures needed in LCS for two strings.
  */
 static void
-PrepareStringsLcs(Tcl_Interp *interp, Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
+PrepareStringsLcs(Tcl_Interp *interp,
+                  char *str1, int len1,
+                  char *str2, int len2,
                   DiffOptions_T *optsPtr,
                   Line_T *mPtr, Line_T *nPtr,
                   P_T **PPtr, E_T **EPtr)
@@ -1374,11 +1376,8 @@ PrepareStringsLcs(Tcl_Interp *interp, Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
     Hash_T h;
     Line_T j, m = 0, n = 0;
     Line_T first, last;
-    char *str1, *str2, *str;
+    char *str;
     Tcl_UniChar c, realc;
-    int len1, len2;
-
-    str2 = Tcl_GetStringFromObj(str2Ptr, &len2);
 
     /* Allocate V vector for string 2 */
     V = (V_T *) ckalloc((len2 + 1) * sizeof(V_T));
@@ -1423,8 +1422,6 @@ PrepareStringsLcs(Tcl_Interp *interp, Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
     }
 
     /* Build P vector */
-
-    str1 = Tcl_GetStringFromObj(str1Ptr, &len1);
 
     /* Allocate P vector for string 1 */
     P = (P_T *) ckalloc((len1 + 1) * sizeof(P_T));
@@ -1484,10 +1481,54 @@ CompareStrings1(Tcl_Interp *interp,
 {
     E_T *E;
     P_T *P;
-    Line_T m, n, *J;
+    Line_T m, n, *J, *newJ;
+    int i, j, length1, length2, chsize1, chsize2, len1, len2;
+    char *string1, *string2, *str1, *str2;
+    int skip1start = 0, skip2start = 0;
+    Tcl_UniChar c1, c2;
+    const int nocase = optsPtr->ignore | IGNORE_CASE;
+
+    /*
+     * Start by detecting leading and trailing equalities to lessen
+     * the load on the LCS algorithm
+     */
+    string1 = Tcl_GetStringFromObj(str1Ptr, &length1);
+    string2 = Tcl_GetStringFromObj(str2Ptr, &length2);
+    str1 = string1;
+    str2 = string2;
+    if (optsPtr->ignore & (IGNORE_SPACE_CHANGE | IGNORE_ALL_SPACE)) {
+        /* Skip all leading white-space */
+        while (*str1 != 0) {
+            chsize1 = Tcl_UtfToUniChar(str1, &c1); 
+            if (!Tcl_UniCharIsSpace(c1)) break;
+            str1 += chsize1;
+            skip1start++;
+        }
+        while (*str2 != 0) {
+            chsize2 = Tcl_UtfToUniChar(str2, &c2); 
+            if (!Tcl_UniCharIsSpace(c2)) break;
+            str2 += chsize2;
+            skip2start++;
+        }
+    }
+    /* Skip leading equalities */
+    while (*str1 != 0 && *str2 != 0) {
+        chsize1 = Tcl_UtfToUniChar(str1, &c1); 
+        chsize2 = Tcl_UtfToUniChar(str2, &c2); 
+        if (c1 != c2 && 
+            (!nocase ||
+             Tcl_UniCharToLower(c1) != Tcl_UniCharToLower(c2))) break;
+        str1 += chsize1;
+        str2 += chsize2;
+        skip1start++;
+        skip2start++;
+    }
+    len1 = length1 - (str1 - string1);
+    len2 = length2 - (str2 - string2);
 
     /*printf("Doing ReadAndHash\n");*/
-    PrepareStringsLcs(interp, str1Ptr, str2Ptr, optsPtr, &m, &n, &P, &E);
+    PrepareStringsLcs(interp, str1, len1, str2, len2,
+                      optsPtr, &m, &n, &P, &E);
 
     /*printf("Doing LcsCore m = %ld, n = %ld\n", m, n);*/
     J = LcsCore(interp, m, n, P, E, optsPtr);
@@ -1495,6 +1536,37 @@ CompareStrings1(Tcl_Interp *interp,
 
     ckfree((char *) E);
     ckfree((char *) P);
+
+    if (skip1start > 0) {
+        /* Need to reallocate J to fill in the leading places */
+        newJ = (Line_T *) ckalloc((m + skip1start + 1) * sizeof(Line_T));
+        newJ[0] = 0;
+        for (i = 1; i <= (skip1start - skip2start); i++) {
+            newJ[i] = 0;
+        }
+        j = skip2start - skip1start + 1;
+        if (j < 1) j = 1;
+        for (; i <= skip1start; i++, j++) {
+            newJ[i] = j;
+        }
+        for (; i <= (m + skip1start); i++) {
+            newJ[i] = J[i-skip1start];
+            if (newJ[i] > 0) {
+                newJ[i] += skip2start;
+            }
+        }
+        ckfree((char *) J);
+        J = newJ;
+        m += skip1start;
+    } else if (skip2start > 0) {
+        /* Adjust line numbers in J */
+        for (i = 1; i <= m; i++) {
+            if (J[i] > 0) {
+                J[i] += skip2start;
+            }
+        }
+    }
+    n += skip2start;
 
     *mPtr = m;
     *nPtr = n;
@@ -1584,10 +1656,20 @@ CompareStrings3(Tcl_Interp *interp,
 {
     Line_T m, n, *J;
     Tcl_Obj *subPtr, *emptyPtr;
+    Tcl_UniChar c1, c2, c3;
     int len1, len2;
     int current1, current2;
     int startblock1, startblock2;
     int startchange1, startchange2;
+
+#if 0
+    /* FIXA */
+    int i, j, length1, length2, chsize1, chsize2, len1, len2;
+    char *string1, *string2, *str1, *str2;
+    int skip1start = 0, skip2start = 0;
+    Tcl_UniChar c1, c2;
+    const int nocase = optsPtr->ignore | IGNORE_CASE;
+#endif
 
     len1 = Tcl_GetCharLength(str1Ptr);
     len2 = Tcl_GetCharLength(str2Ptr);
@@ -1607,17 +1689,58 @@ CompareStrings3(Tcl_Interp *interp,
         return;
     }
 
+#if 0
+    /*
+     * Start by detecting leading and trailing equalities to lessen
+     * the load on the LCS algorithm
+     */
+    string1 = Tcl_GetStringFromObj(str1Ptr, &length1);
+    string2 = Tcl_GetStringFromObj(str2Ptr, &length2);
+    str1 = string1;
+    str2 = string2;
+    if (optsPtr->ignore & (IGNORE_SPACE_CHANGE | IGNORE_ALL_SPACE)) {
+        /* Skip all leading white-space */
+        while (*str1 != 0) {
+            chsize1 = Tcl_UtfToUniChar(str1, &c1); 
+            if (!Tcl_UniCharIsSpace(c1)) break;
+            str1 += chsize1;
+            skip1start++;
+        }
+        while (*str2 != 0) {
+            chsize2 = Tcl_UtfToUniChar(str2, &c2); 
+            if (!Tcl_UniCharIsSpace(c2)) break;
+            str2 += chsize2;
+            skip2start++;
+        }
+    }
+    /* Skip leading equalities */
+    while (*str1 != 0 && *str2 != 0) {
+        chsize1 = Tcl_UtfToUniChar(str1, &c1); 
+        chsize2 = Tcl_UtfToUniChar(str2, &c2); 
+        if (c1 != c2 && 
+            (!nocase ||
+             Tcl_UniCharToLower(c1) != Tcl_UniCharToLower(c2))) break;
+        str1 += chsize1;
+        str2 += chsize2;
+        skip1start++;
+        skip2start++;
+    }
+    len1 = length1 - (str1 - string1);
+    len2 = length2 - (str2 - string2);
+#endif
+
     CompareStrings1(interp, str1Ptr, str2Ptr, optsPtr, &J, &m, &n);
 
     /*
      * Now we have a list of matching chars in J.
-     * Generate a list substrings.
+     * Generate a list of substrings.
      */
 
     *resPtr = Tcl_NewListObj(0, NULL);
     emptyPtr = Tcl_NewObj();
     Tcl_IncrRefCount(emptyPtr);
 
+    /* All indexes in startblock etc. starts at 1 for the first char. */
     startblock1 = startblock2 = 1;
     current1 = current2 = 1;
 
@@ -1652,6 +1775,8 @@ CompareStrings3(Tcl_Interp *interp,
         startchange1 = current1;
         startchange2 = current2;
 
+        scanChangeBlock:
+
         /* Scan string 1 until next match */
         while (current1 <= m) {
             if (J[current1] != 0) break;
@@ -1666,8 +1791,71 @@ CompareStrings3(Tcl_Interp *interp,
 
         if (optsPtr->wordparse) {
             /* FIXA adjust if wordparse */
-
-        }
+            /* Adjust start of change */
+            if (current1 == startchange1) {
+                /* Block 1 is empty, handle the other one */
+                while (startchange2 > startblock2) {
+                    c1 = Tcl_GetUniChar(str2Ptr, startchange2 - 1 - 1);
+                    c2 = Tcl_GetUniChar(str2Ptr, startchange2 - 1);
+                    c3 = Tcl_GetUniChar(str2Ptr, current2 - 1 - 1);
+                    if (Tcl_UniCharIsSpace(c1) || Tcl_UniCharIsSpace(c2))
+                        break;
+                    startchange1--;
+                    startchange2--;
+                    /*
+                     * If the one before the change is equal to the one in
+                     * the end, we move the block.
+                     */
+                    if (c1 == c3) {
+                        current1--;
+                        current2--;
+                    }
+                }
+            } else if (current2 == startchange2) {
+                /* Block 2 is empty, handle the other one */
+                while (startchange1 > startblock1) {
+                    c1 = Tcl_GetUniChar(str1Ptr, startchange1 - 1 - 1);
+                    c2 = Tcl_GetUniChar(str1Ptr, startchange1 - 1);
+                    c3 = Tcl_GetUniChar(str1Ptr, current1 - 1 - 1);
+                    if (Tcl_UniCharIsSpace(c1) || Tcl_UniCharIsSpace(c2))
+                        break;
+                    startchange1--;
+                    startchange2--;
+                    /*
+                     * If the one before the change is equal to the one in
+                     * the end, we move the block.
+                     */
+                    if (c1 == c3) {
+                        current1--;
+                        current2--;
+                    }
+                }
+            } else {
+                /*printf("1: %d %d %d  2: %d %d %d\n",
+                       startblock1, startchange1, current1,
+                       startblock2, startchange2, current2);*/
+                while (startchange1 > startblock1) {
+                    c1 = Tcl_GetUniChar(str1Ptr, startchange1 - 1 - 1);
+                    if (Tcl_UniCharIsSpace(c1)) break;
+                    startchange1--;
+                    startchange2--;
+                }
+            }
+            /* Adjust end of change */
+            while (current1 <= m && current2 <= n) {
+                if (J[current1] == 0 || J[current1] != current2) {
+                    /*
+                     * We encountered a difference before any space could
+                     * be found.  Go back to scanning the change block.
+                     */
+                    goto scanChangeBlock;
+                }
+                c1 = Tcl_GetUniChar(str1Ptr, current1 - 1);
+                if (Tcl_UniCharIsSpace(c1)) break;
+                current1++;
+                current2++;
+            }
+        } /* if wordparse */
 
         /* Add the equals to the result */
         if (startchange1 == startblock1) {
