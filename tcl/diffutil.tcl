@@ -8,10 +8,10 @@
 #  Eskil, and will be released as a separate package when mature.
 #
 #----------------------------------------------------------------------
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 #----------------------------------------------------------------------
 
-package provide DiffUtil 0.1
+package provide DiffUtil 0.2
 
 namespace eval DiffUtil {
     namespace export diffFiles diffStrings
@@ -200,29 +200,42 @@ proc DiffUtil::diffFiles {args} {
     set file1 [lindex $args end-1]
     set file2 [lindex $args end]
     set args [lrange $args 0 end-2]
-    
+
     set diffopts {}
     set opts(-align) {}
     set opts(-range) {}
     set opts(-noempty)  0  ;# Allowed but ignored
     set opts(-regsubRE) {}
+    set opts(-regsubSub) {}
 
     set value ""
     foreach arg $args {
         if {$value != ""} {
-            set opts($value) $arg
-            set value ""
+            if {$value eq "-regsub"} {
+                foreach {RE Sub} $arg {
+                    if {[catch {regsub -all $RE "a string" $Sub Dummy}]} {
+                        return -code error "Bad regexp: '$RE'"
+                    } else {
+                        lappend opts(-regsubRE) $RE
+                        lappend opts(-regsubSub) $Sub
+                    }
+                }
+            } else {
+                set opts($value) $arg
+                set value ""
+            }
             continue
         }
         switch -- $arg {
             -i - -b - -w { lappend diffopts $arg }
             -nocase      { lappend diffopts -i }
             -align -
+            -regsub -
             -range { set value $arg }
             -noempty { set opts($arg) 1 }
             -nodigit {
-                set opts(-regsubRE) {\d+}
-                set opts(-regsubSub) "0"
+                lappend opts(-regsubRE) {\d+}
+                lappend opts(-regsubSub) "0"
             }
             default {
                 return -code error "bad option \"$arg\""
@@ -233,7 +246,7 @@ proc DiffUtil::diffFiles {args} {
     # The simple case
     if {[llength $opts(-align)] == 0     && \
             [llength $opts(-range)] == 0 && \
-            $opts(-regsubRE) eq ""} {
+                [llength $opts(-regsubRE)] == 0} {
         return [ExecDiffFiles $diffopts $file1 $file2]
     }
     if {[llength $opts(-range)] != 0 && [llength $opts(-range)] != 4} {
@@ -306,8 +319,8 @@ proc DiffUtil::diffFiles {args} {
         set cho1 [open $tmp1 "w"]
         set start1 $n1
         while {$n1 <= $align1 && [gets $ch1 line] >= 0} {
-            if {$opts(-regsubRE) ne ""} {
-                regsub -all $opts(-regsubRE) $line $opts(-regsubSub) line
+            foreach RE $opts(-regsubRE) Sub $opts(-regsubSub) {
+                regsub -all $RE $line $Sub line
             }
             puts $cho1 $line
             incr n1
@@ -316,8 +329,8 @@ proc DiffUtil::diffFiles {args} {
         set cho2 [open $tmp2 "w"]
         set start2 $n2
         while {$n2 <= $align2 && [gets $ch2 line] >= 0} {
-            if {$opts(-regsubRE) ne ""} {
-                regsub -all $opts(-regsubRE) $line $opts(-regsubSub) line
+            foreach RE $opts(-regsubRE) Sub $opts(-regsubSub) {
+                regsub -all $RE $line $Sub line
             }
             puts $cho2 $line
             incr n2
