@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.1 $
+# $Revision: 1.2 $
 
 # This file does not contain any real tests, it is a debugging tool
 # used to visualize the candidates in the LCS algorithm.
@@ -14,9 +14,9 @@ proc - {a b} {expr {$a - $b}}
 
 # Draw the candidates in a grid
 proc visualize {list1 list2} {
-    puts "L1: [join $list1]"
-    puts "L2: [join $list2]"
-    puts "C : $::DiffUtil::Candidates"
+    #puts "L1: [join $list1]"
+    #puts "L2: [join $list2]"
+    #puts "C : $::DiffUtil::Candidates"
 
     set i 1
     while {[winfo exists .t$i]} {incr i}
@@ -47,7 +47,7 @@ proc visualize {list1 list2} {
         incr j
     }
 
-    foreach {type i j score ci cj pi pj} $::DiffUtil::Candidates {
+    foreach {type i j score wasK ci cj pi pj} $::DiffUtil::Candidates {
         set x [expr {$i * $size}]
         set y [expr {$height - $j * $size}]
         if {$type == "K"} {
@@ -57,18 +57,25 @@ proc visualize {list1 list2} {
         } elseif {$type == "C"} {
             $c create oval [- $x 3] [- $y 3] [+ $x 3] [+ $y 3] -fill white \
                     -tags "c" -outline white
-            $c create text $x $y -text $score -fill black -tags "score"
+            #$c create text $x $y -text $score -fill black -tags "score"
+            $c create text $x $y -text $wasK -fill black -tags "score"
             if {$ci <= $m && $cj <= $n} {
                 set cx [expr {$ci * $size}]
                 set cy [expr {$height - $cj * $size}]
 
-                $c create line $x $y $cx $cy -fill green -tag "peer"
+                $c create line $x $y $cx $cy -fill green -tag "peer" -width 3 \
+                        -arrow last
             }
             if {$pi > 0 && $pj > 0} {
                 set px [expr {$pi * $size}]
                 set py [expr {$height - $pj * $size}]
 
-                $c create line $x $y $px $py -fill black -tag "prev"
+                $c create line $x $y $px $py -fill black -tag "prev" \
+                        -arrow last
+            }
+            if {$wasK > 0} {
+                $c create oval [- $x 5] [- $y 5] [+ $x 5] [+ $y 5] -fill purple \
+                        -tags "wasK" -outline purple
             }
         } else {
             puts "MIFFFFOOO"
@@ -78,6 +85,7 @@ proc visualize {list1 list2} {
     $c lower "prev"
     $c lower "peer"
     $c lower "k"
+    $c lower "wasK"
 }
 
 # Run two lists through diffFiles and draw the candidates.
@@ -97,22 +105,36 @@ proc cand {list1 list2 args} {
     file delete -force _1 _2
     visualize $list1 $list2
 }
-
+proc candi {list1 list2 args} {
+    eval [list cand $list2 $list1] $args
+}
 # Test cases
 if 0 {
     package require Tk
-    #cand {a b r a c a d a b r a} {b r i c a b r a c}
-    #cand {a b} {b b}
-    #cand {b r i c a b r a c} {a b r a c a d a b r a}
-    #cand {a b r a c a d a b i a} {b r i c a b r a c}
-    #cand {a b} {a a b}
-    #cand {a b c d e} {a b c d f e E e}
-    #cand {a b c d e} {a b c d f e E}
-    #cand {a b c d e} {a b c d f e E} -nocase
-    #cand {a b c d e} {a b c d f E E} -nocase
+    cand {a b r a c a d a b r a} {b r i c a b r a c}
+    cand {a b} {b b}
+    cand {b r i c a b r a c} {a b r a c a d a b r a}
+    cand {a b r a c a d a b i a} {b r i c a b r a c}
+    cand {a b} {a a b}
+    candi {a b} {a a b}
+    cand {a b c d e} {a b c d f e E e}
+    cand {a b c d e} {a b c d f e E}
+    cand {a b c d e} {a b c d f e E} -nocase
+    cand {a b c d e} {a b c d f E E} -nocase
     cand {a b c d e f g h i j k l} {a b c d X e f g h Y e f g h Z i j k l}
     cand {a b c d e f g h i j k l} {a b c d X e f g h Y e f g h i j k l}
-
+    candi {a b c d e f g h i j k l} {a b c d X e f g h Y e f g h Z i j k l}
+    candi {a b c d e f g h i j k l} {a b c d X e f g h Y e f g h i j k l}
+    cand {a b c {} d {} e f g} {a b c {} {} d e f g}
+    cand {a b c {} d {} e f g} {a b c {} {} d e f g} -noempty
+    cand {{} b c {} d e {} f g {} h i {} j k {} l m} \
+            {{} b c {} d e {} f G {} h i {} j K {} l m}
+    cand {{} b c {} d e {} f g {} h i {} j k {} l m} \
+            {{} b c {} d e {} f G {} h i {} j K {} l m} -noempty
+    cand {{} b c {} d e {} {} {} {} f g {} h i {} j k {} l m} \
+            {{} b c {} d e {} {} f {} {} G {} h i {} j K {} l m}
+    candi {{} b c {} d e {} {} {} {} f g {} h i {} j k {} l m} \
+            {{} b c {} d e {} {} f {} {} G {} h i {} j K {} l m}
     wm withdraw .
     tkwait window .t1
 }
