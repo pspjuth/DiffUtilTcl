@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2003 by Kevin B. Kenny. All rights reserved.
 #
-# RCS: @(#) $Id: lcs.test,v 1.4 2004-06-21 20:18:08 peter Exp $
+# RCS: @(#) $Id: lcs.test,v 1.5 2004-06-22 17:45:14 peter Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -126,7 +126,11 @@ test list-lcs-2.10 {longestCommonSubsequence, insert before 2} {
     list [catch {lcs {a b} {b a b}} msg] $msg
 } {0 {{0 1} {1 2}}}
 
-test list-lcs-2.11 {longestCommonSubsequence, insert inside 2} {
+test list-lcs-2.11.1 {longestCommonSubsequence, insert inside 2} {CDiff} {
+    list [catch {lcs {a b} {a a b}} msg] $msg
+} {0 {{0 1} {1 2}}}
+
+test list-lcs-2.11.2 {longestCommonSubsequence, insert inside 2} {ExtDiff} {
     list [catch {lcs {a b} {a a b}} msg] $msg
 } {0 {{0 1} {0 2}}}
 
@@ -158,11 +162,7 @@ test list-lcs-2.18 {longestCommonSubsequence, change second of 2 to dupe} {
     list [catch {lcs {a b} {a a}} msg] $msg
 } {0 {0 0}}
 
-test list-lcs-2.19.1 {longestCommonSubsequence, mixed changes} {CDiff} {
-    list [catch {lcs {a b r a c a d a b r a} {b r i c a b r a c}} msg] $msg
-} {0 {{1 2 4 7 8 9 10} {0 1 3 4 5 6 7}}}
-
-test list-lcs-2.19.2 {longestCommonSubsequence, mixed changes} {ExtDiff} {
+test list-lcs-2.19 {longestCommonSubsequence, mixed changes} {
     list [catch {lcs {a b r a c a d a b r a} {b r i c a b r a c}} msg] $msg
 } {0 {{1 2 4 5 8 9 10} {0 1 3 4 5 6 7}}}
 
