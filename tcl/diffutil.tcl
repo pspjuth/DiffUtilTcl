@@ -8,7 +8,7 @@
 #  Eskil, and will be released as a separate package when mature.
 #
 #----------------------------------------------------------------------
-# $Revision: 1.2 $
+# $Revision: 1.3 $
 #----------------------------------------------------------------------
 
 package provide DiffUtil 0.1
@@ -245,7 +245,7 @@ proc DiffUtil::diffFiles {args} {
         set differr [catch {ExecDiffFiles $diffopts $tmp1 $tmp2 \
                 $from1 $from2} diffres]
         file delete -force $tmp1 $tmp2
-        if {$differr} {
+        if {$differr} { ###nocoverage
             return -code error $diffres
         }
         return $diffres
@@ -293,10 +293,11 @@ proc DiffUtil::diffFiles {args} {
         set differr [catch {ExecDiffFiles $diffopts $tmp1 $tmp2 \
                 $start1 $start2} diffres]
         file delete -force $tmp1 $tmp2
-        if {$differr} {
+        if {$differr} { ###nocoverage
             return -code error $diffres
         }
         # Add diffres's elements to diffs
+        ##nagelfar ignore Found constant \"diffs\"
         eval [linsert $diffres 0 lappend diffs]
         #puts "D: $diffs"
     }
@@ -304,17 +305,14 @@ proc DiffUtil::diffFiles {args} {
     return $diffs
 }
 
-# 2nd stage line parsing
 # Recursively look for common substrings in strings s1 and s2
 # The strings are known to not have anything in common at start or end.
-# The return value is, for each string, a list where the second, fourth etc.
-# element is equal between the strings.
+# The return value is like for diffString, except the first pair is not
+# equal. An uneven number of pairs is always returned.
 # This is sort of a Longest Common Subsequence algorithm but with
 # a preference for long consecutive substrings, and it does not look
 # for really small substrings.
-proc DiffUtil::CompareMidString {s1 s2 res1Name res2Name words} {
-    upvar $res1Name res1 $res2Name res2
-
+proc DiffUtil::CompareMidString {s1 s2 words} {
     set len1 [string length $s1]
     set len2 [string length $s2]
 
@@ -325,9 +323,7 @@ proc DiffUtil::CompareMidString {s1 s2 res1Name res2Name words} {
             set left2 [string range $s2 0 [expr {$t - 1}]]
             set mid2 [string range $s2 $t [expr {$t + $len1 - 1}]]
             set right2 [string range $s2 [expr {$t + $len1}] end]
-            set res2 [list $left2 $mid2 $right2]
-            set res1 [list "" $s1 ""]
-            return
+            return [list "" $left2 $s1 $mid2 "" $right2]
         }
     }
 
@@ -338,17 +334,13 @@ proc DiffUtil::CompareMidString {s1 s2 res1Name res2Name words} {
             set left1 [string range $s1 0 [expr {$t - 1}]]
             set mid1 [string range $s1 $t [expr {$t + $len2 - 1}]]
             set right1 [string range $s1 [expr {$t + $len2}] end]
-            set res1 [list $left1 $mid1 $right1]
-            set res2 [list "" $s2 ""]
-            return
+            return [list $left1 "" $mid1 $s2 $right1 ""]
         }
     }
 
     # Are they too short to be considered ?
     if {$len1 < 4 || $len2 < 4} {
-        set res1 [list $s1]
-        set res2 [list $s2]
-        return
+        return [list $s1 $s2]
     }
 
     set foundlen -1
@@ -400,8 +392,7 @@ proc DiffUtil::CompareMidString {s1 s2 res1Name res2Name words} {
     }
 
     if {$foundlen == -1} {
-        set res1 [list $s1]
-        set res2 [list $s2]
+        return [list $s1 $s2]
     } else {
         set left1 [string range $s1 0 [expr {$found1 - 1}]]
         set mid1 [string range $s1 $found1 [expr {$found1 + $foundlen - 1}]]
@@ -411,23 +402,26 @@ proc DiffUtil::CompareMidString {s1 s2 res1Name res2Name words} {
         set mid2 [string range $s2 $found2 [expr {$found2 + $foundlen - 1}]]
         set right2 [string range $s2 [expr {$found2 + $foundlen}] end]
 
-        CompareMidString $left1 $left2 left1l left2l $words
-        CompareMidString $right1 $right2 right1l right2l $words
+        set leftl  [CompareMidString $left1  $left2  $words]
+        set rightl [CompareMidString $right1 $right2 $words]
 
-        set res1 [concat $left1l [list $mid1] $right1l]
-        set res2 [concat $left2l [list $mid2] $right2l]
+        return [concat $leftl [list $mid1 $mid2] $rightl]
     }
 }
 
 # Compare two strings
 # Usage: diffStrings ?options? string1 string2
-# -nocase -i  : Ignore case
+# -nocase -i  : Ignore case (not implemented, accepted but ignored)
 # -b          : Ignore space changes
 # -w          : Ignore all spaces
 # -words      : Align changes to words
 #
-# The return value is, for each line, a list where the first, third etc.
-# element is equal between the lines. The second, fourth etc. differs.
+# The return value is a list where the first, third etc. element comes
+# from the first string and if concatenated will rebuild the first string.
+# The second, fourth etc. element, comes from the second string.
+# The first pair will be equal (and may be empty strings), the second pair
+# differs, and so on.
+# {eq1 eq2 d1 d2 eq1 eq2 d1 d2 eq1 eq2}
 proc DiffUtil::diffStrings {args} {
     if {[llength $args] < 2} {
         return -code error "wrong # args"
@@ -446,7 +440,7 @@ proc DiffUtil::diffStrings {args} {
             -b           {set opts(-space)  1}
             -w           {set opts(-space)  2}
             -words       {set opts(-words)  1}
-            -nocase - -i {set opts(-nocase) 0}
+            -nocase - -i {set opts(-nocase) 1}
             default {
                 return -code error "Bad option \"$arg\""
             }
@@ -499,10 +493,13 @@ proc DiffUtil::diffStrings {args} {
         incr leftp2 $t
     } else {
         if {$flag < 2} {
+            # If no difference was found during the parse, consider all equal
             set s $len
         } elseif {$flag == 3} {
+            # s points to the last seen space, consider the char after that
+            # as the first difference
             incr s
-        }
+        } ;# The else case is when no space was seen, consider all different
         incr leftp1 $s
         incr leftp2 $s
     }
@@ -542,8 +539,7 @@ proc DiffUtil::diffStrings {args} {
 
     # Make the result
     if {$leftp1 > $t1 && $leftp2 > $t2} {
-        set res1 [list $string1]
-        set res2 [list $string2]
+        set res [list $string1 $string2]
     } else {
         set right1 [string range $string1 [expr {$t1 + 1}] end]
         set mid1 [string range $string1 $leftp1 $t1]
@@ -554,14 +550,11 @@ proc DiffUtil::diffStrings {args} {
         set left2 [string range $string2 0 [expr {$leftp2 - 1}]]
 
         if {$mid1 ne "" && $mid2 ne ""} {
-            CompareMidString $mid1 $mid2 mid1l mid2l $opts(-words)
-            # Replace middle element in res* with list elements from mid*
-            set res1 [concat [list $left1] $mid1l [list $right1]]
-            set res2 [concat [list $left2] $mid2l [list $right2]]
+            set midl [CompareMidString $mid1 $mid2 $opts(-words)]
+            set res [concat [list $left1 $left2] $midl [list $right1 $right2]]
         } else {
-            set res1 [list $left1 $mid1 $right1]
-            set res2 [list $left2 $mid2 $right2]
+            set res [list $left1 $left2 $mid1 $mid2 $right1 $right2]
         }
     }
-    return [list $res1 $res2]
+    return $res
 }
