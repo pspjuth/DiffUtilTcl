@@ -1,10 +1,5 @@
 #include <tcl.h>
-
-extern int DiffFilesObjCmd(
-    ClientData dummy,
-    Tcl_Interp *interp,
-    int objc,
-    Tcl_Obj *CONST objv[]);	
+#include "diffutil.h"
 
 #if defined(_MSC_VER)
 #   define EXPORT(a,b) __declspec(dllexport) a b
@@ -386,17 +381,18 @@ CompareLinesObjCmd(dummy, interp, objc, objv)
     return result;
 }
 
-#define TCC(name,func) \
-Tcl_CreateCommand(interp, name, func, (ClientData) NULL, NULL)
-#define TCOC(name,func) \
-Tcl_CreateObjCommand(interp, name, func, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL)
+#define TCOC(name, func) \
+Tcl_CreateObjCommand(interp, name, func, (ClientData) NULL, \
+                     (Tcl_CmdDeleteProc *) NULL)
 
 EXPORT(int,Diffutil_Init) (Tcl_Interp *interp)
 {
-    if (Tcl_InitStubs(interp, "8.2", 0) == NULL) {
+    if (Tcl_InitStubs(interp, "8.4", 0) == NULL) {
 	return TCL_ERROR;
     }
-
+    if (Tcl_PkgRequire(interp, "Tcl", "8.4", 0) == NULL) {
+	return TCL_ERROR;
+    }
     if (Tcl_PkgProvide(interp, PACKAGE_NAME, PACKAGE_VERSION) != TCL_OK) {
 	return TCL_ERROR;
     }
