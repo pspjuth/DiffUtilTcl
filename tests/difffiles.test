@@ -1,0 +1,106 @@
+# Tests for the 'list' module in the 'struct' library. -*- tcl -*-
+#
+# This file contains a collection of tests for one or more of the Tcllib
+# procedures.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2004 by Peter Spjuth. All rights reserved.
+#
+# $Revision: 1.1 $
+
+set ::auto_path [concat [list [pwd]] $::auto_path]
+package require DiffUtil
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+#tcltest::configure -match diffstrings-*
+
+#----------------------------------------------------------------------
+
+proc RunTest {list1 list2 args} {
+    set ch [open _diff_1 w]
+    if {[llength $list1] > 0} {
+        puts $ch [join $list1 \n]
+    }
+    close $ch
+    set ch [open _diff_2 w]
+    if {[llength $list2] > 0} {
+        puts $ch [join $list2 \n]
+    }
+    close $ch
+
+    set apa [catch {eval DiffUtil::diffFiles $args _diff_1 _diff_2} res]
+    file delete -force _diff_1 _diff_2
+    return $res
+}
+
+#----------------------------------------------------------------------
+
+test difffiles-1.1 {standard cases} {
+    set l1 {a b c d   f g h i j k l}
+    set l2 {  b c d e f g x y   k l}
+    RunTest $l1 $l2
+} [list {1 1 1 0} {5 0 4 1} {7 3 7 2}]
+
+test difffiles-1.2 {standard cases, error} {
+    set l1 {a b c d   f g h i j k l}
+    set l2 {  b c d e f g x y   k l}
+    RunTest $l1 $l2 -hubba
+} {Bad option "-hubba"}
+
+
+test difffiles-2.1 {alignment, no align} {
+    set l1 {a b c d  }
+    set l2 {a   c d b}
+    RunTest $l1 $l2
+} [list {2 1 2 0} {5 0 4 1}]
+
+test difffiles-2.2 {alignment} {
+    set l1 {a     b c d}
+    set l2 {a c d b    }
+    RunTest $l1 $l2 -align {2 4}
+} [list {2 0 2 2} {3 2 5 0}]
+
+test difffiles-2.3 {alignment, impossible align} {
+    set l1 {a     b c d}
+    set l2 {a c d b    }
+    RunTest $l1 $l2 -align {2 4 3 2}
+} [list {2 0 2 2} {3 1 5 0} {4 1 5 0}]
+
+
+test difffiles-3.1 {ignore space} {
+    set l1 {a {b c} d e f {g h}  i}
+    set l2 {a {bc}  x e f {g  h} i}
+    RunTest $l1 $l2
+} [list {2 2 2 2} {6 1 6 1}]
+
+test difffiles-3.2 {ignore space} {
+    set l1 {a {b c} d e f {g h}  i}
+    set l2 {a {bc}  x e f {g  h} i}
+    RunTest $l1 $l2 -b
+} [list {2 2 2 2}]
+
+test difffiles-3.3 {ignore space} {
+    set l1 {a {b c} d e f {g h}  i}
+    set l2 {a {bc}  x e f {g  h} i}
+    RunTest $l1 $l2 -w
+} [list {3 1 3 1}]
+
+
+test difffiles-4.1 {range} {
+    set l1 {a bc d e f gh  i}
+    set l2 {a xy x e f ghh i}
+    RunTest $l1 $l2 -range {3 5 3 6}
+} [list {3 1 3 1} {6 0 6 1}]
+
+test difffiles-4.2 {range} {
+    set l1 {a bc d e f gh  i}
+    set l2 {a xy x e f ghh i}
+    RunTest $l1 $l2 -range {3 5 3}
+} {Bad range "3 5 3"}
+
+#----------------------------------------------------------------------
+::tcltest::cleanupTests
