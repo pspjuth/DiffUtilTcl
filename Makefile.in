@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.1 2004-05-02 13:13:46 peter Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.2 2004-05-25 09:38:11 peter Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -131,8 +131,13 @@ TCLSH_ENV	= TCL_LIBRARY=`@CYGPATH@ $(TCL_SRC_DIR)/library` \
 		  @LD_LIBRARY_PATH_VAR@="$(EXTRA_PATH):$(@LD_LIBRARY_PATH_VAR@)" \
 		  PATH="$(EXTRA_PATH):$(PATH)" \
 		  TCLLIBPATH="$(top_builddir)"
+TCLSH_ENVT	= TCL_LIBRARY=`@CYGPATH@ $(TCL_SRC_DIR)/library` \
+		  @LD_LIBRARY_PATH_VAR@="$(EXTRA_PATH):$(@LD_LIBRARY_PATH_VAR@)" \
+		  PATH="$(EXTRA_PATH):$(PATH)" \
+		  TCLLIBPATH="$(top_builddir)/tcl"
 TCLSH_PROG	= @TCLSH_PROG@
 TCLSH		= $(TCLSH_ENV) $(TCLSH_PROG)
+TCLSHT		= $(TCLSH_ENVT) $(TCLSH_PROG)
 SHARED_BUILD	= @SHARED_BUILD@
 
 INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@
@@ -176,15 +181,15 @@ all: binaries libraries doc
 # of the Makefile, in the "BINARIES" variable.
 #========================================================================
 
-binaries: $(BINARIES) pkgIndex.tcl
+binaries: $(BINARIES) pkgIndex.tcl tcl/pkgIndex.tcl
 
 libraries:
 
 doc:
-	@echo "If you have documentation to create, place the commands to"
-	@echo "build the docs in the 'doc:' target.  For example:"
-	@echo "        xml2nroff sample.xml > sample.n"
-	@echo "        xml2html sample.xml > sample.html"
+#	@echo "If you have documentation to create, place the commands to"
+#	@echo "build the docs in the 'doc:' target.  For example:"
+#	@echo "        xml2nroff sample.xml > sample.n"
+#	@echo "        xml2html sample.xml > sample.html"
 
 install: all install-binaries install-libraries install-doc
 
@@ -192,6 +197,13 @@ install-binaries: binaries install-lib-binaries install-bin-binaries
 	if test "x$(SHARED_BUILD)" = "x1"; then \
 	    $(INSTALL_DATA) pkgIndex.tcl $(DESTDIR)$(pkglibdir); \
 	fi
+
+vfs: binaries
+	@rm -rf lib.vfs
+	@mkdir lib.vfs
+	@mkdir lib.vfs/DiffUtil
+	cp pkgIndex.tcl lib.vfs/DiffUtil
+	cp libDiffUtil*.so lib.vfs/DiffUtil
 
 #========================================================================
 # This rule installs platform-independent files, such as header files.
@@ -221,6 +233,9 @@ install-doc: doc
 
 test: binaries libraries
 	$(TCLSH) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
+
+testt: binaries libraries
+	$(TCLSHT) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
 
 shell: binaries libraries
 	@$(TCLSH) $(SCRIPT)
@@ -286,6 +301,9 @@ pkgIndex.tcl-hand:
 	    [list load [file join $$dir $(PKG_LIB_FILE)]]'\
 	) > pkgIndex.tcl
 
+tcl/pkgIndex.tcl:
+	( echo pkg_mkIndex tcl diffutil.tcl \; exit; ) | $(TCLSH)
+
 #========================================================================
 # Distribution creation
 # You may need to tweak this target to make it work correctly.
@@ -338,6 +356,7 @@ clean:
 	-test -z "$(BINARIES)" || rm -f $(BINARIES)
 	-rm -f *.$(OBJEXT) core *.core
 	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
+	-test -z "tcl/pkgIndex.tcl" || rm -f tcl/pkgIndex.tcl
 
 distclean: clean
 	-rm -f *.tab.c
