@@ -4,8 +4,11 @@
 #
 #  Copyright (c) 2004, Peter Spjuth  (peter.spjuth@space.se)
 #
+#  This package is starting out as a refactoring of diff code from
+#  Eskil, and will be released as a separate package when mature.
+#
 #----------------------------------------------------------------------
-# $Revision: 1.1 $
+# $Revision: 1.2 $
 #----------------------------------------------------------------------
 
 package provide DiffUtil 0.1
@@ -160,6 +163,8 @@ proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
 # -b          : Ignore space changes
 # -w          : Ignore all spaces
 # -align list : Align lines
+# -range list : Diff only a range of the files.
+#               The list is {first1 last1 first2 last2}
 #
 # Returns a list of differences, each in a four element list.
 # {LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
@@ -175,6 +180,7 @@ proc DiffUtil::diffFiles {args} {
     
     set diffopts {}
     set opts(-align) {}
+    set opts(-range) {}
     set value ""
     foreach arg $args {
         if {$value != ""} {
@@ -185,15 +191,64 @@ proc DiffUtil::diffFiles {args} {
         switch -- $arg {
             -i - -b - -w { lappend diffopts $arg }
             -nocase      {lappend diffopts -i }
-            -align       {set value "-align"}
+            -align - -range {set value $arg}
             default {
                 return -code error "Bad option \"$arg\""
             }
         }
     }
 
-    if {[llength $opts(-align)] == 0} {
+    # The simple case
+    if {[llength $opts(-align)] == 0 && [llength $opts(-range)] == 0} {
         return [ExecDiffFiles $diffopts $file1 $file2]
+    }
+    if {[llength $opts(-align)] != 0 && [llength $opts(-range)] != 0} {
+        return -code error "Both -align and -range are not currently supported"
+    }
+
+    if {[llength $opts(-range)] != 0} {
+        if {[llength $opts(-range)] != 4} {
+            return -code error "Bad range \"$opts(-range)\""
+        }
+        
+        foreach {from1 to1 from2 to2} $opts(-range) break
+        set ch1 [open $file1 "r"]
+        set ch2 [open $file2 "r"]
+        set n1 1
+        set n2 1
+        set tmp1 [TmpFile]
+        set tmp2 [TmpFile]
+        
+        # Skip lines from files
+        while {$n1 < $from1 && [gets $ch1 line] >= 0} {
+            incr n1
+        }
+        while {$n2 < $from2 && [gets $ch2 line] >= 0} {
+            incr n2
+        }
+        # Copy lines to temporary files
+        set cho1 [open $tmp1 "w"]
+        while {$n1 <= $to1 && [gets $ch1 line] >= 0} {
+            puts $cho1 $line
+            incr n1
+        }
+        close $cho1
+        set cho2 [open $tmp2 "w"]
+        while {$n2 <= $to2 && [gets $ch2 line] >= 0} {
+            puts $cho2 $line
+            incr n2
+        }
+        close $cho2
+        close $ch1
+        close $ch2
+
+        set differr [catch {ExecDiffFiles $diffopts $tmp1 $tmp2 \
+                $from1 $from2} diffres]
+        file delete -force $tmp1 $tmp2
+        if {$differr} {
+            return -code error $diffres
+        }
+        return $diffres
     }
     
     # Handle alignment by copying the object block by block to temporary
