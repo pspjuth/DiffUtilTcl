@@ -8,10 +8,10 @@
 #  Eskil, and will be released as a separate package when mature.
 #
 #----------------------------------------------------------------------
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 #----------------------------------------------------------------------
 
-package provide DiffUtil 0.1
+package provide DiffUtil 0.1.1
 
 namespace eval DiffUtil {
     namespace export diffFiles diffStrings
@@ -213,8 +213,10 @@ proc DiffUtil::diffFiles {args} {
         }
         switch -- $arg {
             -i - -b - -w { lappend diffopts $arg }
-            -nocase      {lappend diffopts -i }
-            -align - -range {set value $arg}
+            -nocase      { lappend diffopts -i }
+            -align - -range { set value $arg }
+            -noempty { # Allowed but ignored
+            }
             default {
                 return -code error "bad option \"$arg\""
             }
