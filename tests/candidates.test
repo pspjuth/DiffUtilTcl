@@ -1,0 +1,118 @@
+# Tests for the 'DiffUtil' package. -*- tcl -*-
+#
+# Copyright (c) 2004 by Peter Spjuth. All rights reserved.
+#
+# $Revision: 1.1 $
+
+# This file does not contain any real tests, it is a debugging tool
+# used to visualize the candidates in the LCS algorithm.
+
+package require DiffUtil
+
+proc + {a b} {expr {$a + $b}}
+proc - {a b} {expr {$a - $b}}
+
+# Draw the candidates in a grid
+proc visualize {list1 list2} {
+    puts "L1: [join $list1]"
+    puts "L2: [join $list2]"
+    puts "C : $::DiffUtil::Candidates"
+
+    set i 1
+    while {[winfo exists .t$i]} {incr i}
+    set top .t$i
+    toplevel $top
+
+    set size 30
+    set m [llength $list1]
+    set n [llength $list2]
+    set width  [expr {($m + 1) * $size}]
+    set height [expr {($n + 1) * $size}]
+    set c $top.c
+    canvas $c -width $width -height $height
+    pack $c -side top -fill both -expand 1
+
+    set i 1
+    set y [expr {$height - 5}]
+    foreach item $list1 {
+        set x [expr {$i * $size}]
+        $c create text $x $y -text $item -anchor s
+        incr i
+    }
+    set j 1
+    set x 5
+    foreach item $list2 {
+        set y [expr {$height - $j * $size}]
+        $c create text $x $y -text $item -anchor w
+        incr j
+    }
+
+    foreach {type i j score ci cj pi pj} $::DiffUtil::Candidates {
+        set x [expr {$i * $size}]
+        set y [expr {$height - $j * $size}]
+        if {$type == "K"} {
+            set k $score
+            $c create oval [- $x 5] [- $y 5] [+ $x 5] [+ $y 5] -fill red \
+                    -tags "k" -outline red
+        } elseif {$type == "C"} {
+            $c create oval [- $x 3] [- $y 3] [+ $x 3] [+ $y 3] -fill white \
+                    -tags "c" -outline white
+            $c create text $x $y -text $score -fill black -tags "score"
+            if {$ci <= $m && $cj <= $n} {
+                set cx [expr {$ci * $size}]
+                set cy [expr {$height - $cj * $size}]
+
+                $c create line $x $y $cx $cy -fill green -tag "peer"
+            }
+            if {$pi > 0 && $pj > 0} {
+                set px [expr {$pi * $size}]
+                set py [expr {$height - $pj * $size}]
+
+                $c create line $x $y $px $py -fill black -tag "prev"
+            }
+        } else {
+            puts "MIFFFFOOO"
+        }
+    }
+    $c raise "score"
+    $c lower "prev"
+    $c lower "peer"
+    $c lower "k"
+}
+
+# Run two lists through diffFiles and draw the candidates.
+proc cand {list1 list2 args} {
+    set ch [open _1 w]
+    if {[llength $list1] > 0} {
+        puts $ch [join $list1 \n]
+    }
+    close $ch
+    set ch [open _2 w]
+    if {[llength $list2] > 0} {
+        puts $ch [join $list2 \n]
+    }
+    close $ch
+
+    set apa [eval DiffUtil::diffFiles $args _1 _2]
+    file delete -force _1 _2
+    visualize $list1 $list2
+}
+
+# Test cases
+if 0 {
+    package require Tk
+    #cand {a b r a c a d a b r a} {b r i c a b r a c}
+    #cand {a b} {b b}
+    #cand {b r i c a b r a c} {a b r a c a d a b r a}
+    #cand {a b r a c a d a b i a} {b r i c a b r a c}
+    #cand {a b} {a a b}
+    #cand {a b c d e} {a b c d f e E e}
+    #cand {a b c d e} {a b c d f e E}
+    #cand {a b c d e} {a b c d f e E} -nocase
+    #cand {a b c d e} {a b c d f E E} -nocase
+    cand {a b c d e f g h i j k l} {a b c d X e f g h Y e f g h Z i j k l}
+    cand {a b c d e f g h i j k l} {a b c d X e f g h Y e f g h i j k l}
+
+    wm withdraw .
+    tkwait window .t1
+}
