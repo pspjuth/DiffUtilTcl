@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 
 package require DiffUtil
 
@@ -14,6 +14,8 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
 # There are differences between the C and the Diff result.
 tcltest::testConstraint CDiff \
         [expr {[info proc DiffUtil::ExecDiffFiles] == ""}]
+tcltest::testConstraint TclDiff \
+        [expr {[info proc DiffUtil::ExecDiffFiles] != ""}]
 
 #----------------------------------------------------------------------
 
@@ -122,37 +124,92 @@ test difffiles-4.3 {range} -body {
 
 
 test difffiles-5.1 {priority} {
-    set l1 {a b c d e}
+    # The changed block is kept together
+    set l1 {a b c d       e}
     set l2 {a b c d f e E e}
     RunTest $l1 $l2
 } [list {5 0 5 3}]
 
 test difffiles-5.2 {priority} {
-    set l1 {a b c d e}
+    # No prio here, just a reference for the following nocase
+    set l1 {a b c d   e}
     set l2 {a b c d f e E}
     RunTest $l1 $l2
 } [list {5 0 5 1} {6 0 7 1}]
 
 test difffiles-5.3 {priority} {CDiff} {
-    set l1 {a b c d e}
+    # Same case as before but with prio
+    # The correct case has priority even if it means two changes
+    set l1 {a b c d   e}
     set l2 {a b c d f e E}
     RunTest $l1 $l2 -nocase
 } [list {5 0 5 1} {6 0 7 1}]
 
 test difffiles-5.4 {priority} {
-    set l1 {a b c d e}
+    # Same case again but no correct case, single block preferred
+    set l1 {a b c d     e}
     set l2 {a b c d f E E}
     RunTest $l1 $l2 -nocase
 } [list {5 0 5 2}]
 
 test difffiles-5.5 {priority} {
-    set l1 {a b c d e f g h i j k l}
+    # Here efgh can match in two places, the first is chosen
+    set l1 {a b c d   e f g h             i j k l}
     set l2 {a b c d X e f g h Y e f g h Z i j k l}
     RunTest $l1 $l2
 } [list {5 0 5 1} {9 0 10 6}]
 
 test difffiles-5.6 {priority} {
-    set l1 {a b c d e f g h i j k l}
+    # Here efgh can match in two places, the second is chosen since it
+    # keeps things together
+    set l1 {a b c d             e f g h i j k l}
     set l2 {a b c d X e f g h Y e f g h i j k l}
     RunTest $l1 $l2
 } [list {5 0 5 6}]
+
+test difffiles-5.7 {priority} {CDiff} {
+    # Multiple blocks starting alike where one block is removed
+    set l1 {a b c d e {} a b f g h {} a b i j k}
+    set l2 {a b c d e {}              a b i j k}
+    # 6    {a b c d e              {} a b i j k}
+    # 7    {a b c d e {}              a b i j k}
+    # 8    {a b c d e {} a              b i j k}
+    # 9    {a b c d e {} a b              i j k}
+    RunTest $l1 $l2
+    # Any start line from 6-9 are correct bet from a visual point of
+    # view 6 or 7 are preferable.
+} [list {7 6 7 0}]
+
+test difffiles-5.7.2 {priority} {CDiff} { # Same as 5.7 but reversed order
+    set l1 {a b c d e {} a b f g h {} a b i j k}
+    set l2 {a b c d e {}              a b i j k}
+    RunTest $l2 $l1
+} [list {7 0 7 6}]
+
+test difffiles-5.7.3 {priority} {TclDiff} { # Same as 5.7, tcl version
+    set l1 {a b c d e {} a b f g h {} a b i j k}
+    set l2 {a b c d e {}              a b i j k}
+    RunTest $l1 $l2
+} [list {9 6 9 0}]
+
+test difffiles-5.8 {priority} {
+    # Multiple blocks ending alike where one block is removed
+    set l1 {a b c d e {} f g h d e {} i j k d e}
+    set l2 {a b c d e {}              i j k d e}
+    RunTest $l1 $l2
+    # Any start line from 6-9 are correct bet from a visual point of
+    # view 6 or 7 are preferable.
+} [list {7 6 7 0}]
+
+test difffiles-6.1 {noempty} {
+    set l1 {a b c {} d {}   e f g}
+    set l2 {a b c {}   {} d e f g}
+    RunTest $l1 $l2
+} [list {5 1 5 0} {7 0 6 1}]
+
+test difffiles-6.2 {noempty} {CDiff knownbug} {
+    set l1 {a b c {}    d {} e f g}
+    set l2 {a b c {} {} d    e f g}
+    RunTest $l1 $l2 -noempty
+} [list {5 0 5 1} {6 1 7 0}]
+
