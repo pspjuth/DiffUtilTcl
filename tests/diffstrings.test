@@ -2,17 +2,14 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.1 $
+# $Revision: 1.2 $
 
-set ::auto_path [concat [list [pwd]] $::auto_path]
 package require DiffUtil
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
     namespace import ::tcltest::*
 }
-
-#tcltest::configure -match diffstrings-*
 
 #----------------------------------------------------------------------
 
@@ -27,7 +24,7 @@ proc RunTest {str1 str2 args} {
 
 test diffstrings-1.1 {error cases} -body {
     DiffUtil::diffStrings a
-} -returnCodes 1 -result "wrong # args"
+} -returnCodes 1 -result "wrong # args*" -match glob
 
 test diffstrings-1.1 {substring} {
     set s1 {abcdefghijkl}

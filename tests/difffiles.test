@@ -2,17 +2,14 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.2 $
+# $Revision: 1.3 $
 
-set ::auto_path [concat [list [pwd]] $::auto_path]
 package require DiffUtil
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
     namespace import ::tcltest::*
 }
-
-#tcltest::configure -match diffstrings-*
 
 #----------------------------------------------------------------------
 
@@ -42,15 +39,15 @@ test difffiles-1.1 {standard cases} {
     RunTest $l1 $l2
 } [list {1 1 1 0} {5 0 4 1} {7 3 7 2}]
 
-test difffiles-1.2 {standard cases, error} {
+test difffiles-1.2 {standard cases, error} -body {
     set l1 {a b c d   f g h i j k l}
     set l2 {  b c d e f g x y   k l}
     RunTest $l1 $l2 -hubba
-} {Bad option "-hubba"}
+} -result {bad option "-hubba"*} -match glob
 
 test difffiles-1.3 {standard cases, error} -body {
     DiffUtil::diffFiles a
-} -returnCodes 1 -result "wrong # args"
+} -returnCodes 1 -result "wrong # args*" -match glob
 
 test difffiles-1.4 {standard cases, error} -body {
     DiffUtil::diffFiles -range {0 0 0 0} -align {0 0} a b
@@ -100,11 +97,11 @@ test difffiles-4.1 {range} {
     RunTest $l1 $l2 -range {3 5 3 6}
 } [list {3 1 3 1} {6 0 6 1}]
 
-test difffiles-4.2 {range} {
+test difffiles-4.2 {range} -body {
     set l1 {a bc d e f gh  i}
     set l2 {a xy x e f ghh i}
     RunTest $l1 $l2 -range {3 5 3}
-} {Bad range "3 5 3"}
+} -result {Bad range*} -match glob
 
 #----------------------------------------------------------------------
 ::tcltest::cleanupTests
