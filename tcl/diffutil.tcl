@@ -8,7 +8,7 @@
 #  Eskil, and will be released as a separate package when mature.
 #
 #----------------------------------------------------------------------
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 #----------------------------------------------------------------------
 
 package provide DiffUtil 0.1
@@ -202,74 +202,71 @@ proc DiffUtil::diffFiles {args} {
     if {[llength $opts(-align)] == 0 && [llength $opts(-range)] == 0} {
         return [ExecDiffFiles $diffopts $file1 $file2]
     }
-    if {[llength $opts(-align)] != 0 && [llength $opts(-range)] != 0} {
-        return -code error "Both -align and -range are not currently supported"
+    if {[llength $opts(-range)] != 0 && [llength $opts(-range)] != 4} {
+        return -code error "bad range \"$opts(-range)\""
+    }
+    if {([llength $opts(-align)] % 2) != 0} {
+        return -code error "bad align \"$opts(-align)\""
     }
 
     if {[llength $opts(-range)] != 0} {
-        if {[llength $opts(-range)] != 4} {
-            return -code error "Bad range \"$opts(-range)\""
-        }
-        
         foreach {from1 to1 from2 to2} $opts(-range) break
-        set ch1 [open $file1 "r"]
-        set ch2 [open $file2 "r"]
-        set n1 1
-        set n2 1
-        set tmp1 [TmpFile]
-        set tmp2 [TmpFile]
-        
-        # Skip lines from files
-        while {$n1 < $from1 && [gets $ch1 line] >= 0} {
-            incr n1
+        if {$from1 < 1 || $from1 > $to1 || $from2 < 0 || $from2 > $to2} {
+            return -code error "bad range \"$opts(-range)\""
         }
-        while {$n2 < $from2 && [gets $ch2 line] >= 0} {
-            incr n2
-        }
-        # Copy lines to temporary files
-        set cho1 [open $tmp1 "w"]
-        while {$n1 <= $to1 && [gets $ch1 line] >= 0} {
-            puts $cho1 $line
-            incr n1
-        }
-        close $cho1
-        set cho2 [open $tmp2 "w"]
-        while {$n2 <= $to2 && [gets $ch2 line] >= 0} {
-            puts $cho2 $line
-            incr n2
-        }
-        close $cho2
-        close $ch1
-        close $ch2
-
-        set differr [catch {ExecDiffFiles $diffopts $tmp1 $tmp2 \
-                $from1 $from2} diffres]
-        file delete -force $tmp1 $tmp2
-        if {$differr} { ###nocoverage
-            return -code error $diffres
-        }
-        return $diffres
+    } else {
+        set from1 1
+        set from2 1
+        set to1 2000000000
+        set to2 2000000000
     }
     
     # Handle alignment by copying the object block by block to temporary
     # files and diff each block separately.
 
-    set diffs {}
     set ch1 [open $file1 "r"]
     set ch2 [open $file2 "r"]
     set n1 1
     set n2 1
+    
+    # Skip lines from files to get the range
+    while {$n1 < $from1 && [gets $ch1 line] >= 0} {
+        incr n1
+    }
+    while {$n2 < $from2 && [gets $ch2 line] >= 0} {
+        incr n2
+    }
+
+    set diffs {}
     set tmp1 [TmpFile]
     set tmp2 [TmpFile]
     set endlines {}
-    foreach {align1 align2} $opts(-align) {
-        if {$align1 < 0} {set align1 1}
-        if {$align2 < 0} {set align2 1}
-        lappend endlines [expr {$align1 - 1}] [expr {$align2 - 1}]
-        lappend endlines $align1 $align2
+    set last1 $from1
+    set last2 $from2
+
+    if {[llength $opts(-align)] > 0} {
+        set apairs {}
+        foreach {align1 align2} $opts(-align) {
+            lappend apairs [list $align1 $align2]
+        }
+        set apairs [lsort -index 0 -integer $apairs]
+        foreach apair $apairs {
+            foreach {align1 align2} $apair break
+            # Skip aligns that are out of range
+            if {$align1 < $last1 || $align1 > $to1} continue
+            if {$align2 < $last2 || $align2 > $to2} continue
+            # Add the align to the list of boundaries
+            if {$align1 != $last1 || $align2 != $last2} {
+                lappend endlines [expr {$align1 - 1}] [expr {$align2 - 1}]
+            }
+            lappend endlines $align1 $align2
+            set last1 [expr {$align1 + 1}]
+            set last2 [expr {$align2 + 1}]
+        }
     }
-    # Big numbers to reach end of files
-    lappend endlines 2000000000 2000000000
+    # End of range. If no align was used, this is the only chunk.
+    lappend endlines $to1 $to2
+
     foreach {align1 align2} $endlines {
         # Copy up to the align line to temporary files
         set cho1 [open $tmp1 "w"]
@@ -420,6 +417,12 @@ proc DiffUtil::CompareMidString {s1 s2 words} {
 # The first pair will be equal (and may be empty strings), the second pair
 # differs, and so on.
 # {eq1 eq2 d1 d2 eq1 eq2 d1 d2 eq1 eq2}
+#
+# returns a list of substrings from alternating strings
+# str1sub1 str2sub1 str1sub2 str2sub2...
+# str1sub* concatenated gives string1
+# str2sub* concatenated gives string2
+# str1subN and str2subN are equal when N is odd, not equal when N is even
 proc DiffUtil::diffStrings {args} {
     if {[llength $args] < 2} {
         return -code error "wrong # args"
