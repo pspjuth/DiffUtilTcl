@@ -58,6 +58,8 @@ typedef struct P_T {
 /* A type to implement the Candidates in the LCS algorithm */
 typedef struct Candidate_T {
     Line_T a, b;
+    /* A score value to select between similar candidates */
+    unsigned long score;
     /* Hash value for the line in the second file */
     Hash_T hash;
     /*
@@ -259,6 +261,7 @@ NewCandidate(CandidateAlloc_T **first, Line_T a, Line_T b, Hash_T hash,
     c->hash = hash;
     c->prev = prev;
     c->peer = peer;
+    c->score = 0;
     return c;
 }
 
@@ -352,6 +355,69 @@ merge(CandidateAlloc_T **firstCandidate,
 }
 
 /*
+ * Go through candidates and score them to select a good match.
+ * k-candidates' score includes the score of the (k-1)-candidate
+ * below it.  Thus the score for a candidate is the score for the
+ * entire chain below it.
+ */
+static void
+ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
+{
+    Line_T i;
+    Candidate_T *c, *prev, *bestc;
+    long score, bestscore;
+
+    /* 
+     * It is not necessary to score all candidates but it is easier
+     * so for now this function do not try to be clever.
+     * Since scoring is done bottom-up and finding those that really
+     * needs scoring would be top-down, it's a bit complicated.
+     */
+
+    /* Go through the k-levels from bottom up */
+    for (i = 1; i <= k; i++) {
+        /* Go trough all candidates on this level */
+        for (c = K[i]; c != NULL; c = c->peer) {
+            bestscore = 1000000000;
+            bestc = c->prev;
+            for (prev = c->prev; prev != NULL; prev = prev->peer) {
+                if (prev->b >= c->b) break;
+                score = prev->score;
+                /* A jump increases score */
+                if (i != 1) {
+                    if ((c->b - prev->b) > 1) score++;
+                    if ((c->a - prev->a) > 1) score++;
+                }
+                /* 
+                 * By doing less than or equal we favor matches earlier
+                 * in the file.
+                 */
+                if (score < bestscore ||
+                    (score == bestscore && bestc->b == prev->b)) {
+                    /*printf("A %ld B %ld S %ld   Best A %ld B %ld S %ld\n",
+                           prev->a , prev->b, score,
+                           bestc->a, bestc->b, bestscore);*/
+                    bestscore = score;
+                    bestc = prev;
+                }
+            }
+
+            c->score = bestscore;
+            /* If the lines differ, its worse */
+            if (P[c->a].hash != c->hash) {
+                c->score += 5;
+            }
+            /*
+             * Redirect the prev pointer to the best score.
+             * This means that the best path will follow the prev
+             * pointers and will be easy to pick up in the end.
+             */
+            c->prev = bestc;
+        }
+    }
+}
+
+/*
  * The core part of the LCS algorithm.
  * It is independent of data since it only works on hashes.
  *
@@ -385,6 +451,8 @@ LcsCore(Tcl_Interp *interp,
         }
     }
 
+    ScoreCandidates(k, K, P);
+
     /* Debug, dump candidates to a variable */
 #ifdef DEBUG
     {
@@ -396,7 +464,7 @@ LcsCore(Tcl_Interp *interp,
         Tcl_DStringInit(&ds);
         for (i = k; i > 0; i--) {
             c = K[i];
-            sprintf(buf, "K %ld %ld %ld 0 0 0  ",
+            sprintf(buf, "K %ld %ld %ld 0 0 0 0  ",
                     (long) c->a, (long) c->b, (long) i);
             Tcl_DStringAppend(&ds, buf, -1);
         }
@@ -408,7 +476,8 @@ LcsCore(Tcl_Interp *interp,
                 if (c->a <= 0 || c->a > m || c->b <= 0 || c->b > n) {
                     continue;
                 }
-                sprintf(buf, "C %ld %ld ", (long) c->a, (long) c->b);
+                sprintf(buf, "C %ld %ld %ld ",
+                        (long) c->a, (long) c->b, (long) c->score);
                 Tcl_DStringAppend(&ds, buf, -1);
                 peer = c->peer;
                 if (peer != NULL) {
@@ -443,23 +512,29 @@ LcsCore(Tcl_Interp *interp,
     /* Are there more than one possible end point? */
     if (c->peer != NULL) {
         Candidate_T *bestc;
-        Line_T score, score2, bests;
+        Line_T primscore, secscore, score2, bestps, bestss;
         /*
-         * The best is the one where the distances to start or end of file
-         * is the same in both files.
+         * Check the candidates score first. if they are equal, use a
+         * secondary score where the best is the one where the distances
+         * to start or end of file is the same in both files.
          */
         bestc = c;
-        bests = 1000000000;
+        bestps = 1000000000;
+        bestss = 1000000000; 
         while (c != NULL) {
-            score  = labs(((long) m - (long) c->a) - ((long) n - (long) c->b));
+            primscore = c->score;
+            secscore  = labs(((long) m - (long) c->a) -
+                             ((long) n - (long) c->b));
             score2 = labs((long) c->a - (long) c->b);
-            if (score2 < score) score = score2;
+            if (score2 < secscore) secscore = score2;
             if (P[c->a].hash != c->hash) {
                 /* Worse score if lines differ */
-                score += 100;
+                secscore += 100;
             }
-            if (score < bests) {
-                bests = score;
+            if (primscore < bestps ||
+                (primscore == bestps && secscore < bestss)) {
+                bestps = primscore;
+                bestss = secscore;
                 bestc = c;
             }
             c = c->peer;
@@ -469,7 +544,6 @@ LcsCore(Tcl_Interp *interp,
     while (c != NULL) {
         if (c->a < 0 || c->a > m) printf("GURKA\n");
         J[c->a] = c->b;
-        /* FIXA: check for alternative routes */
         c = c->prev;
     }
 
