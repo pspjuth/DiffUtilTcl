@@ -1,3 +1,14 @@
+/***********************************************************************
+ *
+ * This file implements the central LCS function for comparing things,
+ * and the diffFiles command.
+ *
+ * Copyright (c) 2004, Peter Spjuth  (peter.spjuth@space.se)
+ *
+ ***********************************************************************
+ * $Revision: 1.10 $
+ ***********************************************************************/
+
 #include <tcl.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,7 +17,8 @@
 #include <sys/stat.h>
 #include "diffutil.h"
 
-/*#define DEBUG 1*/
+/*#define CANDIDATE_DEBUG*/
+/*#define CANDIDATE_STATS*/
 
 /* A type to hold hashing values */
 typedef unsigned long Hash_T;
@@ -67,6 +79,9 @@ typedef struct Candidate_T {
     Hash_T hash;
     /* k-candidate */
     Line_T k;
+#ifdef CANDIDATE_DEBUG
+    Line_T wasK;
+#endif
     /*
      * If this is a k-candidate, the prev pointer points to a
      * (k-1)-candidate that matches this one.
@@ -89,7 +104,9 @@ typedef struct Candidate_T {
 
 typedef struct CandidateAlloc_T {
     int used;
-    /*int serial;*/
+#ifdef CANDIDATE_STATS
+    int serial;
+#endif
     struct CandidateAlloc_T *next;
     Candidate_T candidates[CANDIDATE_ALLOC];
 } CandidateAlloc_T;
@@ -242,10 +259,9 @@ compareV(const void *a1, const void *a2) {
         return -1;
     else if (v1->hash > v2->hash)
         return 1;
-    else if (v1->serial > v2->serial)
-        /* Sort decreasing on the line number */
-        return -1;
     else if (v1->serial < v2->serial)
+        return -1;
+    else if (v1->serial > v2->serial)
         return 1;
     else
         return 0;
@@ -260,12 +276,13 @@ NewCandidate(CandidateAlloc_T **first, Line_T a, Line_T b, Hash_T hash,
     if (*first == NULL || (*first)->used >= CANDIDATE_ALLOC) {
         ca = (CandidateAlloc_T *) ckalloc(sizeof(CandidateAlloc_T));
         ca->used = 0;
-        /*if (*first != NULL) {
+#ifdef CANDIDATE_STATS
+        if (*first != NULL) {
             ca->serial = (*first)->serial + 1;
         } else {
-            ca->serial = 1;
-            }
-        */
+            ca->serial = 0;
+        }
+#endif
         ca->next = *first;
         *first = ca;
     } else {
@@ -280,6 +297,9 @@ NewCandidate(CandidateAlloc_T **first, Line_T a, Line_T b, Hash_T hash,
     c->prev = prev;
     c->peer = peer;
     c->score = 0;
+#ifdef CANDIDATE_DEBUG
+    c->wasK = 0;
+#endif
     if (prev == NULL) {
         c->k = 0;
     } else {
@@ -292,7 +312,10 @@ NewCandidate(CandidateAlloc_T **first, Line_T a, Line_T b, Hash_T hash,
 static void
 FreeCandidates(CandidateAlloc_T **first) {
     CandidateAlloc_T *ca = *first, *n;
-    /*printf("Allocs %d a %d = %d\n", (*first)->serial, CANDIDATE_ALLOC, (*first)->serial * CANDIDATE_ALLOC);*/
+#ifdef CANDIDATE_STATS
+    printf("Allocs %d * %d + %d = %d\n", (*first)->serial, CANDIDATE_ALLOC,
+           (*first)->used, (*first)->serial * CANDIDATE_ALLOC+(*first)->used);
+#endif
     while (ca != NULL) {
         n = ca->next;
         ckfree((char *) ca);
@@ -300,6 +323,12 @@ FreeCandidates(CandidateAlloc_T **first) {
     }
     *first = NULL;
 }
+
+/*#define NO_SAME_COLUMN*/
+#define SAME_COL_OPT
+/*#define NO_SAME_ROW*/
+#define SAME_ROW_OPT
+#define SAME_ROW_OPT2
 
 /*
  * This implements the merge function from the LCS algorithm
@@ -311,13 +340,18 @@ merge(CandidateAlloc_T **firstCandidate,
       Line_T i,
       E_T *E,
       Line_T p, 
-      DiffOptions_T *optsPtr) {
-    Candidate_T *c, *peer;
-    Line_T r = *k, j, b1 = 0, b2 = 0;
+      DiffOptions_T *optsPtr,
+      Line_T m,
+      Line_T n) {
+    Candidate_T *c, *newc, *peer, *tmp;
+    Line_T r, ck, j, b1 = 0, b2 = 0;
     Line_T first, last, s = 0;
 
     /*printf("Merge: k = %ld  i = %ld  p = %ld\n", *k, i, p);*/
     
+    c = K[0];
+    ck = 0; /* ck is where c is supposed to be stored */
+    r = 0;  /* r is the start of the search range */
     while (1) {
         j = E[p].serial;
         /* Skip this candidate if alignment forbids it */
@@ -329,8 +363,8 @@ merge(CandidateAlloc_T **firstCandidate,
 
         /*printf("p = %ld  j = %ld  r = %ld  s= %ld  k = %ld\n", p, j, r, s, *k);*/
         /* Binary search */
-        first = 0;
-        last = r;
+        first = r;
+        last = *k;
         while (first <= last) {
             /*printf("First %ld  Last %ld\n", first, last);*/
             s = (first + last) / 2;
@@ -353,29 +387,120 @@ merge(CandidateAlloc_T **firstCandidate,
         }
         /*printf("j = %ld  s = %ld  b1 = %ld  b2 = %ld\n", j, s, b1, b2);*/
         if (b1 < j && b2 > j) {
-            peer = K[s+1];
-            if (s >= *k) {
-                /*printf("Set K%ld\n", *k+2);*/
-                K[*k+2] = K[*k+1];
-                (*k)++;
-                peer = NULL;
+            if (ck == s + 1 /*&& c->a == i*/) {
+                /* 
+                 * If there already is a candidate for this level,
+                 * create this candidate as a peer but do not update K.
+                 */
+                for (peer = c; peer->peer != NULL; peer = peer->peer) {
+                    if (peer->peer->a != peer->a) break;
+                }
+                newc = NewCandidate(firstCandidate, i, j, E[p].hash, c->prev,
+                                    peer->peer);
+                peer->peer = newc;
+            } else {
+                peer = K[s+1];
+                if (s >= *k) {
+                    /*printf("Set K%ld\n", *k+2);*/
+                    K[*k+2] = K[*k+1];
+                    (*k)++;
+                    peer = NULL;
+                }
+                newc = NewCandidate(firstCandidate, i, j, E[p].hash, K[s],
+                                    peer);
+#ifdef CANDIDATE_DEBUG
+                newc->wasK = s + 1;
+#endif
+                K[ck] = c;
+                c = newc;
+                ck = s + 1;
+#ifdef NO_SAME_COLUMN
+                r = s + 1;
+#else  /* NO_SAME_COLUMN */
+#ifdef SAME_COL_OPT
+                /*
+                 * If c is optimally placed, we can skip a lot by narrowing
+                 * the search space for the next iteration.
+                 * c is optimal if it's next to its previous candidate,
+                 * but not if it has a peer in the same column.
+                 */
+                if (c->prev != NULL &&
+                    c->k > 1 &&
+                    (c->a - c->prev->a) <= 1 &&
+                    (c->b - c->prev->b) <= 1 &&
+                    (c->prev->peer == NULL || c->prev->peer->a < c->prev->a)) {
+                    r = s + 1;
+                } else {
+                    r = s;
+                }
+#else  /* SAME_COL_OPT */
+                r = s;
+#endif /* SAME_COL_OPT */
+#endif /* NO_SAME_COLUMN */
             }
-            /*printf("Set K%ld to (%ld,%ld)->(%ld,%ld)\n", r, c->a, c->b, c->prev == NULL ? 0: c->prev->a, c->prev == NULL ? 0: c->prev->b);*/
-            K[s+1] = NewCandidate(firstCandidate, i, j, E[p].hash, K[s], peer);
-            r = s;
+#ifndef NO_SAME_ROW
         } else if (b1 == j) {
-            /* Search through s-1 candidates for a fitting one. */
-            c = K[s-1];
-            while (c != NULL) {
-                if (c->a < i && c->b < j) break;
-                c = c->peer;
+            /*
+             * We have a new candidate on the same row as one of the
+             * candidates in K.
+             */
+            if (ck == s /*&& c->a == i*/) {
+                /* 
+                 * If there already is a candidate for this level,
+                 * i.e. if K[s] is about to be updated,
+                 * create this candidate as a peer but do not update K.
+                 */
+                newc = NewCandidate(firstCandidate, i, j, E[p].hash, c->prev,
+                                    c->peer);
+                c->peer = newc;
+            } else {
+#ifdef SAME_ROW_OPT2
+                /*
+                 * If this candidate is not optimally placed and if K[s] is
+                 * optimally placed, we skip this candidate.
+                 * It is optimal if it's next to its previous candidate.
+                 */
+                register int ksoptimal = (s > 1 && K[s]->prev != NULL &&
+                                          (K[s]->a - K[s]->prev->a) <= 1 &&
+                                          (K[s]->b - K[s]->prev->b) <= 1);
+                if (!ksoptimal ||
+                    ((i - K[s-1]->a) <= 1 && (j - K[s-1]->b) <= 1)) {
+#endif /* SAME_ROW_OPT2 */
+#ifdef SAME_ROW_OPT
+                    if ((m - i) + s >= *k) { 
+#endif /* SAME_ROW_OPT */
+                        /*
+                         * Search through s-1 candidates for a fitting one 
+                         * to be "prev".
+                         */
+                        tmp = K[s-1];
+                        while (tmp != NULL) {
+                            if (tmp->a < i && tmp->b < j) break;
+                            tmp = tmp->peer;
+                        }
+                        newc = NewCandidate(firstCandidate, i, j, E[p].hash,
+                                            tmp, K[s]);
+#ifdef CANDIDATE_DEBUG
+                        newc->wasK = s;
+#endif
+                        r = s;
+                        K[ck] = c;
+                        ck = s;
+                        c = newc;
+#ifdef SAME_ROW_OPT
+                    }
+#endif /* SAME_ROW_OPT */
+#ifdef SAME_ROW_OPT2
+                }
+#endif /* SAME_ROW_OPT2 */
             }
-            K[s] = NewCandidate(firstCandidate, i, j, E[p].hash, c, K[s]);
+#endif /* NO_SAME_ROW */
         }
 
         if (E[p].last) break;
         p++;
     }
+    K[ck] = c;
 }
 
 /* Give score to a candidate */
@@ -521,7 +646,7 @@ LcsCore(Tcl_Interp *interp,
     for (i = 1; i <= m; i++) {
         if (P[i].Eindex != 0 && (!noempty || P[i].hash != 0)) {
             /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
-            merge(&candidates, K, &k, i, E, P[i].Eindex, optsPtr);
+            merge(&candidates, K, &k, i, E, P[i].Eindex, optsPtr, m, n);
         }
     }
 
@@ -529,7 +654,7 @@ LcsCore(Tcl_Interp *interp,
     ScoreCandidates(k, K, P);
 
     /* Debug, dump candidates to a variable */
-#ifdef DEBUG
+#ifdef CANDIDATE_DEBUG
     {
         Tcl_DString ds;
         char buf[40];
@@ -539,7 +664,7 @@ LcsCore(Tcl_Interp *interp,
         Tcl_DStringInit(&ds);
         for (i = k; i > 0; i--) {
             c = K[i];
-            sprintf(buf, "K %ld %ld %ld 0 0 0 0  ",
+            sprintf(buf, "K %ld %ld %ld 0 0 0 0 0  ",
                     (long) c->a, (long) c->b, (long) i);
             Tcl_DStringAppend(&ds, buf, -1);
         }
@@ -551,8 +676,9 @@ LcsCore(Tcl_Interp *interp,
                 if (c->a <= 0 || c->a > m || c->b <= 0 || c->b > n) {
                     continue;
                 }
-                sprintf(buf, "C %ld %ld %ld ",
-                        (long) c->a, (long) c->b, (long) c->score);
+                sprintf(buf, "C %ld %ld %ld %ld ",
+                        (long) c->a, (long) c->b, (long) c->score,
+                        (long) c->wasK);
                 Tcl_DStringAppend(&ds, buf, -1);
                 peer = c->peer;
                 if (peer != NULL) {
@@ -574,7 +700,7 @@ LcsCore(Tcl_Interp *interp,
         Tcl_SetVar(interp, "DiffUtil::Candidates", Tcl_DStringValue(&ds), TCL_GLOBAL_ONLY);
         Tcl_DStringFree(&ds);
     }
-#endif /* DEBUG */
+#endif /* CANDIDATE_DEBUG */
     
     /* Wrap up result */
 
