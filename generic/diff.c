@@ -6,7 +6,7 @@
  * Copyright (c) 2004, Peter Spjuth  (peter.spjuth@space.se)
  *
  ***********************************************************************
- * $Revision: 1.10 $
+ * $Revision: 1.11 $
  ***********************************************************************/
 
 #include <tcl.h>
@@ -33,6 +33,8 @@ typedef struct {
     int ignore;
     /* Let empty lines be considered different in the LCS algorithm. */
     int noempty;
+    /* Show full words in changes */
+    int wordparse;
     /* Range */
     Line_T rFrom1, rTo1, rFrom2, rTo2;
     /* Alignment */
@@ -46,25 +48,23 @@ typedef struct {
 #define IGNORE_ALL_SPACE 1
 #define IGNORE_SPACE_CHANGE 2
 #define IGNORE_CASE 4
-#define IGNORE_KEYWORD 8
 
 /* A type to implement the V vector in the LCS algorithm */
-typedef struct V_T {
+typedef struct {
     Line_T serial;
-    int chars;
     Hash_T hash;
     Hash_T realhash;
 } V_T;
 
 /* A type to implement the E vector in the LCS algorithm */
-typedef struct E_T {
+typedef struct {
     Line_T serial;
     int last;
     Hash_T hash;
 } E_T;
 
 /* A type to implement the P vector in the LCS algorithm */
-typedef struct P_T {
+typedef struct {
     Line_T Eindex;
     Hash_T hash;
 } P_T;
@@ -100,7 +100,8 @@ typedef struct Candidate_T {
  */
 
 /* Allocate in blocks of about 64k */  
-#define CANDIDATE_ALLOC ((65536-2*sizeof(int)-sizeof(struct CandidateAlloc_T *))/sizeof(Candidate_T))
+#define CANDIDATE_ALLOC ((65536-sizeof(int)-sizeof(struct CandidateAlloc_T *))\
+                        /sizeof(Candidate_T))
 
 typedef struct CandidateAlloc_T {
     int used;
@@ -132,12 +133,12 @@ static int
 hash(Tcl_Obj *objPtr,         /* Input Object */
      DiffOptions_T *optsPtr,  /* Options      */
      Hash_T *res,             /* Hash value   */
-     Hash_T *real,            /* Hash value when ignoring ignore */
-     int *chars)              /* Number of chars read */
+     Hash_T *real)            /* Hash value when ignoring ignore */
 {
     Hash_T h;
-    int c, i, length, nc;
-    char *string;
+    int i, length;
+    char *string, *str;
+    Tcl_UniChar c;
     string = Tcl_GetStringFromObj(objPtr, &length);
 
     /* Use the fast way when no ignore flag is used. */
@@ -146,24 +147,22 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
         h += (h << 3) + string[i];
     }
     *real = h;
-    nc = length;
     if (optsPtr->ignore != 0) {
         const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
         const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
         const int ignorecase     = (optsPtr->ignore & IGNORE_CASE);
-        /*const int ignorekey      = (optsPtr->ignore & IGNORE_KEYWORD);*/
         /* 
          * By starting inspace at 1, IGNORE_SPACE_CHANGE will ignore all
          * space in the beginning of a line.
          */
         int inspace = 1;
         h = 0;
-        nc = 0;
-
-        for (i = 0; i < length; i++) {
-            c = string[i];
+        str = string;
+        
+        while (*str != 0) {
+            str += Tcl_UtfToUniChar(str, &c);
             if (c == '\n') break;
-            if (isspace(c)) {
+            if (Tcl_UniCharIsSpace(c)) {
                 if (ignoreallspace) continue;
                 /* Any consecutive whitespace is regarded as a single space */
                 if (ignorespace && inspace) continue;
@@ -171,16 +170,14 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
                 inspace = 1;
             } else {
                 inspace = 0;
-                if (ignorecase && isupper(c)) {
-                    c = tolower(c);
+                if (ignorecase) {
+                    c = Tcl_UniCharToLower(c);
                 }
             }
             h += (h << 3) + c;
-            nc++;
         }
     }
     *res = h;
-    *chars = nc;
     return 0;
 }
 
@@ -195,7 +192,7 @@ CompareObjects(Tcl_Obj *obj1Ptr,
     const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
     const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
     const int ignorecase     = (optsPtr->ignore & IGNORE_CASE);
-    /*const int ignorekey      = (optsPtr->ignore & IGNORE_KEYWORD);*/
+
     string1 = Tcl_GetStringFromObj(obj1Ptr, &length1);
     string2 = Tcl_GetStringFromObj(obj2Ptr, &length2);
 
@@ -519,8 +516,9 @@ ScoreCandidate(Candidate_T *c, P_T *P)
 
         /* A jump increases score */
         if (c->k > 1) {
-            if ((c->b - prev->b) > 1) score++;
-            if ((c->a - prev->a) > 1) score++;
+            if ((c->b - prev->b) > 1) score += 2;
+            if ((c->a - prev->a) > 1) score += 2;
+            if ((c->b - prev->b) > 1 && (c->a - prev->a) > 1) score--;
         }
         /* 
          * By doing less than or equal we favor matches earlier
@@ -786,7 +784,6 @@ ReadAndHashFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
     Hash_T h, realh;
     Line_T line, j, m = 0, n = 0;
     Line_T allocedV, allocedP, first, last;
-    int chars;
     Tcl_Channel ch;
     Tcl_Obj *linePtr;
 
@@ -834,14 +831,13 @@ ReadAndHashFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
     n = 1;
     while (1) {
         V[n].serial = n;
-        V[n].chars = 0;
         Tcl_SetObjLength(linePtr, 0);
         if (Tcl_GetsObj(ch, linePtr) < 0) {
             n--;
             break;
         }
 
-        hash(linePtr, optsPtr, &V[n].hash, &V[n].realhash, &V[n].chars);
+        hash(linePtr, optsPtr, &V[n].hash, &V[n].realhash);
         if (optsPtr->rTo2 > 0 && optsPtr->rTo2 <= line) break;
 
         n++;
@@ -852,13 +848,6 @@ ReadAndHashFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
         }
     }
     Tcl_Close(interp, ch);
-
-    /* If the last line is empty, disregard it */
-    /*if (V[n].chars == 0) n--;*/
-
-    /*for (j = 1; j <= n; j++) {
-        printf("Line %ld  Hash %ld  Chars %ld\n", V[j].serial, V[j].hash, V[j].chars);
-        }*/
 
     /* Sort V on hash/serial. */
     qsort(&V[1], (unsigned long) n, sizeof(V_T), compareV);
@@ -914,7 +903,7 @@ ReadAndHashFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
             m--;
             break;
         }
-        hash(linePtr, optsPtr, &h, &realh, &chars);
+        hash(linePtr, optsPtr, &h, &realh);
         P[m].hash = realh;
 
         /* Binary search for hash in V */
@@ -964,6 +953,7 @@ ReadAndHashFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
     return result;
 }
 
+/* Allocate the type of chunk that is the result of the diff functions */
 static Tcl_Obj *
 NewChunk(Tcl_Interp *interp, DiffOptions_T *optsPtr,
          Line_T start1, Line_T n1, Line_T start2, Line_T n2) {
@@ -978,7 +968,8 @@ NewChunk(Tcl_Interp *interp, DiffOptions_T *optsPtr,
 }
 
 static int
-CompareFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
+CompareFiles(Tcl_Interp *interp,
+             Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
              DiffOptions_T *optsPtr,
              Tcl_Obj **resPtr)
 {
@@ -1361,5 +1352,410 @@ DiffFilesObjCmd(dummy, interp, objc, objv)
         ckfree((char *) opts.align);
     }
 
+    return result;
+}
+
+/***********************************************************************
+ * Doing LCS on strings
+ ***********************************************************************/
+
+/*
+ * Prepare the datastructures needed in LCS for two strings.
+ */
+static void
+PrepareStringsLcs(Tcl_Interp *interp, Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
+                  DiffOptions_T *optsPtr,
+                  Line_T *mPtr, Line_T *nPtr,
+                  P_T **PPtr, E_T **EPtr)
+{
+    V_T *V = NULL;
+    E_T *E = NULL;
+    P_T *P = NULL;
+    Hash_T h;
+    Line_T j, m = 0, n = 0;
+    Line_T first, last;
+    char *str1, *str2, *str;
+    Tcl_UniChar c, realc;
+    int len1, len2;
+
+    str2 = Tcl_GetStringFromObj(str2Ptr, &len2);
+
+    /* Allocate V vector for string 2 */
+    V = (V_T *) ckalloc((len2 + 1) * sizeof(V_T));
+
+    /* Go through string 2 and fill in hashes for each char */
+
+    n = 0;
+    str = str2;
+    while (*str != 0) {
+        str += Tcl_UtfToUniChar(str, &realc);
+        n++;
+        V[n].serial = n;
+        /* FIXA -ignore */
+        if (optsPtr->ignore & IGNORE_CASE) {
+            c = Tcl_UniCharToLower(realc);
+        } else {
+            c = realc;
+        }
+        V[n].hash = c;
+        V[n].realhash = realc;
+    }
+
+    /* Sort V on hash/serial. */
+    qsort(&V[1], (unsigned long) n, sizeof(V_T), compareV);
+
+    /* Build E vector */
+    E = (E_T *) ckalloc((n + 1) * sizeof(E_T));
+    E[0].serial = 0;
+    E[0].last = 1;
+    for (j = 1; j <= n; j++) {
+        E[j].serial = V[j].serial;
+        E[j].hash   = V[j].realhash;
+        if (j == n) {
+            E[j].last = 1;
+        } else {
+            if (V[j].hash != V[j+1].hash) {
+                E[j].last = 1;
+            } else {
+                E[j].last = 0;
+            }
+        }
+    }
+
+    /* Build P vector */
+
+    str1 = Tcl_GetStringFromObj(str1Ptr, &len1);
+
+    /* Allocate P vector for string 1 */
+    P = (P_T *) ckalloc((len1 + 1) * sizeof(P_T));
+
+    m = 0;
+    str = str1;
+    while (*str != 0) {
+        str += Tcl_UtfToUniChar(str, &realc);
+        /* FIXA -ignore */
+        if (optsPtr->ignore & IGNORE_CASE) {
+            c = Tcl_UniCharToLower(realc);
+        } else {
+            c = realc;
+        }
+        m++;
+        P[m].Eindex = 0;
+        P[m].hash = realc;
+        h = c;
+
+        /* Binary search for hash in V */
+        first = 1;
+        last = n;
+        while (first <= last) {
+            j = (first + last) / 2;
+            if (V[j].hash == h) break;
+            if (V[j].hash < h) {
+                first = j + 1;
+            } else {
+                last = j - 1;
+            }
+        }
+        if (V[j].hash == h) {
+            while (!E[j-1].last) j--;
+            P[m].Eindex = j;
+            /*printf("P %ld = %ld\n", m, j);*/
+        }
+    }
+
+    /* Clean up */
+    ckfree((char *) V);
+
+    *mPtr = m;
+    *nPtr = n;
+    *PPtr = P;
+    *EPtr = E;
+}
+
+/*
+ * The main string LCS routine returns the J vector.
+ * J is ckalloc:ed and need to be freed by the caller.
+ */
+static void
+CompareStrings1(Tcl_Interp *interp,
+               Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
+               DiffOptions_T *optsPtr,
+                Line_T **resPtr, Line_T *mPtr, Line_T *nPtr)
+{
+    E_T *E;
+    P_T *P;
+    Line_T m, n, *J;
+
+    /*printf("Doing ReadAndHash\n");*/
+    PrepareStringsLcs(interp, str1Ptr, str2Ptr, optsPtr, &m, &n, &P, &E);
+
+    /*printf("Doing LcsCore m = %ld, n = %ld\n", m, n);*/
+    J = LcsCore(interp, m, n, P, E, optsPtr);
+    /*printf("Done LcsCore\n");*/
+
+    ckfree((char *) E);
+    ckfree((char *) P);
+
+    *mPtr = m;
+    *nPtr = n;
+    *resPtr = J;
+}
+
+/*
+ * String LCS routine that returns a list of chunks.
+ */
+static void
+CompareStrings2(Tcl_Interp *interp,
+               Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
+               DiffOptions_T *optsPtr,
+               Tcl_Obj **resPtr)
+{
+    Line_T m, n, *J;
+    Tcl_Obj *subPtr;
+
+    CompareStrings1(interp, str1Ptr, str2Ptr, optsPtr, &J, &m, &n);
+
+    /*
+     * Now we have a list of matching chars in J.
+     * Generate a list of insert/delete/change opers.
+     */
+
+    *resPtr = Tcl_NewListObj(0, NULL);
+    /* Take care of trivial cases first */
+    if ((m == 0 && n > 0) || (m > 0 && n == 0)) {
+        Tcl_ListObjAppendElement(interp, *resPtr,
+                                 NewChunk(interp, optsPtr, 1, m, 1, n));
+    } else if (m > 0 && n > 0) {
+        Line_T current1, current2, n1, n2;
+        Line_T startblock1, startblock2;
+
+        startblock1 = startblock2 = 1;
+        current1 = current2 = 0;
+
+        while (current1 < m || current2 < n) {
+            /* Scan string 1 until next match */
+            while (current1 < m) {
+                current1++;
+                if (J[current1] != 0) break;
+            }
+            /* Scan string 2 until next match */
+            while (current2 < n) {
+                current2++;
+                if (J[current1] == current2) break;
+            }
+            if (J[current1] != current2) continue;
+
+            n1 = current1 - startblock1;
+            n2 = current2 - startblock2;
+            if (n1 > 0 || n2 > 0) {
+                subPtr = NewChunk(interp, optsPtr,
+                                  startblock1, n1, startblock2, n2);
+                Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+            }
+            startblock1 = current1 + 1;
+            startblock2 = current2 + 1;
+        }
+        /* Scrape up the last */
+        n1 = m - startblock1 + 1;
+        n2 = n - startblock2 + 1;
+        if (n1 > 0 || n2 > 0) {
+            subPtr = NewChunk(interp, optsPtr,
+                              startblock1, n1, startblock2, n2);
+            Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+        }
+    }
+
+    ckfree((char *) J);
+}
+
+/*
+ * String LCS routine.
+ * returns a list of substrings from alternating strings
+ * str1sub1 str2sub1 str1sub2 str2sub2...
+ * str1sub* concatenated gives string1
+ * str2sub* concatenated gives string2
+ * str1subN and str2subN are equal when N is odd, not equal when N is even
+ */
+static void
+CompareStrings3(Tcl_Interp *interp,
+               Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
+               DiffOptions_T *optsPtr,
+               Tcl_Obj **resPtr)
+{
+    Line_T m, n, *J;
+    Tcl_Obj *subPtr, *emptyPtr;
+    int len1, len2;
+    int current1, current2;
+    int startblock1, startblock2;
+    int startchange1, startchange2;
+
+    len1 = Tcl_GetCharLength(str1Ptr);
+    len2 = Tcl_GetCharLength(str2Ptr);
+ 
+    /* Take care of trivial cases first */
+    if (len1 == 0 || len2 == 0) {
+        *resPtr = Tcl_NewListObj(0, NULL);
+        emptyPtr = Tcl_NewObj();
+        Tcl_ListObjAppendElement(interp, *resPtr, emptyPtr);
+        Tcl_ListObjAppendElement(interp, *resPtr, emptyPtr);
+        if (len1 > 0 || len2 > 0) {
+            Tcl_ListObjAppendElement(interp, *resPtr, str1Ptr);
+            Tcl_ListObjAppendElement(interp, *resPtr, str2Ptr);
+            Tcl_ListObjAppendElement(interp, *resPtr, emptyPtr);
+            Tcl_ListObjAppendElement(interp, *resPtr, emptyPtr);
+        }
+        return;
+    }
+
+    CompareStrings1(interp, str1Ptr, str2Ptr, optsPtr, &J, &m, &n);
+
+    /*
+     * Now we have a list of matching chars in J.
+     * Generate a list substrings.
+     */
+
+    *resPtr = Tcl_NewListObj(0, NULL);
+    emptyPtr = Tcl_NewObj();
+    Tcl_IncrRefCount(emptyPtr);
+
+    startblock1 = startblock2 = 1;
+    current1 = current2 = 1;
+
+    while (1) {
+        /* Do equal chars first, so scan until a mismatch */
+        while (current1 <= m || current2 <= n) {
+            if (J[current1] == 0 || J[current1] != current2) break;
+            current1++;
+            current2++;
+        }
+
+        /* 
+         * Finished?
+         * Since the result should always end with an equal pair
+         * this is the only exit point from the loop.
+         */
+        if (current1 > m && current2 > n) {
+            if (current1 == startblock1) {
+                /* Nothing equal */
+                Tcl_ListObjAppendElement(interp, *resPtr, emptyPtr);
+                Tcl_ListObjAppendElement(interp, *resPtr, emptyPtr);
+            } else {
+                subPtr = Tcl_GetRange(str1Ptr, startblock1 - 1, current1 - 2);
+                Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+                subPtr = Tcl_GetRange(str2Ptr, startblock2 - 1, current2 - 2);
+                Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+            }
+            break;
+        }
+
+        /* Do change block */
+        startchange1 = current1;
+        startchange2 = current2;
+
+        /* Scan string 1 until next match */
+        while (current1 <= m) {
+            if (J[current1] != 0) break;
+            current1++;
+        }
+        /* Scan string 2 until next match */
+        if (current1 <= m) {
+            current2 = J[current1];
+        } else {
+            current2 = n+1;
+        }
+
+        if (optsPtr->wordparse) {
+            /* FIXA adjust if wordparse */
+
+        }
+
+        /* Add the equals to the result */
+        if (startchange1 == startblock1) {
+            /* Nothing equal */
+            Tcl_ListObjAppendElement(interp, *resPtr, emptyPtr);
+            Tcl_ListObjAppendElement(interp, *resPtr, emptyPtr);
+        } else {
+            subPtr = Tcl_GetRange(str1Ptr, startblock1 - 1, startchange1 - 2);
+            Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+            subPtr = Tcl_GetRange(str2Ptr, startblock2 - 1, startchange2 - 2);
+            Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+        }
+        /* Add the changes to the result */
+        if (current1 <= startchange1) {
+            Tcl_ListObjAppendElement(interp, *resPtr, emptyPtr);
+        } else {
+            subPtr = Tcl_GetRange(str1Ptr, startchange1 - 1, current1 - 2);
+            Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+        }
+        if (current2 <= startchange2) {
+            Tcl_ListObjAppendElement(interp, *resPtr, emptyPtr);
+        } else {
+            subPtr = Tcl_GetRange(str2Ptr, startchange2 - 1, current2 - 2);
+            Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+        }
+
+        startblock1 = current1;
+        startblock2 = current2;
+    }
+
+    Tcl_DecrRefCount(emptyPtr);
+    ckfree((char *) J);
+}
+
+int
+DiffStrings2ObjCmd(dummy, interp, objc, objv)
+    ClientData dummy;    	/* Not used. */
+    Tcl_Interp *interp;		/* Current interpreter. */
+    int objc;			/* Number of arguments. */
+    Tcl_Obj *CONST objv[];	/* Argument objects. */
+{
+    int index, t, result = TCL_OK;
+    Tcl_Obj *res;
+    DiffOptions_T opts;
+
+    static CONST char *options[] = {
+	"-nocase", "-i", "-b", "-w", "-words", (char *) NULL
+    };
+    enum options {
+	OPT_NOCASE, OPT_I, OPT_B, OPT_W, OPT_WORDS
+    };	  
+
+    if (objc < 3) {
+        Tcl_WrongNumArgs(interp, 1, objv, "?opts? line1 line2");
+	return TCL_ERROR;
+    }
+
+    opts.wordparse = 0;
+    opts.ignore = 0;
+    opts.noempty = 0;
+    opts.rFrom1 = opts.rFrom2 = 1;
+    opts.rTo1   = opts.rTo2   = 0;
+    opts.alignLength = 0;
+    
+    for (t = 1; t < objc - 2; t++) {
+	if (Tcl_GetIndexFromObj(interp, objv[t], options, "option", 0,
+		&index) != TCL_OK) {
+	    return TCL_ERROR;
+	}
+	switch (index) {
+          case OPT_NOCASE :
+          case OPT_I :
+            opts.ignore |= IGNORE_CASE;
+            break;
+	  case OPT_B:
+            opts.ignore |= IGNORE_SPACE_CHANGE;
+	    break;
+	  case OPT_W:
+            opts.ignore |= IGNORE_ALL_SPACE;
+	    break;
+	  case OPT_WORDS:
+	    opts.wordparse = 1;
+	    break;
+	}
+    }
+
+    CompareStrings3(interp, objv[objc-2], objv[objc-1], &opts, &res);
+
+    Tcl_SetObjResult(interp, res);
     return result;
 }
