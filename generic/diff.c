@@ -19,6 +19,8 @@ typedef unsigned long Line_T;
 typedef struct {
     /* Ignore flags */
     int ignore;
+    /* Let empty lines be considered different in the LCS algorithm. */
+    int noempty;
     /* Range */
     Line_T rFrom1, rTo1, rFrom2, rTo2;
     /* Alignment */
@@ -434,6 +436,7 @@ LcsCore(Tcl_Interp *interp,
 {
     Candidate_T **K, *c;
     Line_T i, k, *J;
+    int noempty = optsPtr->noempty;
     /* Keep track of all candidates to free them easily */
     CandidateAlloc_T *candidates = NULL;
 
@@ -445,7 +448,7 @@ LcsCore(Tcl_Interp *interp,
     k = 0;
 
     for (i = 1; i <= m; i++) {
-        if (P[i].Eindex != 0) {
+        if (P[i].Eindex != 0 && (!noempty || P[i].hash != 0)) {
             /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
             merge(&candidates, K, &k, i, E, P[i].Eindex, optsPtr);
         }
@@ -546,10 +549,25 @@ LcsCore(Tcl_Interp *interp,
         J[c->a] = c->b;
         c = c->prev;
     }
-
+    
     /*printf("Clean up Candidates and K\n");*/
     FreeCandidates(&candidates);
     ckfree((char *) K);
+
+    if (noempty) {
+        /* 
+         * We have ignored empty lines before which means that there
+         * may be empty lines that can be matched.
+         */
+
+        /* FIXA */
+
+        /*
+         * This could be left to block matching if that is improved
+         * to handle equal lines within change blocks.
+         */
+    }
+
     return J;
 }
 
@@ -557,7 +575,7 @@ LcsCore(Tcl_Interp *interp,
  * Read two files, hash them and prepare the datastructures needed in LCS.
  */
 static int
-ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
+ReadAndHashFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
                  DiffOptions_T *optsPtr,
                  Line_T *mPtr, Line_T *nPtr,
                  P_T **PPtr, E_T **EPtr)
@@ -566,7 +584,7 @@ ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
     V_T *V = NULL;
     E_T *E = NULL;
     P_T *P = NULL;
-    struct stat buf1, buf2;
+    Tcl_StatBuf buf1, buf2;
     Hash_T h, realh;
     Line_T line, j, m = 0, n = 0;
     Line_T allocedV, allocedP, first, last;
@@ -575,12 +593,12 @@ ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
     Tcl_Obj *linePtr;
 
     /* Stat files first to quickly see if they don't exist */
-    if (stat(name1, &buf1) != 0) {
+    if (Tcl_FSStat(name1Ptr, &buf1) != 0) {
         /* FIXA: error message */
         Tcl_SetResult(interp, "bad file", TCL_STATIC);
         return TCL_ERROR;
     }
-    if (stat(name2, &buf2) != 0) {
+    if (Tcl_FSStat(name2Ptr, &buf2) != 0) {
         /* FIXA: error message */
         Tcl_SetResult(interp, "bad file", TCL_STATIC);
         return TCL_ERROR;
@@ -599,7 +617,7 @@ ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
     V = (V_T *) ckalloc(allocedV * sizeof(V_T));
 
     /* Read file 2 and calculate hashes for each line */
-    ch = Tcl_OpenFileChannel(interp, name2, "r", 0);
+    ch = Tcl_FSOpenFileChannel(interp, name2Ptr, "r", 0);
     if (ch == NULL) {
         result = TCL_ERROR;
         goto cleanup;
@@ -674,7 +692,7 @@ ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
     P = (P_T *) ckalloc(allocedP * sizeof(P_T));
 
     /* Read file and calculate hashes for each line */
-    ch = Tcl_OpenFileChannel(interp, name1, "r", 0);
+    ch = Tcl_FSOpenFileChannel(interp, name1Ptr, "r", 0);
     if (ch == NULL) {
         result = TCL_ERROR;
         goto cleanup;
@@ -762,7 +780,7 @@ NewChunk(Tcl_Interp *interp, DiffOptions_T *optsPtr,
 }
 
 static int
-CompareFiles(Tcl_Interp *interp, char *name1, char *name2,
+CompareFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
              DiffOptions_T *optsPtr,
              Tcl_Obj **resPtr)
 {
@@ -772,7 +790,7 @@ CompareFiles(Tcl_Interp *interp, char *name1, char *name2,
     Tcl_Obj *subPtr;
 
     /*printf("Doing ReadAndHash\n");*/
-    if (ReadAndHashFiles(interp, name1, name2, optsPtr, &m, &n, &P, &E)
+    if (ReadAndHashFiles(interp, name1Ptr, name2Ptr, optsPtr, &m, &n, &P, &E)
         != TCL_OK) {
         return TCL_ERROR;
     }
@@ -815,8 +833,8 @@ CompareFiles(Tcl_Interp *interp, char *name1, char *name2,
         Tcl_IncrRefCount(line2Ptr);
         Tcl_SetObjLength(line2Ptr, 1000);
 
-        ch1 = Tcl_OpenFileChannel(interp, name1, "r", 0);
-        ch2 = Tcl_OpenFileChannel(interp, name2, "r", 0);
+        ch1 = Tcl_FSOpenFileChannel(interp, name1Ptr, "r", 0);
+        ch2 = Tcl_FSOpenFileChannel(interp, name2Ptr, "r", 0);
 
         /* Skip start if there is a range */
         if (optsPtr->rFrom1 > 1) {
@@ -1060,14 +1078,15 @@ DiffFilesObjCmd(dummy, interp, objc, objv)
     Tcl_Obj *CONST objv[];	/* Argument objects. */
 {
     int index, t, result = TCL_OK;
-    Tcl_Obj *resPtr;
-    char *file1, *file2;
+    Tcl_Obj *resPtr, *file1Ptr, *file2Ptr;
     DiffOptions_T opts;
     static CONST char *options[] = {
-	"-b", "-w", "-i", "-nocase", "-align", "-range", (char *) NULL
+	"-b", "-w", "-i", "-nocase", "-align", "-range",
+        "-noempty", (char *) NULL
     };
     enum options {
-	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_RANGE
+	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_RANGE,
+        OPT_NOEMPTY
     };
 
     if (objc < 3) {
@@ -1076,6 +1095,7 @@ DiffFilesObjCmd(dummy, interp, objc, objv)
     }
 
     opts.ignore = 0;
+    opts.noempty = 0;
     opts.rFrom1 = opts.rFrom2 = 1;
     opts.rTo1   = opts.rTo2   = 0;
     opts.alignLength = 0;
@@ -1097,6 +1117,9 @@ DiffFilesObjCmd(dummy, interp, objc, objv)
 	  case OPT_W:
             opts.ignore |= IGNORE_ALL_SPACE;
 	    break;
+	  case OPT_NOEMPTY:
+            opts.noempty = 1;
+            break;
 	  case OPT_RANGE:
             t++;
             if (t >= (objc - 2)) {
@@ -1126,10 +1149,10 @@ DiffFilesObjCmd(dummy, interp, objc, objv)
 	}
     }
     NormaliseOpts(&opts);
-    file1 = Tcl_GetString(objv[objc-2]);
-    file2 = Tcl_GetString(objv[objc-1]);
+    file1Ptr = objv[objc-2];
+    file2Ptr = objv[objc-1];
 
-    if (CompareFiles(interp, file1, file2, &opts, &resPtr) != TCL_OK) {
+    if (CompareFiles(interp, file1Ptr, file2Ptr, &opts, &resPtr) != TCL_OK) {
         result = TCL_ERROR;
         goto cleanup;
     }
