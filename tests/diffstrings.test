@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.2 $
+# $Revision: 1.3 $
 
 package require DiffUtil
 
@@ -92,11 +92,27 @@ test diffstrings-3.1 {ignore space} {
     RunTest $s1 $s2
 } [list { } { } { } {} {abc } {abc } {d  f} {x y} { ghi} { ghi} {} { } { } { }]
 
-test diffstrings-3.1 {ignore space} {
+test diffstrings-3.2 {ignore space} {
     set s1 {  abc d  f ghi }
     set s2 { abc x y ghi  }
     RunTest $s1 $s2 -b
 } [list {  abc } { abc } {d  f} {x y} { ghi } { ghi  }]
 
-#----------------------------------------------------------------------
-::tcltest::cleanupTests
+test diffstrings-4.1 {ignore case} {
+    set s1 {Zabc dWRTUf ghiQ}
+    set s2 {zabc xwrtuy ghiq}
+    RunTest $s1 $s2
+} [list {} {} {Z} {z} {abc } {abc } {dWRTUf} {xwrtuy} { ghi} { ghi} {Q} {q} {} {}]
+
+test diffstrings-4.2 {ignore case} {
+    set s1 {Zabc dWRTUf ghiQ}
+    set s2 {zabc xwrtuy ghiq}
+    RunTest $s1 $s2 -nocase
+} [list {Zabc } {zabc } {d} {x} {WRTU} {wrtu} {f} {y} { ghiQ} { ghiq}]
+
+test diffstrings-4.3 {ignore case} {
+    set s1 {AjkHFAkjaaslkJADADlkhaDkhALDKJHDA}
+    set s2 {AjkhfAkqqAslkJAdaDlsxaDkhAftKJHDA}
+    RunTest $s1 $s2 -nocase
+} [list {AjkHFAk} {AjkhfAk} {ja} {qq} {aslkJADADl} {AslkJAdaDl} {kh} {sx} {aDkhA} {aDkhA} {LD} {ft} {KJHDA} {KJHDA}]
+
