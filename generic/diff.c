@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include "diffutil.h"
 
-#define DEBUG 1
+/*#define DEBUG 1*/
 
 /* A type to hold hashing values */
 typedef unsigned long Hash_T;
@@ -59,11 +59,14 @@ typedef struct P_T {
 
 /* A type to implement the Candidates in the LCS algorithm */
 typedef struct Candidate_T {
+    /* Line numbers in files */
     Line_T a, b;
     /* A score value to select between similar candidates */
     unsigned long score;
     /* Hash value for the line in the second file */
     Hash_T hash;
+    /* k-candidate */
+    Line_T k;
     /*
      * If this is a k-candidate, the prev pointer points to a
      * (k-1)-candidate that matches this one.
@@ -81,11 +84,12 @@ typedef struct Candidate_T {
  * simplify freeing.
  */
 
-/* Allocate in blocks of 4k */  
-#define CANDIDATE_ALLOC ((4096-sizeof(int)-sizeof(struct CandidateAlloc_T *))/sizeof(Candidate_T))
+/* Allocate in blocks of about 64k */  
+#define CANDIDATE_ALLOC ((65536-2*sizeof(int)-sizeof(struct CandidateAlloc_T *))/sizeof(Candidate_T))
 
 typedef struct CandidateAlloc_T {
     int used;
+    /*int serial;*/
     struct CandidateAlloc_T *next;
     Candidate_T candidates[CANDIDATE_ALLOC];
 } CandidateAlloc_T;
@@ -131,6 +135,10 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
         const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
         const int ignorecase     = (optsPtr->ignore & IGNORE_CASE);
         /*const int ignorekey      = (optsPtr->ignore & IGNORE_KEYWORD);*/
+        /* 
+         * By starting inspace at 1, IGNORE_SPACE_CHANGE will ignore all
+         * space in the beginning of a line.
+         */
         int inspace = 1;
         h = 0;
         nc = 0;
@@ -165,7 +173,7 @@ CompareObjects(Tcl_Obj *obj1Ptr,
                Tcl_Obj *obj2Ptr,
                DiffOptions_T *optsPtr)
 {
-    int c1, c2, i1, i2, length1, length2;
+    int c1, c2, i1, i2, length1, length2, start;
     char *string1, *string2;
     const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
     const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
@@ -185,12 +193,13 @@ CompareObjects(Tcl_Obj *obj1Ptr,
         if (isspace(c1)) {
             if (ignoreallspace || ignorespace) {
                 /* Scan up to non-space */
+                start = i1;
                 while (i1 < length1 && isspace(string1[i1])) i1++;
-                if (ignorespace) {
+                if (ignoreallspace || start == 0) {
+                    c1 = string1[i1];
+                } else {
                     i1--;
                     c1 = ' ';
-                } else {
-                    c1 = string1[i1];
                 }
             }
         }
@@ -201,12 +210,13 @@ CompareObjects(Tcl_Obj *obj1Ptr,
         if (isspace(c2)) {
             if (ignoreallspace || ignorespace) {
                 /* Scan up to non-space */
+                start = i2;
                 while (i2 < length2 && isspace(string2[i2])) i2++;
-                if (ignorespace) {
+                if (ignoreallspace || start == 0) {
+                    c2 = string2[i2];
+                } else {
                     i2--;
                     c2 = ' ';
-                } else {
-                    c2 = string2[i2];
                 }
             }
         }
@@ -250,6 +260,12 @@ NewCandidate(CandidateAlloc_T **first, Line_T a, Line_T b, Hash_T hash,
     if (*first == NULL || (*first)->used >= CANDIDATE_ALLOC) {
         ca = (CandidateAlloc_T *) ckalloc(sizeof(CandidateAlloc_T));
         ca->used = 0;
+        /*if (*first != NULL) {
+            ca->serial = (*first)->serial + 1;
+        } else {
+            ca->serial = 1;
+            }
+        */
         ca->next = *first;
         *first = ca;
     } else {
@@ -264,6 +280,11 @@ NewCandidate(CandidateAlloc_T **first, Line_T a, Line_T b, Hash_T hash,
     c->prev = prev;
     c->peer = peer;
     c->score = 0;
+    if (prev == NULL) {
+        c->k = 0;
+    } else {
+        c->k = prev->k + 1;
+    }
     return c;
 }
 
@@ -271,6 +292,7 @@ NewCandidate(CandidateAlloc_T **first, Line_T a, Line_T b, Hash_T hash,
 static void
 FreeCandidates(CandidateAlloc_T **first) {
     CandidateAlloc_T *ca = *first, *n;
+    /*printf("Allocs %d a %d = %d\n", (*first)->serial, CANDIDATE_ALLOC, (*first)->serial * CANDIDATE_ALLOC);*/
     while (ca != NULL) {
         n = ca->next;
         ckfree((char *) ca);
@@ -356,67 +378,116 @@ merge(CandidateAlloc_T **firstCandidate,
     }
 }
 
+/* Give score to a candidate */
+static inline void
+ScoreCandidate(Candidate_T *c, P_T *P)
+{
+    Candidate_T *prev, *bestc;
+    long score, bestscore;
+
+    bestscore = 1000000000;
+    bestc = c->prev;
+
+    for (prev = c->prev; prev != NULL; prev = prev->peer) {
+        if (prev->b >= c->b) break;
+        score = prev->score;
+
+        /* A jump increases score */
+        if (c->k > 1) {
+            if ((c->b - prev->b) > 1) score++;
+            if ((c->a - prev->a) > 1) score++;
+        }
+        /* 
+         * By doing less than or equal we favor matches earlier
+         * in the file.
+         */
+        if (score < bestscore ||
+            (score == bestscore && bestc->b == prev->b)) {
+            /*printf("A %ld B %ld S %ld   Best A %ld B %ld S %ld\n",
+              prev->a , prev->b, score,
+              bestc->a, bestc->b, bestscore);*/
+            bestscore = score;
+            bestc = prev;
+        }
+    }
+
+    c->score = bestscore;
+    /* If the lines differ, its worse */
+    if (P[c->a].hash != c->hash) {
+        c->score += 5;
+    }
+    /*
+     * Redirect the prev pointer to the best score.
+     * This means that the best path will follow the prev
+     * pointers and will be easy to pick up in the end.
+     */
+    c->prev = bestc;
+}
+
 /*
  * Go through candidates and score them to select a good match.
- * k-candidates' score includes the score of the (k-1)-candidate
+ * A k-candidate's score includes the score of the (k-1)-candidate
  * below it.  Thus the score for a candidate is the score for the
  * entire chain below it.
  */
 static void
 ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
 {
-    Line_T i;
-    Candidate_T *c, *prev, *bestc;
-    long score, bestscore;
+    Line_T sp;
+    Candidate_T *c, *prev;
+    Candidate_T **stack;
+    int ready;
 
-    /* 
-     * It is not necessary to score all candidates but it is easier
-     * so for now this function do not try to be clever.
-     * Since scoring is done bottom-up and finding those that really
-     * needs scoring would be top-down, it's a bit complicated.
+    /*
+     * Do a depth-first search through the candidate tree.
+     * This is currently not very efficienty implemented but this
+     * stage takes a rather small amount of work compared with the
+     * rest of the LCS algorithm.
      */
 
-    /* Go through the k-levels from bottom up */
-    for (i = 1; i <= k; i++) {
-        /* Go trough all candidates on this level */
-        for (c = K[i]; c != NULL; c = c->peer) {
-            bestscore = 1000000000;
-            bestc = c->prev;
-            for (prev = c->prev; prev != NULL; prev = prev->peer) {
-                if (prev->b >= c->b) break;
-                score = prev->score;
-                /* A jump increases score */
-                if (i != 1) {
-                    if ((c->b - prev->b) > 1) score++;
-                    if ((c->a - prev->a) > 1) score++;
-                }
-                /* 
-                 * By doing less than or equal we favor matches earlier
-                 * in the file.
-                 */
-                if (score < bestscore ||
-                    (score == bestscore && bestc->b == prev->b)) {
-                    /*printf("A %ld B %ld S %ld   Best A %ld B %ld S %ld\n",
-                           prev->a , prev->b, score,
-                           bestc->a, bestc->b, bestscore);*/
-                    bestscore = score;
-                    bestc = prev;
-                }
-            }
+    /* A candidate stack */
+    stack = (Candidate_T **) ckalloc((k * 3) * sizeof(Candidate_T *));
+    sp = 0;
 
-            c->score = bestscore;
-            /* If the lines differ, its worse */
-            if (P[c->a].hash != c->hash) {
-                c->score += 5;
+    /* 
+     * A score of 0 means the Score has not been calculated yet.
+     * By setting the score to 1 in the lowest node, all scores 
+     * will be >= 1.
+     */
+    K[0]->score = 1;
+
+    /* Start at the top, put all end points on the stack */
+    for (c = K[k]; c != NULL; c = c->peer) {
+        stack[sp++] = c;
+    }
+    while (sp > 0) {
+        c = stack[sp - 1];
+        /* Already scored? */
+        if (c->score != 0) {
+            sp--;
+            continue;
+        }
+        ready = 1;
+        for (prev = c->prev; prev != NULL; prev = prev->peer) {
+            if (prev->b >= c->b) break;
+            if (prev->score == 0) {
+                stack[sp++] = prev;
+                ready = 0;
             }
-            /*
-             * Redirect the prev pointer to the best score.
-             * This means that the best path will follow the prev
-             * pointers and will be easy to pick up in the end.
-             */
-            c->prev = bestc;
+        }
+        if (ready) {
+            /* All previous have a score, we can score this one */
+            ScoreCandidate(c, P);
+            sp--;
+        }
+        if (sp > (k * 2)) {
+            /* Out of stack, bad */
+            printf("Debug: Out of stack in ScoreCandidates\n");
+            break;
         }
     }
+    
+    ckfree((char *) stack);
 }
 
 /*
@@ -454,6 +525,7 @@ LcsCore(Tcl_Interp *interp,
         }
     }
 
+    /*printf("Doing Score k = %ld\n", k);*/
     ScoreCandidates(k, K, P);
 
     /* Debug, dump candidates to a variable */
@@ -880,7 +952,7 @@ CompareFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
             if (J[current1] != current2) continue;
             if (CompareObjects(line1Ptr, line2Ptr, optsPtr) != 0) {
                 /* No match, continue until next. */
-                printf("NOT Match\n");
+                printf("Debug: NOT Match %ld %ld\n", current1, current2);
                 continue;
             }
 
