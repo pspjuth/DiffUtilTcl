@@ -8,7 +8,7 @@
 #  Eskil, and will be released as a separate package when mature.
 #
 #----------------------------------------------------------------------
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 #----------------------------------------------------------------------
 
 package provide DiffUtil 0.1
@@ -98,8 +98,31 @@ proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
 
     LocateDiffExe
 
+    # A special case to diff files in a virtual file system
+    if {[lindex [file system $file1] 0] ne "native"} {
+        set tmpfile1 [tmpFile]
+        file copy -force -- $file1 $tmpfile1
+        set file1 $tmpfile1
+    }
+    if {[lindex [file system $file2] 0] ne "native"} {
+        set tmpfile2 [tmpFile]
+        file copy -force -- $file2 $tmpfile2
+        set file2 $tmpfile2
+    }
+
+    # Execute diff
     set differr [catch {eval exec \$diffexe $diffopts \
             \$file1 \$file2} diffres]
+
+    # Clean up any temporary files
+    if {[info exists tmpfile1]} {
+        file delete -force $tmpfile1
+    }
+    if {[info exists tmpfile2]} {
+        file delete -force $tmpfile2
+    }
+
+    # Parse the result
     set result {}
     foreach line [split $diffres "\n"] {
         if {[string match {[0-9]*} $line]} {
