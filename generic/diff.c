@@ -6,6 +6,8 @@
 #include <sys/stat.h>
 #include "diffutil.h"
 
+#define DEBUG 1
+
 /* A type to hold hashing values */
 typedef unsigned long Hash_T;
 
@@ -48,7 +50,21 @@ typedef struct E_T {
 /* A type to implement the Candidates in the LCS algorithm */
 typedef struct Candidate_T {
     Line_T a, b;
+    /*
+     * If this is a k-candidate, the prev pointer points to a
+     * (k-1)-candidate that matches this one.
+     */
     struct Candidate_T *prev;
+    /*
+     * If this is a k-candidate, the peer pointer points to another
+     * k-candidate which is up/left of this one.
+     */
+    struct Candidate_T *peer;
+    /* 
+     * The next pointer is used for housekeeping.
+     * By linking all allocated candidates it is easy to deallocate
+     * them in the end.
+     */
     struct Candidate_T *next;
 } Candidate_T;
 
@@ -191,9 +207,10 @@ compareV(const void *a1, const void *a2) {
         return -1;
     else if (v1->hash > v2->hash)
         return 1;
-    else if (v1->serial < v2->serial)
-        return -1;
     else if (v1->serial > v2->serial)
+        /* Sort decreasing on the line number */
+        return -1;
+    else if (v1->serial < v2->serial)
         return 1;
     else
         return 0;
@@ -201,11 +218,13 @@ compareV(const void *a1, const void *a2) {
 
 /* Create a new candidate */
 static Candidate_T *
-NewCandidate(Candidate_T **first, Line_T a, Line_T b, Candidate_T *prev) {
+NewCandidate(Candidate_T **first, Line_T a, Line_T b,
+             Candidate_T *prev, Candidate_T *peer) {
     Candidate_T *c = (Candidate_T *) ckalloc(sizeof(Candidate_T));
     c->a = a;
     c->b = b;
     c->prev = prev;
+    c->peer = peer;
     c->next = *first;
     *first = c;
     return c;
@@ -234,12 +253,12 @@ merge(Candidate_T **firstCandidate,
       E_T *E,
       Line_T p, 
       DiffOptions_T *optsPtr) {
-    Candidate_T *c = K[0], *newc;
-    Line_T r = 0, j, b1 = 0, b2 = 0;
+    Candidate_T *c, *peer;
+    Line_T r = *k, j, b1 = 0, b2 = 0;
     Line_T first, last, s = 0;
 
     /*printf("Merge: k = %ld  i = %ld  p = %ld\n", *k, i, p);*/
-
+    
     while (1) {
         j = E[p].serial;
         /* Skip this candidate if alignment forbids it */
@@ -251,14 +270,19 @@ merge(Candidate_T **firstCandidate,
 
         /*printf("p = %ld  j = %ld  r = %ld  s= %ld  k = %ld\n", p, j, r, s, *k);*/
         /* Binary search */
-        first = r;
-        last = *k;
+        first = 0;
+        last = r;
         while (first <= last) {
             /*printf("First %ld  Last %ld\n", first, last);*/
             s = (first + last) / 2;
             b1 = K[s]->b;
             b2 = K[s+1]->b;
-            if (b1 < j && b2 > j) {
+            if ((b1 < j && b2 > j) || b1 == j) {
+                break;
+            }
+            if (b2 == j) {
+                s = s + 1;
+                b1 = K[s]->b;
                 break;
             }
             if (b2 < j) {
@@ -268,27 +292,31 @@ merge(Candidate_T **firstCandidate,
                 last = s - 1;
             }
         }
+        /*printf("j = %ld  s = %ld  b1 = %ld  b2 = %ld\n", j, s, b1, b2);*/
         if (b1 < j && b2 > j) {
-            /*printf("Set K%ld to (%ld,%ld)->(%ld,%ld)\n", r, c->a, c->b, c->prev == NULL ? 0: c->prev->a, c->prev == NULL ? 0: c->prev->b);*/
-            newc = NewCandidate(firstCandidate, i, j, K[s]);
-            K[r] = c;
-            r = s + 1;
-            c = newc;
-
-            /*printf("r = %ld  s= %ld  k = %ld\n", r, s, *k);*/
+            peer = K[s+1];
             if (s >= *k) {
                 /*printf("Set K%ld\n", *k+2);*/
                 K[*k+2] = K[*k+1];
                 (*k)++;
-                break;
+                peer = NULL;
             }
+            /*printf("Set K%ld to (%ld,%ld)->(%ld,%ld)\n", r, c->a, c->b, c->prev == NULL ? 0: c->prev->a, c->prev == NULL ? 0: c->prev->b);*/
+            K[s+1] = NewCandidate(firstCandidate, i, j, K[s], peer);
+            r = s;
+        } else if (b1 == j) {
+            /* Search through s-1 candidates for a fitting one. */
+            c = K[s-1];
+            while (c != NULL) {
+                if (c->a < i && c->b < j) break;
+                c = c->peer;
+            }
+            K[s] = NewCandidate(firstCandidate, i, j, c, K[s]);
         }
 
         if (E[p].last) break;
         p++;
     }
-    /*printf("Set K%ld to (%ld,%ld)->(%ld,%ld)\n", r, c->a, c->b, c->prev == NULL ? 0: c->prev->a, c->prev == NULL ? 0: c->prev->b);*/
-    K[r] = c;
 }
 
 /*
@@ -302,7 +330,9 @@ merge(Candidate_T **firstCandidate,
  * E - vector [0,n]
  */
 static Line_T *
-LcsCore(Line_T m, Line_T n, Line_T *P, E_T *E, DiffOptions_T *optsPtr)
+LcsCore(Tcl_Interp *interp,
+        Line_T m, Line_T n, Line_T *P, E_T *E,
+        DiffOptions_T *optsPtr)
 {
     Candidate_T **K, *c;
     Line_T i, k, *J;
@@ -312,8 +342,8 @@ LcsCore(Line_T m, Line_T n, Line_T *P, E_T *E, DiffOptions_T *optsPtr)
     /* Find LCS */
     /*printf("Doing K\n");*/
     K = (Candidate_T **) ckalloc(sizeof(Candidate_T *) * ((m < n ? m : n) + 2));
-    K[0] = NewCandidate(&candidates, 0, 0, NULL);
-    K[1] = NewCandidate(&candidates, m + 1, n + 1, NULL);
+    K[0] = NewCandidate(&candidates, 0, 0, NULL, NULL);
+    K[1] = NewCandidate(&candidates, m + 1, n + 1, NULL, NULL);
     k = 0;
 
     for (i = 1; i <= m; i++) {
@@ -323,6 +353,50 @@ LcsCore(Line_T m, Line_T n, Line_T *P, E_T *E, DiffOptions_T *optsPtr)
         }
     }
 
+    /* Debug, dump candidates to a variable */
+#ifdef DEBUG
+    {
+        Tcl_DString ds;
+        char buf[40];
+        Candidate_T *peer;
+
+        Tcl_DStringInit(&ds);
+        for (i = k; i > 0; i--) {
+            c = K[i];
+            sprintf(buf, "K %ld %ld %ld 0 0 0  ",
+                    (long) c->a, (long) c->b, (long) i);
+            Tcl_DStringAppend(&ds, buf, -1);
+        }
+        c = candidates;
+        while (c != NULL) {
+            if (c->a <= 0 || c->a > m || c->b <= 0 || c->b > n) {
+                c = c->next;
+                continue;
+            }
+            sprintf(buf, "C %ld %ld ", (long) c->a, (long) c->b);
+            Tcl_DStringAppend(&ds, buf, -1);
+            peer = c->peer;
+            if (peer != NULL) {
+                sprintf(buf, "%ld %ld ", (long) peer->a, (long) peer->b);
+            } else {
+                sprintf(buf, "%ld %ld ", m + 1, n + 1);
+            }
+            Tcl_DStringAppend(&ds, buf, -1);
+            if (c->prev != NULL) {
+                sprintf(buf, "%ld %ld ", (long) c->prev->a, (long) c->prev->b);
+            } else {
+                sprintf(buf, "%d %d ", 0, 0);
+            }
+            Tcl_DStringAppend(&ds, buf, -1);
+            
+            c = c->next;
+        }
+    
+        Tcl_SetVar(interp, "DiffUtil::Candidates", Tcl_DStringValue(&ds), TCL_GLOBAL_ONLY);
+        Tcl_DStringFree(&ds);
+    }
+#endif /* DEBUG */
+    
     /* Wrap up result */
 
     /*printf("Doing J\n");*/
@@ -331,9 +405,32 @@ LcsCore(Line_T m, Line_T n, Line_T *P, E_T *E, DiffOptions_T *optsPtr)
         J[i] = 0;
     }
     c = K[k];
+    /* Are there more than one possible end point? */
+    if (c->peer != NULL) {
+        Candidate_T *bestc;
+        Line_T score, score2, bests;
+        /*
+         * The best is the one where the distances to start or end of file
+         * is the same in both files.
+         */
+        bestc = c;
+        bests = 1000000000;
+        while (c != NULL) {
+            score  = labs(((long) m - (long) c->a) - ((long) n - (long) c->b));
+            score2 = labs((long) c->a - (long) c->b);
+            if (score2 < score) score = score2;
+            if (score < bests) {
+                bests = score;
+                bestc = c;
+            }
+            c = c->peer;
+        }
+        c = bestc;
+    }
     while (c != NULL) {
         if (c->a < 0 || c->a > m) printf("GURKA\n");
         J[c->a] = c->b;
+        /* FIXA: check for alternative routes */
         c = c->prev;
     }
 
@@ -562,7 +659,7 @@ CompareFiles(Tcl_Interp *interp, char *name1, char *name2,
         return TCL_ERROR;
     }
     /*printf("Doing LcsCore m = %ld, n = %ld\n", m, n);*/
-    J = LcsCore(m, n, P, E, optsPtr);
+    J = LcsCore(interp, m, n, P, E, optsPtr);
     /*printf("Done LcsCore\n");*/
     if (0) {
         int i;
