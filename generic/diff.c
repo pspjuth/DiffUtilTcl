@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include "diffutil.h"
 
 #define IGNORE_ALL_SPACE 1
 #define IGNORE_SPACE_CHANGE 2
@@ -466,7 +467,7 @@ CompareFiles(Tcl_Interp *interp, char *name1, char *name2, int ignore)
     if (0) {
         int i;
         for (i = 0; i <= m; i++) {
-            printf("J(%d)=%d ", i, J[i]);
+            printf("J(%d)=%ld ", i, J[i]);
         }
         printf("\n");
     }
