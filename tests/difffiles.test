@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 
 package require DiffUtil
 
@@ -175,18 +175,12 @@ test difffiles-5.7 {priority} {CDiff} {
     # 7    {a b c d e {}              a b i j k}
     # 8    {a b c d e {} a              b i j k}
     # 9    {a b c d e {} a b              i j k}
-    RunTest $l1 $l2
+    list [RunTest $l1 $l2] [RunTest $l2 $l1]
     # Any start line from 6-9 are correct bet from a visual point of
     # view 6 or 7 are preferable.
-} [list {7 6 7 0}]
+} [list [list {7 6 7 0}] [list {7 0 7 6}]]
 
-test difffiles-5.7.2 {priority} {CDiff} { # Same as 5.7 but reversed order
-    set l1 {a b c d e {} a b f g h {} a b i j k}
-    set l2 {a b c d e {}              a b i j k}
-    RunTest $l2 $l1
-} [list {7 0 7 6}]
-
-test difffiles-5.7.3 {priority} {TclDiff} { # Same as 5.7, tcl version
+test difffiles-5.7.2 {priority} {TclDiff} { # Same as 5.7, tcl version
     set l1 {a b c d e {} a b f g h {} a b i j k}
     set l2 {a b c d e {}              a b i j k}
     RunTest $l1 $l2
