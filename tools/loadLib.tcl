@@ -7,8 +7,8 @@ namespace eval ::DiffUtil {
             set root [string map {. {}} $root]
             set libfile $root[info sharedlibext]
         }
-        if {[catch {uplevel \#0 load [file join $dir $libfile]}]} {
-            source [file join $dir diffutil.tcl]
+        if {[catch {uplevel \#0 [list load [file join $dir $libfile]]}]} {
+            uplevel \#0 [list source [file join $dir diffutil.tcl]]
         }
     }
 }
