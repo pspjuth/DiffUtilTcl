@@ -34,60 +34,62 @@ DllEntryPoint(HINSTANCE hinstDll, DWORD fdwReason, LPVOID lpvReserved)
 
 #endif /* __WIN32__ */
 
+typedef int (CompareFun) (CONST Tcl_UniChar *,
+                          CONST Tcl_UniChar *,
+                          unsigned long);
+
 /* 'string first' for unicode string */
 static int
-UniCharFirst(ustring1, length1, ustring2, length2)
+UniCharFirst(ustring1, length1, ustring2, length2, nocase)
     Tcl_UniChar *ustring1;
     int length1;
     Tcl_UniChar *ustring2;
     int length2;
+    int nocase;
 {
-    int match, start = 0;
+    int match;
+    CompareFun *cmp;
+    Tcl_UniChar first1, c2;
 
     /*
      * We are searching string2 for the sequence string1.
      */
     
     match = -1;
-    start = 0;
     if (length1 < 0)
 	length1 = Tcl_UniCharLen(ustring1);
     if (length2 < 0)
 	length2 = Tcl_UniCharLen(ustring2);
 
-    if (start != 0) {
-	if (start >= length2) {
-	    return -1;
-	} else if (start > 0) {
-	    ustring2 += start;
-	    length2  -= start;
-	} else if (start < 0) {
-	    start = 0;
-	}
+    if (nocase) {
+        cmp = Tcl_UniCharNcasecmp;
+    } else {
+        cmp = Tcl_UniCharNcmp;
     }
 
     if (length1 > 0) {
 	register Tcl_UniChar *p, *end;
-
+        if (nocase) {
+            first1 = Tcl_UniCharToLower(*ustring1);
+        } else {
+            first1 = *ustring1;
+        }
 	end = ustring2 + length2 - length1 + 1;
 	for (p = ustring2;  p < end;  p++) {
 	    /*
 	     * Scan forward to find the first character.
 	     */
-	    if ((*p == *ustring1) &&
-		    (Tcl_UniCharNcmp(ustring1, p,
-			    (unsigned long) length1) == 0)) {
+            if (nocase) {
+                c2 = Tcl_UniCharToLower(*p);
+            } else {
+                c2 = *p;
+            }
+	    if ((c2 == first1) &&
+                (cmp(ustring1, p, (unsigned long) length1) == 0)) {
 		match = p - ustring2;
 		break;
 	    }
 	}
-    }
-    /*
-     * Compute the character index of the matching string by
-     * counting the number of characters before the match.
-     */
-    if ((match != -1) && (start != 0)) {
-	match += start;
     }
 
     return match;
@@ -97,11 +99,12 @@ UniCharFirst(ustring1, length1, ustring2, length2)
 // res should point to list object where the result
 // will be appended.
 static void
-CompareMidString(interp, obj1, obj2, res, wordparse)
+CompareMidString(interp, obj1, obj2, res, wordparse, nocase)
     Tcl_Interp *interp;
     Tcl_Obj *obj1, *obj2;
     Tcl_Obj *res;
     int wordparse;
+    int nocase;
 {
     Tcl_UniChar *str1, *str2;
     int len1, len2, t, u, i, newt, newp1;
@@ -113,7 +116,7 @@ CompareMidString(interp, obj1, obj2, res, wordparse)
 
     // Is str1 a substring of str2 ?
     if (len1 < len2) {
-	if ((t = UniCharFirst(str1, len1, str2, len2)) != -1) {
+	if ((t = UniCharFirst(str1, len1, str2, len2, nocase)) != -1) {
 	    Tcl_ListObjAppendElement(interp, res, Tcl_NewObj());
 	    Tcl_ListObjAppendElement(interp, res,
 		    Tcl_NewUnicodeObj(str2, t));
@@ -129,7 +132,7 @@ CompareMidString(interp, obj1, obj2, res, wordparse)
 
     // Is str2 a substring of str1 ?
     if (len2 < len1) {
-	if ((t = UniCharFirst(str2, len2, str1, len1)) != -1) {
+	if ((t = UniCharFirst(str2, len2, str1, len1, nocase)) != -1) {
 	    Tcl_ListObjAppendElement(interp, res,
 		    Tcl_NewUnicodeObj(str1, t));
 	    Tcl_ListObjAppendElement(interp, res, Tcl_NewObj());
@@ -156,11 +159,16 @@ CompareMidString(interp, obj1, obj2, res, wordparse)
     minlen = 2; // The shortest common substring we detect is 3 chars
 
     for (t = 0, u = minlen; u < len1; t++, u++) {
-        i = UniCharFirst(str1 + t, u - t + 1, str2, len2);
+        i = UniCharFirst(str1 + t, u - t + 1, str2, len2, nocase);
         if (i >= 0) {
             for (p1 = u + 1, p2 = i + minlen + 1; p1 < len1 && p2 < len2;
 		 p1++, p2++) {
-                if (str1[p1] != str2[p2]) break;
+                if (nocase) {
+                    if (Tcl_UniCharToLower(str1[p1]) !=
+                        Tcl_UniCharToLower(str2[p2])) break;
+                } else {
+                    if (str1[p1] != str2[p2]) break;
+                }
 	    }
             if (wordparse) {
                 newt = t;
@@ -209,7 +217,7 @@ CompareMidString(interp, obj1, obj2, res, wordparse)
     apa2 = Tcl_NewUnicodeObj(str2, found2);
     Tcl_IncrRefCount(apa1);
     Tcl_IncrRefCount(apa2);
-    CompareMidString(interp, apa1, apa2, res, wordparse);
+    CompareMidString(interp, apa1, apa2, res, wordparse, nocase);
     Tcl_DecrRefCount(apa1);
     Tcl_DecrRefCount(apa2);
 
@@ -224,7 +232,7 @@ CompareMidString(interp, obj1, obj2, res, wordparse)
     apa2 = Tcl_NewUnicodeObj(str2 + found2 + foundlen, -1);
     Tcl_IncrRefCount(apa1);
     Tcl_IncrRefCount(apa2);
-    CompareMidString(interp, apa1, apa2, res, wordparse);
+    CompareMidString(interp, apa1, apa2, res, wordparse, nocase);
     Tcl_DecrRefCount(apa1);
     Tcl_DecrRefCount(apa2);
 }
@@ -237,6 +245,7 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
     Tcl_Obj *CONST objv[];	/* Argument objects. */
 {
     int index, t, result = TCL_OK;
+    int nocase = 0;
     int ignore = 0, wordparse = 0;
     int len1, len2;
     Tcl_UniChar *line1, *line2, *s1, *s2, *e1, *e2;
@@ -264,6 +273,7 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
 	switch (index) {
           case OPT_NOCASE :
           case OPT_I :
+            nocase = 1;
             break;
 	  case OPT_B:
 	    ignore = 1;
@@ -302,7 +312,11 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
 	    word1 = s1;
 	    word2 = s2;
 	}
-	if (*s1 != *s2) break;
+        if (nocase) {
+            if (Tcl_UniCharToLower(*s1) != Tcl_UniCharToLower(*s2)) break;
+        } else {
+            if (*s1 != *s2) break;
+        }
 	if (wordparse) {
 	    if (Tcl_UniCharIsWordChar(*s1)) {
 		wordflag = 0;
@@ -327,7 +341,12 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
 	    word1 = e1;
 	    word2 = e2;
 	}
-	if (*(e1 - 1) != *(e2 - 1)) break;
+        if (nocase) {
+            if (Tcl_UniCharToLower(*(e1 - 1)) != Tcl_UniCharToLower(*(e2 - 1)))
+                break;
+        } else {
+            if (*(e1 - 1) != *(e2 - 1)) break;
+        }
 	if (wordparse) {
 	    if (Tcl_UniCharIsWordChar(*(e1 - 1))) {
 		wordflag = 0;
@@ -355,7 +374,7 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
 	mid2 = Tcl_NewUnicodeObj(s2, e2 - s2);
 	Tcl_IncrRefCount(mid1);
 	Tcl_IncrRefCount(mid2);
-	CompareMidString(interp, mid1, mid2, res, wordparse);
+	CompareMidString(interp, mid1, mid2, res, wordparse, nocase);
 	Tcl_DecrRefCount(mid1);
 	Tcl_DecrRefCount(mid2);
 
