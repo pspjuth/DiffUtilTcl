@@ -8,7 +8,7 @@
 #  Eskil, and will be released as a separate package when mature.
 #
 #----------------------------------------------------------------------
-# $Revision: 1.3 $
+# $Revision: 1.4 $
 #----------------------------------------------------------------------
 
 package provide DiffUtil 0.1
@@ -193,7 +193,7 @@ proc DiffUtil::diffFiles {args} {
             -nocase      {lappend diffopts -i }
             -align - -range {set value $arg}
             default {
-                return -code error "Bad option \"$arg\""
+                return -code error "bad option \"$arg\""
             }
         }
     }
@@ -274,18 +274,16 @@ proc DiffUtil::diffFiles {args} {
         # Copy up to the align line to temporary files
         set cho1 [open $tmp1 "w"]
         set start1 $n1
-        while {[gets $ch1 line] >= 0} {
+        while {$n1 <= $align1 && [gets $ch1 line] >= 0} {
             puts $cho1 $line
             incr n1
-            if {$n1 > $align1} break
         }
         close $cho1
         set cho2 [open $tmp2 "w"]
         set start2 $n2
-        while {[gets $ch2 line] >= 0} {
+        while {$n2 <= $align2 && [gets $ch2 line] >= 0} {
             puts $cho2 $line
             incr n2
-            if {$n2 > $align2} break
         }
         close $cho2
 
@@ -442,7 +440,7 @@ proc DiffUtil::diffStrings {args} {
             -words       {set opts(-words)  1}
             -nocase - -i {set opts(-nocase) 1}
             default {
-                return -code error "Bad option \"$arg\""
+                return -code error "bad option \"$arg\""
             }
         }
     }
