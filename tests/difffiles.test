@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.3 $
+# $Revision: 1.4 $
 
 package require DiffUtil
 
@@ -49,10 +49,6 @@ test difffiles-1.3 {standard cases, error} -body {
     DiffUtil::diffFiles a
 } -returnCodes 1 -result "wrong # args*" -match glob
 
-test difffiles-1.4 {standard cases, error} -body {
-    DiffUtil::diffFiles -range {0 0 0 0} -align {0 0} a b
-} -returnCodes 1 -result "Both -align and -range are not currently supported"
-
 test difffiles-2.1 {alignment, no align} {
     set l1 {a b c d  }
     set l2 {a   c d b}
@@ -65,12 +61,27 @@ test difffiles-2.2 {alignment} {
     RunTest $l1 $l2 -align {2 4}
 } [list {2 0 2 2} {3 2 5 0}]
 
-test difffiles-2.3 {alignment, impossible align} {
+test difffiles-2.3 {alignment, error} -body {
+    DiffUtil::diffFiles -align {1} a b
+} -returnCodes 1 -result {bad align*} -match glob
+
+test difffiles-2.4 {alignment, impossible align ignored} {
     set l1 {a     b c d}
     set l2 {a c d b    }
     RunTest $l1 $l2 -align {2 4 3 2}
-} [list {2 0 2 2} {3 1 5 0} {4 1 5 0}]
+} [list {2 0 2 2} {3 2 5 0}]
 
+test difffiles-2.5 {alignment+range} -body {
+    set l1 {a     b c d e}
+    set l2 {x c d b     y}
+    RunTest $l1 $l2 -align {2 4} -range {2 4 2 4}
+} -result [list {2 0 2 2} {3 2 5 0}]
+
+test difffiles-2.6 {alignment, switched order} {
+    set l1 {a     b c d e f g    }
+    set l2 {a c d b         g e f}
+    RunTest $l1 $l2 -align {7 5 2 4}
+} [list {2 0 2 2} {3 4 5 0} {8 0 6 2}]
 
 test difffiles-3.1 {ignore space} {
     set l1 {a {b c} d e f {g h}  i}
@@ -98,10 +109,9 @@ test difffiles-4.1 {range} {
 } [list {3 1 3 1} {6 0 6 1}]
 
 test difffiles-4.2 {range} -body {
-    set l1 {a bc d e f gh  i}
-    set l2 {a xy x e f ghh i}
-    RunTest $l1 $l2 -range {3 5 3}
-} -result {Bad range*} -match glob
+    DiffUtil::diffFiles -range {3 5 3} a b
+} -returnCodes 1 -result {bad range*} -match glob
 
-#----------------------------------------------------------------------
-::tcltest::cleanupTests
+test difffiles-4.3 {range} -body {
+    DiffUtil::diffFiles -range {-3 5 3 5} a b
+} -returnCodes 1 -result {bad range*} -match glob
