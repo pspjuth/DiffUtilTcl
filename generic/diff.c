@@ -39,17 +39,27 @@ typedef struct V_T {
     Line_T serial;
     int chars;
     Hash_T hash;
+    Hash_T realhash;
 } V_T;
 
 /* A type to implement the E vector in the LCS algorithm */
 typedef struct E_T {
     Line_T serial;
     int last;
+    Hash_T hash;
 } E_T;
+
+/* A type to implement the P vector in the LCS algorithm */
+typedef struct P_T {
+    Line_T Eindex;
+    Hash_T hash;
+} P_T;
 
 /* A type to implement the Candidates in the LCS algorithm */
 typedef struct Candidate_T {
     Line_T a, b;
+    /* Hash value for the line in the second file */
+    Hash_T hash;
     /*
      * If this is a k-candidate, the prev pointer points to a
      * (k-1)-candidate that matches this one.
@@ -60,14 +70,21 @@ typedef struct Candidate_T {
      * k-candidate which is up/left of this one.
      */
     struct Candidate_T *peer;
-    /* 
-     * The next pointer is used for housekeeping.
-     * By linking all allocated candidates it is easy to deallocate
-     * them in the end.
-     */
-    struct Candidate_T *next;
 } Candidate_T;
 
+/*
+ * Candidates are allocated in blocks to speed up handling and to
+ * simplify freeing.
+ */
+
+/* Allocate in blocks of 4k */  
+#define CANDIDATE_ALLOC ((4096-sizeof(int)-sizeof(struct CandidateAlloc_T *))/sizeof(Candidate_T))
+
+typedef struct CandidateAlloc_T {
+    int used;
+    struct CandidateAlloc_T *next;
+    Candidate_T candidates[CANDIDATE_ALLOC];
+} CandidateAlloc_T;
 
 /* Check if an index pair fails to match due to alignment */
 static int
@@ -90,25 +107,29 @@ static int
 hash(Tcl_Obj *objPtr,         /* Input Object */
      DiffOptions_T *optsPtr,  /* Options      */
      Hash_T *res,             /* Hash value   */
+     Hash_T *real,            /* Hash value when ignoring ignore */
      int *chars)              /* Number of chars read */
 {
-    Hash_T h = 0;
-    int c, i, length, nc = 0;
+    Hash_T h;
+    int c, i, length, nc;
     char *string;
     string = Tcl_GetStringFromObj(objPtr, &length);
 
     /* Use the fast way when no ignore flag is used. */
-    if (optsPtr->ignore == 0) {
-        for (i = 0; i < length; i++) {
-            h += (h << 3) + string[i];
-        }
-        nc = length;
-    } else {
+    h = 0;
+    for (i = 0; i < length; i++) {
+        h += (h << 3) + string[i];
+    }
+    *real = h;
+    nc = length;
+    if (optsPtr->ignore != 0) {
         const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
         const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
         const int ignorecase     = (optsPtr->ignore & IGNORE_CASE);
         /*const int ignorekey      = (optsPtr->ignore & IGNORE_KEYWORD);*/
         int inspace = 1;
+        h = 0;
+        nc = 0;
 
         for (i = 0; i < length; i++) {
             c = string[i];
@@ -218,26 +239,37 @@ compareV(const void *a1, const void *a2) {
 
 /* Create a new candidate */
 static Candidate_T *
-NewCandidate(Candidate_T **first, Line_T a, Line_T b,
+NewCandidate(CandidateAlloc_T **first, Line_T a, Line_T b, Hash_T hash,
              Candidate_T *prev, Candidate_T *peer) {
-    Candidate_T *c = (Candidate_T *) ckalloc(sizeof(Candidate_T));
+    Candidate_T *c;
+    CandidateAlloc_T *ca;
+    if (*first == NULL || (*first)->used >= CANDIDATE_ALLOC) {
+        ca = (CandidateAlloc_T *) ckalloc(sizeof(CandidateAlloc_T));
+        ca->used = 0;
+        ca->next = *first;
+        *first = ca;
+    } else {
+        ca = *first;
+    }
+    c = &ca->candidates[ca->used];
+    ca->used++;
+
     c->a = a;
     c->b = b;
+    c->hash = hash;
     c->prev = prev;
     c->peer = peer;
-    c->next = *first;
-    *first = c;
     return c;
 }
 
 /* Clean up all allocated candidates */
 static void
-FreeCandidates(Candidate_T **first) {
-    Candidate_T *c = *first, *n;
-    while (c != NULL) {
-        n = c->next;
-        ckfree((char *) c);
-        c = n;
+FreeCandidates(CandidateAlloc_T **first) {
+    CandidateAlloc_T *ca = *first, *n;
+    while (ca != NULL) {
+        n = ca->next;
+        ckfree((char *) ca);
+        ca = n;
     }
     *first = NULL;
 }
@@ -246,7 +278,7 @@ FreeCandidates(Candidate_T **first) {
  * This implements the merge function from the LCS algorithm
  */
 static void
-merge(Candidate_T **firstCandidate,
+merge(CandidateAlloc_T **firstCandidate,
       Candidate_T **K,
       Line_T *k,
       Line_T i,
@@ -302,7 +334,7 @@ merge(Candidate_T **firstCandidate,
                 peer = NULL;
             }
             /*printf("Set K%ld to (%ld,%ld)->(%ld,%ld)\n", r, c->a, c->b, c->prev == NULL ? 0: c->prev->a, c->prev == NULL ? 0: c->prev->b);*/
-            K[s+1] = NewCandidate(firstCandidate, i, j, K[s], peer);
+            K[s+1] = NewCandidate(firstCandidate, i, j, E[p].hash, K[s], peer);
             r = s;
         } else if (b1 == j) {
             /* Search through s-1 candidates for a fitting one. */
@@ -311,7 +343,7 @@ merge(Candidate_T **firstCandidate,
                 if (c->a < i && c->b < j) break;
                 c = c->peer;
             }
-            K[s] = NewCandidate(firstCandidate, i, j, c, K[s]);
+            K[s] = NewCandidate(firstCandidate, i, j, E[p].hash, c, K[s]);
         }
 
         if (E[p].last) break;
@@ -331,25 +363,25 @@ merge(Candidate_T **firstCandidate,
  */
 static Line_T *
 LcsCore(Tcl_Interp *interp,
-        Line_T m, Line_T n, Line_T *P, E_T *E,
+        Line_T m, Line_T n, P_T *P, E_T *E,
         DiffOptions_T *optsPtr)
 {
     Candidate_T **K, *c;
     Line_T i, k, *J;
     /* Keep track of all candidates to free them easily */
-    Candidate_T *candidates = NULL;
+    CandidateAlloc_T *candidates = NULL;
 
     /* Find LCS */
     /*printf("Doing K\n");*/
     K = (Candidate_T **) ckalloc(sizeof(Candidate_T *) * ((m < n ? m : n) + 2));
-    K[0] = NewCandidate(&candidates, 0, 0, NULL, NULL);
-    K[1] = NewCandidate(&candidates, m + 1, n + 1, NULL, NULL);
+    K[0] = NewCandidate(&candidates, 0, 0, 0, NULL, NULL);
+    K[1] = NewCandidate(&candidates, m + 1, n + 1, 0, NULL, NULL);
     k = 0;
 
     for (i = 1; i <= m; i++) {
-        if (P[i] != 0) {
+        if (P[i].Eindex != 0) {
             /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
-            merge(&candidates, K, &k, i, E, P[i], optsPtr);
+            merge(&candidates, K, &k, i, E, P[i].Eindex, optsPtr);
         }
     }
 
@@ -359,6 +391,7 @@ LcsCore(Tcl_Interp *interp,
         Tcl_DString ds;
         char buf[40];
         Candidate_T *peer;
+        CandidateAlloc_T *ca;
 
         Tcl_DStringInit(&ds);
         for (i = k; i > 0; i--) {
@@ -367,29 +400,31 @@ LcsCore(Tcl_Interp *interp,
                     (long) c->a, (long) c->b, (long) i);
             Tcl_DStringAppend(&ds, buf, -1);
         }
-        c = candidates;
-        while (c != NULL) {
-            if (c->a <= 0 || c->a > m || c->b <= 0 || c->b > n) {
-                c = c->next;
-                continue;
+        
+        ca = candidates;
+        while (ca != NULL) {
+            for (i = 0; i < ca->used; i++) {
+                c = &ca->candidates[i];
+                if (c->a <= 0 || c->a > m || c->b <= 0 || c->b > n) {
+                    continue;
+                }
+                sprintf(buf, "C %ld %ld ", (long) c->a, (long) c->b);
+                Tcl_DStringAppend(&ds, buf, -1);
+                peer = c->peer;
+                if (peer != NULL) {
+                    sprintf(buf, "%ld %ld ", (long) peer->a, (long) peer->b);
+                } else {
+                    sprintf(buf, "%ld %ld ", m + 1, n + 1);
+                }
+                Tcl_DStringAppend(&ds, buf, -1);
+                if (c->prev != NULL) {
+                    sprintf(buf, "%ld %ld ", (long) c->prev->a, (long) c->prev->b);
+                } else {
+                    sprintf(buf, "%d %d ", 0, 0);
+                }
+                Tcl_DStringAppend(&ds, buf, -1);
             }
-            sprintf(buf, "C %ld %ld ", (long) c->a, (long) c->b);
-            Tcl_DStringAppend(&ds, buf, -1);
-            peer = c->peer;
-            if (peer != NULL) {
-                sprintf(buf, "%ld %ld ", (long) peer->a, (long) peer->b);
-            } else {
-                sprintf(buf, "%ld %ld ", m + 1, n + 1);
-            }
-            Tcl_DStringAppend(&ds, buf, -1);
-            if (c->prev != NULL) {
-                sprintf(buf, "%ld %ld ", (long) c->prev->a, (long) c->prev->b);
-            } else {
-                sprintf(buf, "%d %d ", 0, 0);
-            }
-            Tcl_DStringAppend(&ds, buf, -1);
-            
-            c = c->next;
+            ca = ca->next;
         }
     
         Tcl_SetVar(interp, "DiffUtil::Candidates", Tcl_DStringValue(&ds), TCL_GLOBAL_ONLY);
@@ -419,6 +454,10 @@ LcsCore(Tcl_Interp *interp,
             score  = labs(((long) m - (long) c->a) - ((long) n - (long) c->b));
             score2 = labs((long) c->a - (long) c->b);
             if (score2 < score) score = score2;
+            if (P[c->a].hash != c->hash) {
+                /* Worse score if lines differ */
+                score += 100;
+            }
             if (score < bests) {
                 bests = score;
                 bestc = c;
@@ -447,13 +486,15 @@ static int
 ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
                  DiffOptions_T *optsPtr,
                  Line_T *mPtr, Line_T *nPtr,
-                 Line_T **PPtr, E_T **EPtr)
+                 P_T **PPtr, E_T **EPtr)
 {
     int result = TCL_OK;
     V_T *V = NULL;
     E_T *E = NULL;
+    P_T *P = NULL;
     struct stat buf1, buf2;
-    Line_T line, j, m = 0, n = 0, h, *P = NULL;
+    Hash_T h, realh;
+    Line_T line, j, m = 0, n = 0;
     Line_T allocedV, allocedP, first, last;
     int chars;
     Tcl_Channel ch;
@@ -510,7 +551,7 @@ ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
             break;
         }
 
-        hash(linePtr, optsPtr, &V[n].hash, &V[n].chars);
+        hash(linePtr, optsPtr, &V[n].hash, &V[n].realhash, &V[n].chars);
         if (optsPtr->rTo2 > 0 && optsPtr->rTo2 <= line) break;
 
         n++;
@@ -538,6 +579,7 @@ ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
     E[0].last = 1;
     for (j = 1; j <= n; j++) {
         E[j].serial = V[j].serial;
+        E[j].hash   = V[j].realhash;
         if (j == n) {
             E[j].last = 1;
         } else {
@@ -555,7 +597,7 @@ ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
     allocedP = buf1.st_size / 40;
     /* If the guess is low, alloc some more to be safe. */
     if (allocedP < 10000) allocedP = 10000;
-    P = (Line_T *) ckalloc(allocedP * sizeof(Line_T));
+    P = (P_T *) ckalloc(allocedP * sizeof(P_T));
 
     /* Read file and calculate hashes for each line */
     ch = Tcl_OpenFileChannel(interp, name1, "r", 0);
@@ -576,13 +618,14 @@ ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
 
     m = 1;
     while (1) {
-        P[m] = 0;
+        P[m].Eindex = 0;
         Tcl_SetObjLength(linePtr, 0);
         if (Tcl_GetsObj(ch, linePtr) < 0) {
             m--;
             break;
         }
-        hash(linePtr, optsPtr, &h, &chars);
+        hash(linePtr, optsPtr, &h, &realh, &chars);
+        P[m].hash = realh;
 
         /* Binary search for hash in V */
         first = 1;
@@ -598,7 +641,7 @@ ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
         }
         if (V[j].hash == h) {
             while (!E[j-1].last) j--;
-            P[m] = j;
+            P[m].Eindex = j;
             /*printf("P %ld = %ld\n", m, j);*/
         }
 
@@ -608,8 +651,8 @@ ReadAndHashFiles(Tcl_Interp *interp, char *name1, char *name2,
         line++;
         if (m >= allocedP) {
             allocedP = allocedP * 3 / 2;
-            P = (Line_T *) ckrealloc((char *) P,
-                                   allocedP * sizeof(Line_T));
+            P = (P_T *) ckrealloc((char *) P,
+                                  allocedP * sizeof(P_T));
         }
     }
     Tcl_Close(interp, ch);
@@ -650,7 +693,8 @@ CompareFiles(Tcl_Interp *interp, char *name1, char *name2,
              Tcl_Obj **resPtr)
 {
     E_T *E;
-    Line_T m, n, *P, *J;
+    P_T *P;
+    Line_T m, n, *J;
     Tcl_Obj *subPtr;
 
     /*printf("Doing ReadAndHash\n");*/
