@@ -8,7 +8,7 @@
 #  Eskil, and will be released as a separate package when mature.
 #
 #----------------------------------------------------------------------
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 #----------------------------------------------------------------------
 
 package provide DiffUtil 0.1
@@ -100,12 +100,12 @@ proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
 
     # A special case to diff files in a virtual file system
     if {[lindex [file system $file1] 0] ne "native"} {
-        set tmpfile1 [tmpFile]
+        set tmpfile1 [TmpFile]
         file copy -force -- $file1 $tmpfile1
         set file1 $tmpfile1
     }
     if {[lindex [file system $file2] 0] ne "native"} {
-        set tmpfile2 [tmpFile]
+        set tmpfile2 [TmpFile]
         file copy -force -- $file2 $tmpfile2
         set file2 $tmpfile2
     }
@@ -330,13 +330,19 @@ proc DiffUtil::diffFiles {args} {
 # This is sort of a Longest Common Subsequence algorithm but with
 # a preference for long consecutive substrings, and it does not look
 # for really small substrings.
-proc DiffUtil::CompareMidString {s1 s2 words} {
+proc DiffUtil::CompareMidString {s1 s2 words nocase} {
     set len1 [string length $s1]
     set len2 [string length $s2]
-
+    if {$nocase} {
+        set cs1 [string tolower $s1]
+        set cs2 [string tolower $s2]
+    } else {
+        set cs1 $s1
+        set cs2 $s2
+    }
     # Is s1 a substring of s2 ?
     if {$len1 < $len2} {
-        set t [string first $s1 $s2]
+        set t [string first $cs1 $cs2]
         if {$t != -1} {
             set left2 [string range $s2 0 [expr {$t - 1}]]
             set mid2 [string range $s2 $t [expr {$t + $len1 - 1}]]
@@ -347,7 +353,7 @@ proc DiffUtil::CompareMidString {s1 s2 words} {
 
     # Is s2 a substring of s1 ?
     if {$len2 < $len1} {
-        set t [string first $s2 $s1]
+        set t [string first $cs2 $cs1]
         if {$t != -1} {
             set left1 [string range $s1 0 [expr {$t - 1}]]
             set mid1 [string range $s1 $t [expr {$t + $len2 - 1}]]
@@ -366,28 +372,28 @@ proc DiffUtil::CompareMidString {s1 s2 words} {
 
     # Find the longest string common to both strings
     for {set t 0 ; set u $minlen} {$u < $len1} {incr t ; incr u} {
-        set i [string first [string range $s1 $t $u] $s2]
+        set i [string first [string range $cs1 $t $u] $cs2]
         if {$i >= 0} {
             for {set p1 [expr {$u + 1}]; set p2 [expr {$i + $minlen + 1}]} \
                     {$p1 < $len1 && $p2 < $len2} {incr p1 ; incr p2} {
-                if {[string index $s1 $p1] ne [string index $s2 $p2]} {
+                if {[string index $cs1 $p1] ne [string index $cs2 $p2]} {
                     break
                 }
             }
             if {$words} {
                 set newt $t
-                if {($t > 0 && [string index $s1 [expr {$t - 1}]] ne " ") || \
-                    ($i > 0 && [string index $s2 [expr {$i - 1}]] ne " ")} {
+                if {($t > 0 && [string index $cs1 [expr {$t - 1}]] ne " ") || \
+                    ($i > 0 && [string index $cs2 [expr {$i - 1}]] ne " ")} {
                     for {} {$newt < $p1} {incr newt} {
-                        if {[string index $s1 $newt] eq " "} break
+                        if {[string index $cs1 $newt] eq " "} break
                     }
                 }
 
                 set newp1 [expr {$p1 - 1}]
-                if {($p1 < $len1 && [string index $s1 $p1] ne " ") || \
-                    ($p2 < $len2 && [string index $s2 $p2] ne " ")} {
+                if {($p1 < $len1 && [string index $cs1 $p1] ne " ") || \
+                    ($p2 < $len2 && [string index $cs2 $p2] ne " ")} {
                     for {} {$newp1 > $newt} {incr newp1 -1} {
-                        if {[string index $s1 $newp1] eq " "} break
+                        if {[string index $cs1 $newp1] eq " "} break
                     }
                 }
                 incr newp1
@@ -420,8 +426,8 @@ proc DiffUtil::CompareMidString {s1 s2 words} {
         set mid2 [string range $s2 $found2 [expr {$found2 + $foundlen - 1}]]
         set right2 [string range $s2 [expr {$found2 + $foundlen}] end]
 
-        set leftl  [CompareMidString $left1  $left2  $words]
-        set rightl [CompareMidString $right1 $right2 $words]
+        set leftl  [CompareMidString $left1  $left2  $words $nocase]
+        set rightl [CompareMidString $right1 $right2 $words $nocase]
 
         return [concat $leftl [list $mid1 $mid2] $rightl]
     }
@@ -429,7 +435,7 @@ proc DiffUtil::CompareMidString {s1 s2 words} {
 
 # Compare two strings
 # Usage: diffStrings ?options? string1 string2
-# -nocase -i  : Ignore case (not implemented, accepted but ignored)
+# -nocase -i  : Ignore case
 # -b          : Ignore space changes
 # -w          : Ignore all spaces
 # -words      : Align changes to words
@@ -501,14 +507,29 @@ proc DiffUtil::diffStrings {args} {
     set len1 [string length $apa1]
     set len2 [string length $apa2]
     set len [expr {$len1 < $len2 ? $len1 : $len2}]
-    for {set t 0; set s 0; set flag 0} {$t < $len} {incr t} {
-        if {[set c [string index $apa1 $t]] != [string index $apa2 $t]} {
-            incr flag 2
-            break
+    # Do -nocase in its own loop to not slow down the other
+    if {$opts(-nocase)} {
+        for {set t 0; set s 0; set flag 0} {$t < $len} {incr t} {
+            set c [string index $apa1 $t]
+            if {![string equal -nocase $c [string index $apa2 $t]]} {
+                incr flag 2
+                break
+            }
+            if {$c eq " "} {
+                set s $t
+                set flag 1
+            }
         }
-        if {$c eq " "} {
-            set s $t
-            set flag 1
+    } else {
+        for {set t 0; set s 0; set flag 0} {$t < $len} {incr t} {
+            if {[set c [string index $apa1 $t]] ne [string index $apa2 $t]} {
+                incr flag 2
+                break
+            }
+            if {$c eq " "} {
+                set s $t
+                set flag 1
+            }
         }
     }
 
@@ -539,15 +560,31 @@ proc DiffUtil::diffStrings {args} {
     set s1 $t1
     set s2 $t2
     set flag 0
-    for {} {$t1 >= $leftp1 && $t2 >= $leftp2} {incr t1 -1; incr t2 -1} {
-        if {[set c [string index $mid1 $t1]] != [string index $mid2 $t2]} {
-            incr flag 2
-            break
+    # Do -nocase in its own loop to not slow down the other
+    if {$opts(-nocase)} {
+        for {} {$t1 >= $leftp1 && $t2 >= $leftp2} {incr t1 -1; incr t2 -1} {
+            set c [string index $mid1 $t1]
+            if {![string equal -nocase $c [string index $mid2 $t2]]} {
+                incr flag 2
+                break
+            }
+            if {$c eq " "} {
+                set s1 $t1
+                set s2 $t2
+                set flag 1
+            }
         }
-        if {$c eq " "} {
-            set s1 $t1
-            set s2 $t2
-            set flag 1
+    } else {
+        for {} {$t1 >= $leftp1 && $t2 >= $leftp2} {incr t1 -1; incr t2 -1} {
+            if {[set c [string index $mid1 $t1]] ne [string index $mid2 $t2]} {
+                incr flag 2
+                break
+            }
+            if {$c eq " "} {
+                set s1 $t1
+                set s2 $t2
+                set flag 1
+            }
         }
     }
     if {$opts(-words)} {
@@ -574,7 +611,7 @@ proc DiffUtil::diffStrings {args} {
         set left2 [string range $string2 0 [expr {$leftp2 - 1}]]
 
         if {$mid1 ne "" && $mid2 ne ""} {
-            set midl [CompareMidString $mid1 $mid2 $opts(-words)]
+            set midl [CompareMidString $mid1 $mid2 $opts(-words) $opts(-nocase)]
             set res [concat [list $left1 $left2] $midl [list $right1 $right2]]
         } else {
             set res [list $left1 $left2 $mid1 $mid2 $right1 $right2]
