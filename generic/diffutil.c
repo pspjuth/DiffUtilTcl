@@ -1,3 +1,16 @@
+/***********************************************************************
+ *
+ * This is the C implementation of the DiffUtil package
+ *
+ * Copyright (c) 2004, Peter Spjuth
+ *
+ * This package is starting out as a refactoring of diff code from
+ * Eskil, and will be released as a separate package when mature.
+ *
+ ***********************************************************************
+ * $Revision: 1.5 $
+ ***********************************************************************/
+
 #include <tcl.h>
 #include "diffutil.h"
 
@@ -405,6 +418,7 @@ EXPORT(int,Diffutil_Init) (Tcl_Interp *interp)
 
     TCOC("DiffUtil::diffFiles", DiffFilesObjCmd);
     TCOC("DiffUtil::diffStrings", DiffStringsObjCmd);
+    TCOC("DiffUtil::diffStrings2", DiffStrings2ObjCmd);
     Tcl_SetVar(interp, "DiffUtil::version", PACKAGE_VERSION, TCL_GLOBAL_ONLY);
 
     return TCL_OK;
