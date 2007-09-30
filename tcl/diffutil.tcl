@@ -2,13 +2,13 @@
 #
 #  This is a Tcl implementation of the DiffUtil package
 #
-#  Copyright (c) 2004, Peter Spjuth  (peter.spjuth@space.se)
+#  Copyright (c) 2004, Peter Spjuth
 #
 #  This package is starting out as a refactoring of diff code from
 #  Eskil, and will be released as a separate package when mature.
 #
 #----------------------------------------------------------------------
-# $Revision: 1.10 $
+# $Revision: 1.11 $
 #----------------------------------------------------------------------
 
 package provide DiffUtil 0.2
