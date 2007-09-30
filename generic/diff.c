@@ -3,10 +3,10 @@
  * This file implements the central LCS function for comparing things,
  * and the diffFiles command.
  *
- * Copyright (c) 2004, Peter Spjuth  (peter.spjuth@space.se)
+ * Copyright (c) 2004, Peter Spjuth
  *
  ***********************************************************************
- * $Revision: 1.13 $
+ * $Revision: 1.14 $
  ***********************************************************************/
 
 #include <tcl.h>
@@ -25,6 +25,11 @@ typedef unsigned long Hash_T;
 
 /* A type to hold line numbers */
 typedef unsigned long Line_T;
+
+/* A type for parsing state */
+typedef enum {
+    IN_NONE, IN_SPACE, IN_NUMBER
+} In_T;
 
 /* Hold all options for diffing in a common struct */
 #define STATIC_ALIGN 10
@@ -48,6 +53,7 @@ typedef struct {
 #define IGNORE_ALL_SPACE 1
 #define IGNORE_SPACE_CHANGE 2
 #define IGNORE_CASE 4
+#define IGNORE_NUMBERS 8
 
 /* A type to implement the V vector in the LCS algorithm */
 typedef struct {
@@ -139,6 +145,7 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
     int i, length;
     char *string, *str;
     Tcl_UniChar c;
+
     string = Tcl_GetStringFromObj(objPtr, &length);
 
     /* Use the fast way when no ignore flag is used. */
@@ -151,11 +158,12 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
         const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
         const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
         const int ignorecase     = (optsPtr->ignore & IGNORE_CASE);
+        const int ignorenum      = (optsPtr->ignore & IGNORE_NUMBERS);
         /* 
-         * By starting inspace at 1, IGNORE_SPACE_CHANGE will ignore all
+         * By starting in space, IGNORE_SPACE_CHANGE will ignore all
          * space in the beginning of a line.
          */
-        int inspace = 1;
+        In_T in = IN_SPACE;
         h = 0;
         str = string;
         
@@ -165,11 +173,16 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
             if (Tcl_UniCharIsSpace(c)) {
                 if (ignoreallspace) continue;
                 /* Any consecutive whitespace is regarded as a single space */
-                if (ignorespace && inspace) continue;
+                if (ignorespace && in == IN_SPACE) continue;
                 if (ignorespace) c = ' ';
-                inspace = 1;
+                in = IN_SPACE;
+            } else if (ignorenum && Tcl_UniCharIsDigit(c)) {
+                if (in == IN_NUMBER) continue;
+                /* A string of digits is replaced by a single 0 */
+                c = '0';
+                in = IN_NUMBER;
             } else {
-                inspace = 0;
+                in = IN_NONE;
                 if (ignorecase) {
                     c = Tcl_UniCharToLower(c);
                 }
@@ -192,6 +205,7 @@ CompareObjects(Tcl_Obj *obj1Ptr,
     const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
     const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
     const int ignorecase     = (optsPtr->ignore & IGNORE_CASE);
+    const int ignorenum      = (optsPtr->ignore & IGNORE_NUMBERS);
 
     string1 = Tcl_GetStringFromObj(obj1Ptr, &length1);
     string2 = Tcl_GetStringFromObj(obj2Ptr, &length2);
@@ -217,9 +231,16 @@ CompareObjects(Tcl_Obj *obj1Ptr,
                 }
             }
         }
+        if (ignorenum && isdigit(c1)) {
+            /* Scan up to non-digit */
+            while (i1 < length1 && isdigit(string1[i1])) i1++;
+            i1--;
+            c1 = '0';
+        }
         if (ignorecase && isupper(c1)) {
             c1 = tolower(c1);
         }
+
         c2 = string2[i2];
         if (isspace(c2)) {
             if (ignoreallspace || ignorespace) {
@@ -234,13 +255,20 @@ CompareObjects(Tcl_Obj *obj1Ptr,
                 }
             }
         }
+        if (ignorenum && isdigit(c2)) {
+            /* Scan up to non-digit */
+            while (i2 < length2 && isdigit(string2[i2])) i2++;
+            i2--;
+            c2 = '0';
+        }
         if (ignorecase && isupper(c2)) {
             c2 = tolower(c2);
         }
+
         if (i1 >= length1 && i2 <  length2) return -1;
         if (i1 < length1  && i2 >= length2) return  1;
         if (c1 < c2) return -1;
-        if (c1 > c2) return -1;
+        if (c1 > c2) return  1;
         i1++;
         i2++;
     }
@@ -335,6 +363,7 @@ merge(CandidateAlloc_T **firstCandidate,
       Candidate_T **K,
       Line_T *k,
       Line_T i,
+      P_T *P,
       E_T *E,
       Line_T p, 
       DiffOptions_T *optsPtr,
@@ -421,10 +450,12 @@ merge(CandidateAlloc_T **firstCandidate,
                  * c is optimal if it's next to its previous candidate,
                  * but not if it has a peer in the same column.
                  * And not if the previous line is empty.
+                 * Not if this candidate is not exactly equal.
                  */
                 if (c->prev != NULL &&
                     c->k > 1 &&
                     c->prev->hash != 0 &&
+                    P[c->line1].hash == c->hash      &&
                     (c->line1 - c->prev->line1) <= 1 &&
                     (c->line2 - c->prev->line2) <= 1 &&
                     (c->prev->peer == NULL ||
@@ -461,11 +492,13 @@ merge(CandidateAlloc_T **firstCandidate,
                  * optimally placed, we skip this candidate.
                  * It is optimal if it's next to its previous candidate.
                  * Not if the previous candidate is an empty line.
+                 * Not if this candidate is not exactly equal.
                  */
                 register int ksoptimal =
                     (s > 1                                  &&
                      K[s]->prev != NULL                     &&
                      K[s]->prev->hash != 0                  &&
+                     P[K[s]->line1].hash == K[s]->hash      &&
                      (K[s]->line1 - K[s]->prev->line1) <= 1 &&
                      (K[s]->line2 - K[s]->prev->line2) <= 1);
                 if (!ksoptimal ||
@@ -544,7 +577,7 @@ ScoreCandidate(Candidate_T *c, P_T *P)
     }
 
     c->score = bestscore;
-    /* If the lines differ, its worse */
+    /* If the lines differ, it's worse */
     if (P[c->line1].hash != c->hash) {
         c->score += 5;
     }
@@ -653,7 +686,7 @@ LcsCore(Tcl_Interp *interp,
     for (i = 1; i <= m; i++) {
         if (P[i].Eindex != 0 && (!noempty || P[i].hash != 0)) {
             /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
-            merge(&candidates, K, &k, i, E, P[i].Eindex, optsPtr, m, n);
+            merge(&candidates, K, &k, i, P, E, P[i].Eindex, optsPtr, m, n);
         }
     }
 
@@ -1283,11 +1316,11 @@ DiffFilesObjCmd(dummy, interp, objc, objv)
     DiffOptions_T opts;
     static CONST char *options[] = {
 	"-b", "-w", "-i", "-nocase", "-align", "-range",
-        "-noempty", (char *) NULL
+        "-noempty", "-nodigit", "-regsub", (char *) NULL
     };
     enum options {
 	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_RANGE,
-        OPT_NOEMPTY
+        OPT_NOEMPTY, OPT_NODIGIT, OPT_REGSUB
     };
 
     if (objc < 3) {
@@ -1318,8 +1351,14 @@ DiffFilesObjCmd(dummy, interp, objc, objv)
 	  case OPT_W:
             opts.ignore |= IGNORE_ALL_SPACE;
 	    break;
+	  case OPT_NODIGIT:
+            opts.ignore |= IGNORE_NUMBERS;
+	    break;
 	  case OPT_NOEMPTY:
             opts.noempty = 1;
+            break;
+          case OPT_REGSUB:
+            /* ignored for now */
             break;
 	  case OPT_RANGE:
             t++;
