@@ -6,7 +6,7 @@
  * Copyright (c) 2004, Peter Spjuth
  *
  ***********************************************************************
- * $Revision: 1.14 $
+ * $Revision: 1.15 $
  ***********************************************************************/
 
 #include <tcl.h>
@@ -26,7 +26,7 @@ typedef unsigned long Hash_T;
 /* A type to hold line numbers */
 typedef unsigned long Line_T;
 
-/* A type for parsing state */
+/* A type for the parsing state */
 typedef enum {
     IN_NONE, IN_SPACE, IN_NUMBER
 } In_T;
@@ -118,7 +118,9 @@ typedef struct CandidateAlloc_T {
     Candidate_T candidates[CANDIDATE_ALLOC];
 } CandidateAlloc_T;
 
-/* Check if an index pair fails to match due to alignment */
+/* 
+ * Check if an index pair fails to match due to alignment
+ */
 static int
 CheckAlign(DiffOptions_T *optsPtr, Line_T i, Line_T j)
 {
@@ -133,15 +135,22 @@ CheckAlign(DiffOptions_T *optsPtr, Line_T i, Line_T j)
 }
 
 /*
+ * The hash algorithm is currently very simplistic and can probably
+ * be replaced by something better without losing speed.
+ * An empty line is assumed to have a hash value of 0.
+ */
+#define HASH_ADD(hash, character) hash += (hash << 7) + (character)
+
+/*
  * Get a string from a Tcl object and compute the hash value for it.
  */
 static int
 hash(Tcl_Obj *objPtr,         /* Input Object */
      DiffOptions_T *optsPtr,  /* Options      */
-     Hash_T *res,             /* Hash value   */
+     Hash_T *result,          /* Hash value   */
      Hash_T *real)            /* Hash value when ignoring ignore */
 {
-    Hash_T h;
+    Hash_T hash;
     int i, length;
     char *string, *str;
     Tcl_UniChar c;
@@ -149,11 +158,11 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
     string = Tcl_GetStringFromObj(objPtr, &length);
 
     /* Use the fast way when no ignore flag is used. */
-    h = 0;
+    hash = 0;
     for (i = 0; i < length; i++) {
-        h += (h << 3) + string[i];
+	HASH_ADD(hash, string[i]);
     }
-    *real = h;
+    *real = hash;
     if (optsPtr->ignore != 0) {
         const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
         const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
@@ -164,7 +173,7 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
          * space in the beginning of a line.
          */
         In_T in = IN_SPACE;
-        h = 0;
+        hash = 0;
         str = string;
         
         while (*str != 0) {
@@ -174,7 +183,8 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
                 if (ignoreallspace) continue;
                 /* Any consecutive whitespace is regarded as a single space */
                 if (ignorespace && in == IN_SPACE) continue;
-                if (ignorespace) c = ' ';
+                if (ignorespace) 
+		    c = ' ';
                 in = IN_SPACE;
             } else if (ignorenum && Tcl_UniCharIsDigit(c)) {
                 if (in == IN_NUMBER) continue;
@@ -187,14 +197,17 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
                     c = Tcl_UniCharToLower(c);
                 }
             }
-            h += (h << 3) + c;
+	    HASH_ADD(hash, c);
         }
     }
-    *res = h;
+    *result = hash;
     return 0;
 }
 
-/* Compare two strings, ignoring things in the same way as hash does. */
+/* 
+ * Compare two strings, ignoring things in the same way as hash does.
+ * Should maybe be recoded to use Unicode functions.
+ */
 static int
 CompareObjects(Tcl_Obj *obj1Ptr,
                Tcl_Obj *obj2Ptr,
@@ -294,57 +307,58 @@ compareV(const void *a1, const void *a2) {
 
 /* Create a new candidate */
 static Candidate_T *
-NewCandidate(CandidateAlloc_T **first, Line_T a, Line_T b, Hash_T hash,
+NewCandidate(CandidateAlloc_T **first,
+	     Line_T a, Line_T b, Hash_T hash,
              Candidate_T *prev, Candidate_T *peer) {
-    Candidate_T *c;
-    CandidateAlloc_T *ca;
+    Candidate_T *cand;
+    CandidateAlloc_T *candalloc;
     if (*first == NULL || (*first)->used >= CANDIDATE_ALLOC) {
-        ca = (CandidateAlloc_T *) ckalloc(sizeof(CandidateAlloc_T));
-        ca->used = 0;
+        candalloc = (CandidateAlloc_T *) ckalloc(sizeof(CandidateAlloc_T));
+        candalloc->used = 0;
 #ifdef CANDIDATE_STATS
         if (*first != NULL) {
-            ca->serial = (*first)->serial + 1;
+            candalloc->serial = (*first)->serial + 1;
         } else {
-            ca->serial = 0;
+            candalloc->serial = 0;
         }
 #endif
-        ca->next = *first;
-        *first = ca;
+        candalloc->next = *first;
+        *first = candalloc;
     } else {
-        ca = *first;
+        candalloc = *first;
     }
-    c = &ca->candidates[ca->used];
-    ca->used++;
+    cand = &candalloc->candidates[candalloc->used];
+    candalloc->used++;
 
-    c->line1 = a;
-    c->line2 = b;
-    c->hash = hash;
-    c->prev = prev;
-    c->peer = peer;
-    c->score = 0;
+    cand->line1 = a;
+    cand->line2 = b;
+    cand->hash = hash;
+    cand->prev = prev;
+    cand->peer = peer;
+    cand->score = 0;
 #ifdef CANDIDATE_DEBUG
-    c->wasK = 0;
+    cand->wasK = 0;
 #endif
     if (prev == NULL) {
-        c->k = 0;
+        cand->k = 0;
     } else {
-        c->k = prev->k + 1;
+        cand->k = prev->k + 1;
     }
-    return c;
+    return cand;
 }
 
 /* Clean up all allocated candidates */
 static void
 FreeCandidates(CandidateAlloc_T **first) {
-    CandidateAlloc_T *ca = *first, *n;
+    CandidateAlloc_T *candalloc = *first, *next;
 #ifdef CANDIDATE_STATS
     printf("Allocs %d * %d + %d = %d\n", (*first)->serial, CANDIDATE_ALLOC,
            (*first)->used, (*first)->serial * CANDIDATE_ALLOC+(*first)->used);
 #endif
-    while (ca != NULL) {
-        n = ca->next;
-        ckfree((char *) ca);
-        ca = n;
+    while (candalloc != NULL) {
+        next = candalloc->next;
+        ckfree((char *) candalloc);
+        candalloc = next;
     }
     *first = NULL;
 }
@@ -599,7 +613,7 @@ static void
 ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
 {
     Line_T sp;
-    Candidate_T *c, *prev;
+    Candidate_T *cand, *prev;
     Candidate_T **stack;
     int ready;
 
@@ -610,31 +624,35 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
      * rest of the LCS algorithm.
      */
 
-    /* A candidate stack */
-    stack = (Candidate_T **) ckalloc((k * 3) * sizeof(Candidate_T *));
-    sp = 0;
-
     /* 
      * A score of 0 means the Score has not been calculated yet.
      * By setting the score to 1 in the lowest node, all scores 
      * will be >= 1.
      */
+
     K[0]->score = 1;
 
+    /* A candidate stack */
+    if (k == 0) {
+	return;
+    }
+    stack = (Candidate_T **) ckalloc((k * 3) * sizeof(Candidate_T *));
+    sp = 0;
+
     /* Start at the top, put all end points on the stack */
-    for (c = K[k]; c != NULL; c = c->peer) {
-        stack[sp++] = c;
+    for (cand = K[k]; cand != NULL; cand = cand->peer) {
+        stack[sp++] = cand;
     }
     while (sp > 0) {
-        c = stack[sp - 1];
+        cand = stack[sp - 1];
         /* Already scored? */
-        if (c->score != 0) {
+        if (cand->score != 0) {
             sp--;
             continue;
         }
         ready = 1;
-        for (prev = c->prev; prev != NULL; prev = prev->peer) {
-            if (prev->line2 >= c->line2) break;
+        for (prev = cand->prev; prev != NULL; prev = prev->peer) {
+            if (prev->line2 >= cand->line2) break;
             if (prev->score == 0) {
                 stack[sp++] = prev;
                 ready = 0;
@@ -642,7 +660,7 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
         }
         if (ready) {
             /* All previous have a score, we can score this one */
-            ScoreCandidate(c, P);
+            ScoreCandidate(cand, P);
             sp--;
         }
         if (sp > (k * 2)) {
@@ -690,7 +708,7 @@ LcsCore(Tcl_Interp *interp,
         }
     }
 
-    /*printf("Doing Score k = %ld\n", k);*/
+    //printf("Doing Score k = %ld\n", k);
     ScoreCandidates(k, K, P);
 
     /* Debug, dump candidates to a variable */
@@ -816,7 +834,8 @@ LcsCore(Tcl_Interp *interp,
  * Read two files, hash them and prepare the datastructures needed in LCS.
  */
 static int
-ReadAndHashFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
+ReadAndHashFiles(Tcl_Interp *interp,
+	         Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
                  DiffOptions_T *optsPtr,
                  Line_T *mPtr, Line_T *nPtr,
                  P_T **PPtr, E_T **EPtr)
@@ -863,14 +882,12 @@ ReadAndHashFiles(Tcl_Interp *interp, Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
         goto cleanup;
     }
 
+    /* Skip the first lines if there is a range set. */
     line = 1;
-    if (optsPtr->rFrom2 > 1) {
-        while (line < optsPtr->rFrom2) {
-            /* Skip the first lines */
-            Tcl_SetObjLength(linePtr, 0);
-            if (Tcl_GetsObj(ch, linePtr) < 0) break;
-            line++;
-        }
+    while (line < optsPtr->rFrom2) {
+	Tcl_SetObjLength(linePtr, 0);
+	if (Tcl_GetsObj(ch, linePtr) < 0) break;
+	line++;
     }
 
     n = 1;
@@ -1028,9 +1045,21 @@ CompareFiles(Tcl_Interp *interp,
         != TCL_OK) {
         return TCL_ERROR;
     }
-    /*printf("Doing LcsCore m = %ld, n = %ld\n", m, n);*/
+
+    if (m == 0 || n == 0) {
+	*resPtr = Tcl_NewListObj(0, NULL);
+	if ((n > 0) || (m > 0)) {
+	    Tcl_ListObjAppendElement(interp, *resPtr,
+		    NewChunk(interp, optsPtr, 1, m, 1, n));
+	}
+	ckfree((char *) E);
+	ckfree((char *) P);
+	return TCL_OK;
+    }
+
+    //printf("Doing LcsCore m = %ld, n = %ld\n", m, n);
     J = LcsCore(interp, m, n, P, E, optsPtr);
-    /*printf("Done LcsCore\n");*/
+    //printf("Done LcsCore\n");
     if (0) {
         int i;
         for (i = 0; i <= m; i++) {
@@ -1537,7 +1566,7 @@ CompareStrings1(Tcl_Interp *interp,
     char *string1, *string2, *str1, *str2;
     int skip1start = 0, skip2start = 0;
     Tcl_UniChar c1, c2;
-    const int nocase = optsPtr->ignore | IGNORE_CASE;
+    const int nocase = optsPtr->ignore & IGNORE_CASE;
 
     /*
      * Start by detecting leading and trailing equalities to lessen
@@ -1561,6 +1590,7 @@ CompareStrings1(Tcl_Interp *interp,
             str2 += chsize2;
             skip2start++;
         }
+	//printf("Ignore %d %d %d\n", optsPtr->ignore, skip1start, skip2start);
     }
     /* Skip leading equalities */
     while (*str1 != 0 && *str2 != 0) {
@@ -1577,16 +1607,29 @@ CompareStrings1(Tcl_Interp *interp,
     len1 = length1 - (str1 - string1);
     len2 = length2 - (str2 - string2);
 
-    /*printf("Doing ReadAndHash\n");*/
-    PrepareStringsLcs(interp, str1, len1, str2, len2,
-                      optsPtr, &m, &n, &P, &E);
+    /*
+     * The trivial case of nothing left.
+     */
+    
+    if (len1 == 0 || len2 == 0) {
+	m = len1;
+	n = len2;
+	J = (Line_T *) ckalloc((m + 1) * sizeof(Line_T));
+	for (i = 0; i <= m; i++) {
+	    J[i] = 0;
+	}
+    } else {
+	/*printf("Doing ReadAndHash\n");*/
+	PrepareStringsLcs(interp, str1, len1, str2, len2,
+		optsPtr, &m, &n, &P, &E);
 
-    /*printf("Doing LcsCore m = %ld, n = %ld\n", m, n);*/
-    J = LcsCore(interp, m, n, P, E, optsPtr);
-    /*printf("Done LcsCore\n");*/
+	//printf("Doing LcsCore m = %ld, n = %ld for '%s' '%s'\n", m, n, string1, string2);
+	J = LcsCore(interp, m, n, P, E, optsPtr);
+	/*printf("Done LcsCore\n");*/
 
-    ckfree((char *) E);
-    ckfree((char *) P);
+	ckfree((char *) E);
+	ckfree((char *) P);
+    }
 
     if (skip1start > 0) {
         /* Need to reallocate J to fill in the leading places */
