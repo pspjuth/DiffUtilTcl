@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.3 $
+# $Revision: 1.4 $
 
 # This file does not contain any real tests, it is a debugging tool
 # used to visualize the candidates in the LCS algorithm.
@@ -135,11 +135,12 @@ if 0 {
             {{} b c {} d e {} {} f {} {} G {} h i {} j K {} l m}
     #candi {{} b c {} d e {} {} {} {} f g {} h i {} j k {} l m} \
             {{} b c {} d e {} {} f {} {} G {} h i {} j K {} l m}
-    cand {a b c d e {} a b f g h {} a b i j k} \
+    #cand {a b c d e {} a b f g h {} a b i j k} \
             {a b c d e {}              a b i j k}
-    candi {a b c d e {} a b f g h {} a b i j k} \
+    #candi {a b c d e {} a b f g h {} a b i j k} \
             {a b c d e {}              a b i j k}
     #cand [split {  abc d  f ghi } ""] [split { abc x y ghi  } ""]
+    cand {a b123 b456 x} {a b456      x} -nonumber
     wm withdraw .
     tkwait window .t1
 }
