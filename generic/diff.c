@@ -6,7 +6,14 @@
  * Copyright (c) 2004, Peter Spjuth
  *
  ***********************************************************************
- * $Revision: 1.15 $
+ * References:
+ *       J. W. Hunt and M. D. McIlroy, "An algorithm for differential
+ *       file comparison," Comp. Sci. Tech. Rep. #41, Bell Telephone
+ *       Laboratories (1976). Available on the Web at the second
+ *       author's personal site: http://www.cs.dartmouth.edu/~doug/
+ *
+ ***********************************************************************
+ * $Revision: 1.16 $
  ***********************************************************************/
 
 #include <tcl.h>
@@ -55,24 +62,43 @@ typedef struct {
 #define IGNORE_CASE 4
 #define IGNORE_NUMBERS 8
 
-/* A type to implement the V vector in the LCS algorithm */
+/*
+ * A type to implement the V vector in the LCS algorithm.
+ * For each line (element) in "file 2", this struct holds
+ * the line number (serial) and the hash values for the line.
+ *
+ * The hashes are split in hash and realhash. The former is calculated
+ * taking account ignore options and is used for matching lines.
+ * The latter hashes the full line, to give the algorithm the
+ * possibility to prefer exact matches.
+ */
 typedef struct {
     Line_T serial;
     Hash_T hash;
     Hash_T realhash;
 } V_T;
 
-/* A type to implement the E vector in the LCS algorithm */
+/*
+ * A type to implement the E vector in the LCS algorithm.
+ * The E vector mirrors the sorted V vector and holds equivalence
+ * classes of lines in "file 2".
+ */
 typedef struct {
-    Line_T serial;
-    int last;
-    Hash_T hash;
+    Line_T serial; 
+    int last;        /* True on the last element of each class */
+    Hash_T realhash; /* Keep the realhash for reference */
 } E_T;
 
-/* A type to implement the P vector in the LCS algorithm */
+/*
+ * A type to implement the P vector in the LCS algorithm.
+ *
+ * This reflects each line in "file 1" and points to the equivalent
+ * class in the E vector.
+ * A zero means there is no matching line in "file 2".
+ */
 typedef struct {
-    Line_T Eindex;
-    Hash_T hash;
+    Line_T Eindex;   /* First element in equivalent class in E vector */
+    Hash_T realhash; /* Keep the realhash for reference */
 } P_T;
 
 /* A type to implement the Candidates in the LCS algorithm */
@@ -144,7 +170,7 @@ CheckAlign(DiffOptions_T *optsPtr, Line_T i, Line_T j)
 /*
  * Get a string from a Tcl object and compute the hash value for it.
  */
-static int
+static void
 hash(Tcl_Obj *objPtr,         /* Input Object */
      DiffOptions_T *optsPtr,  /* Options      */
      Hash_T *result,          /* Hash value   */
@@ -201,12 +227,12 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
         }
     }
     *result = hash;
-    return 0;
+    return;
 }
 
 /* 
  * Compare two strings, ignoring things in the same way as hash does.
- * Should maybe be recoded to use Unicode functions.
+ * Should be recoded to use Unicode functions.
  */
 static int
 CompareObjects(Tcl_Obj *obj1Ptr,
@@ -288,7 +314,10 @@ CompareObjects(Tcl_Obj *obj1Ptr,
     return 0;
 }
 
-/* A compare function to qsort the V vector */
+/*
+ * A compare function to qsort the V vector.
+ * Sorts first on hash, then on serial number.
+ */
 int
 compareV(const void *a1, const void *a2) {
     V_T *v1 = (V_T *) a1;
@@ -312,6 +341,8 @@ NewCandidate(CandidateAlloc_T **first,
              Candidate_T *prev, Candidate_T *peer) {
     Candidate_T *cand;
     CandidateAlloc_T *candalloc;
+
+    /* Allocate a new block if needed. */
     if (*first == NULL || (*first)->used >= CANDIDATE_ALLOC) {
         candalloc = (CandidateAlloc_T *) ckalloc(sizeof(CandidateAlloc_T));
         candalloc->used = 0;
@@ -327,6 +358,7 @@ NewCandidate(CandidateAlloc_T **first,
     } else {
         candalloc = *first;
     }
+    /* Pick one from the block */
     cand = &candalloc->candidates[candalloc->used];
     candalloc->used++;
 
@@ -435,8 +467,8 @@ merge(CandidateAlloc_T **firstCandidate,
                 for (peer = c; peer->peer != NULL; peer = peer->peer) {
                     if (peer->peer->line1 != peer->line1) break;
                 }
-                newc = NewCandidate(firstCandidate, i, j, E[p].hash, c->prev,
-                                    peer->peer);
+                newc = NewCandidate(firstCandidate, i, j, E[p].realhash,
+			c->prev, peer->peer);
                 peer->peer = newc;
             } else {
                 peer = K[s+1];
@@ -446,8 +478,8 @@ merge(CandidateAlloc_T **firstCandidate,
                     (*k)++;
                     peer = NULL;
                 }
-                newc = NewCandidate(firstCandidate, i, j, E[p].hash, K[s],
-                                    peer);
+                newc = NewCandidate(firstCandidate, i, j, E[p].realhash, K[s],
+			peer);
 #ifdef CANDIDATE_DEBUG
                 newc->wasK = s + 1;
 #endif
@@ -469,7 +501,7 @@ merge(CandidateAlloc_T **firstCandidate,
                 if (c->prev != NULL &&
                     c->k > 1 &&
                     c->prev->hash != 0 &&
-                    P[c->line1].hash == c->hash      &&
+                    P[c->line1].realhash == c->hash      &&
                     (c->line1 - c->prev->line1) <= 1 &&
                     (c->line2 - c->prev->line2) <= 1 &&
                     (c->prev->peer == NULL ||
@@ -496,8 +528,8 @@ merge(CandidateAlloc_T **firstCandidate,
                  * i.e. if K[s] is about to be updated,
                  * create this candidate as a peer but do not update K.
                  */
-                newc = NewCandidate(firstCandidate, i, j, E[p].hash, c->prev,
-                                    c->peer);
+                newc = NewCandidate(firstCandidate, i, j, E[p].realhash,
+			c->prev, c->peer);
                 c->peer = newc;
             } else {
 #ifdef SAME_ROW_OPT2
@@ -512,7 +544,7 @@ merge(CandidateAlloc_T **firstCandidate,
                     (s > 1                                  &&
                      K[s]->prev != NULL                     &&
                      K[s]->prev->hash != 0                  &&
-                     P[K[s]->line1].hash == K[s]->hash      &&
+                     P[K[s]->line1].realhash == K[s]->hash  &&
                      (K[s]->line1 - K[s]->prev->line1) <= 1 &&
                      (K[s]->line2 - K[s]->prev->line2) <= 1);
                 if (!ksoptimal ||
@@ -530,8 +562,8 @@ merge(CandidateAlloc_T **firstCandidate,
                             if (tmp->line1 < i && tmp->line2 < j) break;
                             tmp = tmp->peer;
                         }
-                        newc = NewCandidate(firstCandidate, i, j, E[p].hash,
-                                            tmp, K[s]);
+                        newc = NewCandidate(firstCandidate, i, j, E[p].realhash,
+				tmp, K[s]);
 #ifdef CANDIDATE_DEBUG
                         newc->wasK = s;
 #endif
@@ -592,7 +624,7 @@ ScoreCandidate(Candidate_T *c, P_T *P)
 
     c->score = bestscore;
     /* If the lines differ, it's worse */
-    if (P[c->line1].hash != c->hash) {
+    if (P[c->line1].realhash != c->hash) {
         c->score += 5;
     }
     /*
@@ -677,20 +709,24 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
  * The core part of the LCS algorithm.
  * It is independent of data since it only works on hashes.
  *
- * Returns a ckalloc:ed array.
+ * Returns the J vector as a ckalloc:ed array.
+ * J is a [0,m] vector, i.e. it has one element per line in "file 1".
+ * If J[i] is non-zero, line i in "file 1" matches line J[i] in "file 2".
+ *
  * m - number of elements in first sequence
  * n - number of elements in second sequence
- * P - vector [0,m] of integers
- * E - vector [0,n]
+ * P - The P vector [0,m] corresponds to lines in "file 1"
+ * E - The E vector [0,n] corresponds to lines in "file 2"
  */
 static Line_T *
 LcsCore(Tcl_Interp *interp,
-        Line_T m, Line_T n, P_T *P, E_T *E,
+        Line_T m, Line_T n,
+	P_T *P, E_T *E,
         DiffOptions_T *optsPtr)
 {
     Candidate_T **K, *c;
     Line_T i, k, *J;
-    int noempty = optsPtr->noempty;
+    const int noempty = optsPtr->noempty;
     /* Keep track of all candidates to free them easily */
     CandidateAlloc_T *candidates = NULL;
 
@@ -702,7 +738,7 @@ LcsCore(Tcl_Interp *interp,
     k = 0;
 
     for (i = 1; i <= m; i++) {
-        if (P[i].Eindex != 0 && (!noempty || P[i].hash != 0)) {
+        if (P[i].Eindex != 0 && (!noempty || P[i].realhash != 0)) {
             /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
             merge(&candidates, K, &k, i, P, E, P[i].Eindex, optsPtr, m, n);
         }
@@ -789,7 +825,7 @@ LcsCore(Tcl_Interp *interp,
                              ((long) n - (long) c->line2));
             score2 = labs((long) c->line1 - (long) c->line2);
             if (score2 < secscore) secscore = score2;
-            if (P[c->line1].hash != c->hash) {
+            if (P[c->line1].realhash != c->hash) {
                 /* Worse score if lines differ */
                 secscore += 100;
             }
@@ -819,7 +855,27 @@ LcsCore(Tcl_Interp *interp,
          * may be empty lines that can be matched.
          */
 
-        /* FIXA */
+	Line_T lastline1 = 0, lastline2 = 0;
+	Line_T cntempty1 = 0;
+	for (i = 1; i <= (m + 1); i++) {
+	    if (i > m || J[i] != 0) {
+		if (cntempty1 > 0) {
+		    /* 
+		     * We have empty lines in the left part of this change
+		     * block. What to do with it?
+		     * FIXA
+		     */
+		}
+		lastline1 = i;
+		lastline2 = J[i];
+		cntempty1 = 0;
+		continue;
+	    }
+	    if (P[i].realhash == 0) {
+		cntempty1++;
+		continue;
+	    }
+	}
 
         /*
          * This could be left to block matching if that is improved
@@ -904,6 +960,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
 
         n++;
         line++;
+	/* Reallocate if more room is needed */
         if (n >= allocedV) {
             allocedV = allocedV * 3 / 2;
             V = (V_T *) ckrealloc((char *) V, allocedV * sizeof(V_T));
@@ -911,7 +968,10 @@ ReadAndHashFiles(Tcl_Interp *interp,
     }
     Tcl_Close(interp, ch);
 
-    /* Sort V on hash/serial. */
+    /*
+     * Sort the V vector on hash/serial to allow fast search.
+     */
+
     qsort(&V[1], (unsigned long) n, sizeof(V_T), compareV);
 
     /* Build E vector */
@@ -919,8 +979,8 @@ ReadAndHashFiles(Tcl_Interp *interp,
     E[0].serial = 0;
     E[0].last = 1;
     for (j = 1; j <= n; j++) {
-        E[j].serial = V[j].serial;
-        E[j].hash   = V[j].realhash;
+        E[j].serial   = V[j].serial;
+        E[j].realhash = V[j].realhash;
         if (j == n) {
             E[j].last = 1;
         } else {
@@ -966,7 +1026,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
             break;
         }
         hash(linePtr, optsPtr, &h, &realh);
-        P[m].hash = realh;
+        P[m].realhash = realh;
 
         /* Binary search for hash in V */
         first = 1;
@@ -981,15 +1041,18 @@ ReadAndHashFiles(Tcl_Interp *interp,
             }
         }
         if (V[j].hash == h) {
+	    /* Search back to the first in the class */
             while (!E[j-1].last) j--;
             P[m].Eindex = j;
             /*printf("P %ld = %ld\n", m, j);*/
         }
 
+	/* Abort if the limited range has been filled */
         if (optsPtr->rTo1 > 0 && optsPtr->rTo1 <= line) break;
 
         m++;
         line++;
+	/* Realloc if necessary */
         if (m >= allocedP) {
             allocedP = allocedP * 3 / 2;
             P = (P_T *) ckrealloc((char *) P,
@@ -1029,11 +1092,14 @@ NewChunk(Tcl_Interp *interp, DiffOptions_T *optsPtr,
     return subPtr;
 }
 
+/* Do the diff files operation */
 static int
-CompareFiles(Tcl_Interp *interp,
-             Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
-             DiffOptions_T *optsPtr,
-             Tcl_Obj **resPtr)
+CompareFiles(
+	Tcl_Interp *interp,
+	Tcl_Obj *name1Ptr,
+	Tcl_Obj *name2Ptr,
+	DiffOptions_T *optsPtr,
+	Tcl_Obj **resPtr)
 {
     E_T *E;
     P_T *P;
@@ -1488,8 +1554,8 @@ PrepareStringsLcs(Tcl_Interp *interp,
     E[0].serial = 0;
     E[0].last = 1;
     for (j = 1; j <= n; j++) {
-        E[j].serial = V[j].serial;
-        E[j].hash   = V[j].realhash;
+        E[j].serial   = V[j].serial;
+        E[j].realhash = V[j].realhash;
         if (j == n) {
             E[j].last = 1;
         } else {
@@ -1518,7 +1584,7 @@ PrepareStringsLcs(Tcl_Interp *interp,
         }
         m++;
         P[m].Eindex = 0;
-        P[m].hash = realc;
+        P[m].realhash = realc;
         h = c;
 
         /* Binary search for hash in V */
@@ -1555,9 +1621,9 @@ PrepareStringsLcs(Tcl_Interp *interp,
  */
 static void
 CompareStrings1(Tcl_Interp *interp,
-               Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
-               DiffOptions_T *optsPtr,
-                Line_T **resPtr, Line_T *mPtr, Line_T *nPtr)
+	Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
+	DiffOptions_T *optsPtr,
+	Line_T **resPtr, Line_T *mPtr, Line_T *nPtr)
 {
     E_T *E;
     P_T *P;
