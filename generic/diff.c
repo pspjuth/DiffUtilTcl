@@ -13,7 +13,7 @@
  *       author's personal site: http://www.cs.dartmouth.edu/~doug/
  *
  ***********************************************************************
- * $Revision: 1.16 $
+ * $Revision: 1.17 $
  ***********************************************************************/
 
 #include <tcl.h>
@@ -1673,11 +1673,12 @@ CompareStrings1(Tcl_Interp *interp,
     len1 = length1 - (str1 - string1);
     len2 = length2 - (str2 - string2);
 
-    /*
-     * The trivial case of nothing left.
-     */
-    
     if (len1 == 0 || len2 == 0) {
+	/*
+	 * The trivial case of nothing left.
+	 * Just fill in an empty J vector.
+	 */
+    
 	m = len1;
 	n = len2;
 	J = (Line_T *) ckalloc((m + 1) * sizeof(Line_T));
