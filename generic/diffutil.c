@@ -8,44 +8,11 @@
  * Eskil, and will be released as a separate package when mature.
  *
  ***********************************************************************
- * $Revision: 1.5 $
+ * $Revision: 1.6 $
  ***********************************************************************/
 
 #include <tcl.h>
 #include "diffutil.h"
-
-#if defined(_MSC_VER)
-#   define EXPORT(a,b) __declspec(dllexport) a b
-#   define DllEntryPoint DllMain
-#else
-#   if defined(__BORLANDC__)
-#       define EXPORT(a,b) a _export b
-#   else
-#       define EXPORT(a,b) a b
-#   endif
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-EXPORT(int,Diffutil_Init) (Tcl_Interp *interp);
-EXPORT(int,Diffutil_SafeInit) (Tcl_Interp *interp);
-#ifdef __cplusplus
-}
-#endif
-
-#if defined(__WIN32__)
-#  define WIN32_LEAN_AND_MEAN
-#  include <windows.h>
-#  undef WIN32_LEAN_AND_MEAN
-
-BOOL WINAPI
-DllEntryPoint(HINSTANCE hinstDll, DWORD fdwReason, LPVOID lpvReserved)
-{
-    return 1;
-}
-
-#endif /* __WIN32__ */
 
 typedef int (CompareFun) (CONST Tcl_UniChar *,
                           CONST Tcl_UniChar *,
@@ -404,7 +371,8 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
 Tcl_CreateObjCommand(interp, name, func, (ClientData) NULL, \
                      (Tcl_CmdDeleteProc *) NULL)
 
-EXPORT(int,Diffutil_Init) (Tcl_Interp *interp)
+int
+Diffutil_Init(Tcl_Interp *interp)
 {
     if (Tcl_InitStubs(interp, "8.4", 0) == NULL) {
 	return TCL_ERROR;
@@ -424,7 +392,8 @@ EXPORT(int,Diffutil_Init) (Tcl_Interp *interp)
     return TCL_OK;
 }
 
-EXPORT(int,Diffutil_SafeInit) (Tcl_Interp *interp)
+int
+Diffutil_SafeInit(Tcl_Interp *interp)
 {
     return TCL_OK;
 }
