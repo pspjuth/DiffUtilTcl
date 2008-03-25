@@ -13,7 +13,7 @@
  *       author's personal site: http://www.cs.dartmouth.edu/~doug/
  *
  ***********************************************************************
- * $Revision: 1.17 $
+ * $Revision: 1.18 $
  ***********************************************************************/
 
 #include <tcl.h>
@@ -84,7 +84,7 @@ typedef struct {
  * classes of lines in "file 2".
  */
 typedef struct {
-    Line_T serial; 
+    Line_T serial;
     int last;        /* True on the last element of each class */
     Hash_T realhash; /* Keep the realhash for reference */
 } E_T;
@@ -108,7 +108,7 @@ typedef struct Candidate_T {
     /* A score value to select between similar candidates */
     unsigned long score;
     /* Hash value for the line in the second file */
-    Hash_T hash;
+    Hash_T realhash;
     /* k-candidate */
     Line_T k;
 #ifdef CANDIDATE_DEBUG
@@ -131,7 +131,7 @@ typedef struct Candidate_T {
  * simplify freeing.
  */
 
-/* Allocate in blocks of about 64k */  
+/* Allocate in blocks of about 64k */
 #define CANDIDATE_ALLOC ((65536-sizeof(int)-sizeof(struct CandidateAlloc_T *))\
                         /sizeof(Candidate_T))
 
@@ -144,14 +144,14 @@ typedef struct CandidateAlloc_T {
     Candidate_T candidates[CANDIDATE_ALLOC];
 } CandidateAlloc_T;
 
-/* 
+/*
  * Check if an index pair fails to match due to alignment
  */
 static int
 CheckAlign(DiffOptions_T *optsPtr, Line_T i, Line_T j)
 {
     int t;
-    
+
     for (t = 0; t < optsPtr->alignLength; t += 2) {
         if (i <  optsPtr->align[t] && j <  optsPtr->align[t + 1]) return 0;
         if (i == optsPtr->align[t] && j == optsPtr->align[t + 1]) return 0;
@@ -194,14 +194,14 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
         const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
         const int ignorecase     = (optsPtr->ignore & IGNORE_CASE);
         const int ignorenum      = (optsPtr->ignore & IGNORE_NUMBERS);
-        /* 
+        /*
          * By starting in space, IGNORE_SPACE_CHANGE will ignore all
          * space in the beginning of a line.
          */
         In_T in = IN_SPACE;
         hash = 0;
         str = string;
-        
+
         while (*str != 0) {
             str += Tcl_UtfToUniChar(str, &c);
             if (c == '\n') break;
@@ -209,7 +209,7 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
                 if (ignoreallspace) continue;
                 /* Any consecutive whitespace is regarded as a single space */
                 if (ignorespace && in == IN_SPACE) continue;
-                if (ignorespace) 
+                if (ignorespace)
 		    c = ' ';
                 in = IN_SPACE;
             } else if (ignorenum && Tcl_UniCharIsDigit(c)) {
@@ -230,7 +230,7 @@ hash(Tcl_Obj *objPtr,         /* Input Object */
     return;
 }
 
-/* 
+/*
  * Compare two strings, ignoring things in the same way as hash does.
  * Should be recoded to use Unicode functions.
  */
@@ -337,7 +337,7 @@ compareV(const void *a1, const void *a2) {
 /* Create a new candidate */
 static Candidate_T *
 NewCandidate(CandidateAlloc_T **first,
-	     Line_T a, Line_T b, Hash_T hash,
+	     Line_T a, Line_T b, Hash_T realhash,
              Candidate_T *prev, Candidate_T *peer) {
     Candidate_T *cand;
     CandidateAlloc_T *candalloc;
@@ -364,7 +364,7 @@ NewCandidate(CandidateAlloc_T **first,
 
     cand->line1 = a;
     cand->line2 = b;
-    cand->hash = hash;
+    cand->realhash = realhash;
     cand->prev = prev;
     cand->peer = peer;
     cand->score = 0;
@@ -395,9 +395,9 @@ FreeCandidates(CandidateAlloc_T **first) {
     *first = NULL;
 }
 
-/*#define NO_SAME_COLUMN*/
+#define ALLOW_SAME_COLUMN
 #define SAME_COL_OPT
-/*#define NO_SAME_ROW*/
+#define ALLOW_SAME_ROW
 #define SAME_ROW_OPT
 #define SAME_ROW_OPT2
 
@@ -407,25 +407,43 @@ FreeCandidates(CandidateAlloc_T **first) {
 static void
 merge(CandidateAlloc_T **firstCandidate,
       Candidate_T **K,
-      Line_T *k,
-      Line_T i,
-      P_T *P,
-      E_T *E,
-      Line_T p, 
+      Line_T *k,      /* Index to last used element in K */
+      Line_T i,       /* Current index in file 1 */
+      P_T *P,         /* P vector */
+      E_T *E,         /* E vector */
+      Line_T p,       /* Index in E of the file 2 class equivalent to line i */
       DiffOptions_T *optsPtr,
-      Line_T m,
-      Line_T n) {
+      Line_T m,       /* Size of file 1 */
+      Line_T n        /* Size of file 2 */
+	)
+{
     Candidate_T *c, *newc, *peer, *tmp;
     Line_T r, ck, j, b1 = 0, b2 = 0;
     Line_T first, last, s = 0;
 
     /*printf("Merge: k = %ld  i = %ld  p = %ld\n", *k, i, p);*/
-    
+
+    /*
+     * Below, we deviate from Hunt/McIlroy's algorithm by allowing
+     * extra candidates to get through.  These are candidates that can
+     * not give longer sequences but might give "nicer" sequences
+     * according to the scoring system we apply later.
+     * Code that deviates are marked with "NonHM".
+     */
+
     c = K[0];
-    ck = 0; /* ck is where c is supposed to be stored */
+    ck = 0; /* ck is where c is supposed to be stored. Following the
+	     * H/M algorithm ck will be equal to r.
+	     */
     r = 0;  /* r is the start of the search range */
+
+    /*
+     * The loop goes through all lines in file 2 that matches the current
+     * line in file 1.
+     * At the start, p points to the first in the equivalence class.
+     */
     while (1) {
-        j = E[p].serial;
+        j = E[p].serial; /* j is the current line from file 2 being checked */
         /* Skip this candidate if alignment forbids it */
         if (optsPtr->alignLength > 0 && CheckAlign(optsPtr, i ,j)) {
             if (E[p].last) break;
@@ -434,7 +452,10 @@ merge(CandidateAlloc_T **firstCandidate,
         }
 
         /*printf("p = %ld  j = %ld  r = %ld  s= %ld  k = %ld\n", p, j, r, s, *k);*/
-        /* Binary search */
+        /*
+	 * Binary search in K from r to k.
+	 * K is ordered on its line2, and we want the place where j would fit.
+	 */
         first = r;
         last = *k;
         while (first <= last) {
@@ -457,10 +478,16 @@ merge(CandidateAlloc_T **firstCandidate,
                 last = s - 1;
             }
         }
+
+	/*
+	 * By now b1 is the line for K[s] and b2 is the line for K[s+1].
+	 * We know that, if possible, b1 <= j < b2.
+	 */
+
         /*printf("j = %ld  s = %ld  b1 = %ld  b2 = %ld\n", j, s, b1, b2);*/
-        if (b1 < j && b2 > j) {
-            if (ck == s + 1 /*&& c->line1 == i*/) {
-                /* 
+        if (b1 < j && j < b2) {
+            if (ck == s + 1 /*&& c->line1 == i*/) { /*NonHM*/
+                /*
                  * If there already is a candidate for this level,
                  * create this candidate as a peer but do not update K.
                  */
@@ -486,9 +513,9 @@ merge(CandidateAlloc_T **firstCandidate,
                 K[ck] = c;
                 c = newc;
                 ck = s + 1;
-#ifdef NO_SAME_COLUMN
+#ifndef ALLOW_SAME_COLUMN
                 r = s + 1;
-#else  /* NO_SAME_COLUMN */
+#else  /* ALLOW_SAME_COLUMN */
 #ifdef SAME_COL_OPT
                 /*
                  * If c is optimally placed, we can skip a lot by narrowing
@@ -498,10 +525,11 @@ merge(CandidateAlloc_T **firstCandidate,
                  * And not if the previous line is empty.
                  * Not if this candidate is not exactly equal.
                  */
+
                 if (c->prev != NULL &&
                     c->k > 1 &&
-                    c->prev->hash != 0 &&
-                    P[c->line1].realhash == c->hash      &&
+                    c->prev->realhash != 0 &&
+                    P[c->line1].realhash == c->realhash &&
                     (c->line1 - c->prev->line1) <= 1 &&
                     (c->line2 - c->prev->line2) <= 1 &&
                     (c->prev->peer == NULL ||
@@ -514,16 +542,16 @@ merge(CandidateAlloc_T **firstCandidate,
 #else  /* SAME_COL_OPT */
                 r = s;
 #endif /* SAME_COL_OPT */
-#endif /* NO_SAME_COLUMN */
+#endif /* ALLOW_SAME_COLUMN */
             }
-#ifndef NO_SAME_ROW
+#ifdef ALLOW_SAME_ROW
         } else if (b1 == j) {
             /*
              * We have a new candidate on the same row as one of the
              * candidates in K.
              */
             if (ck == s /*&& c->line1 == i*/) {
-                /* 
+                /*
                  * If there already is a candidate for this level,
                  * i.e. if K[s] is about to be updated,
                  * create this candidate as a peer but do not update K.
@@ -541,20 +569,20 @@ merge(CandidateAlloc_T **firstCandidate,
                  * Not if this candidate is not exactly equal.
                  */
                 register int ksoptimal =
-                    (s > 1                                  &&
-                     K[s]->prev != NULL                     &&
-                     K[s]->prev->hash != 0                  &&
-                     P[K[s]->line1].realhash == K[s]->hash  &&
-                     (K[s]->line1 - K[s]->prev->line1) <= 1 &&
+                    (s > 1                                     &&
+                     K[s]->prev != NULL                        &&
+                     K[s]->prev->realhash != 0                 &&
+                     P[K[s]->line1].realhash == K[s]->realhash &&
+                     (K[s]->line1 - K[s]->prev->line1) <= 1    &&
                      (K[s]->line2 - K[s]->prev->line2) <= 1);
                 if (!ksoptimal ||
                     ((i - K[s-1]->line1) <= 1 && (j - K[s-1]->line2) <= 1)) {
 #endif /* SAME_ROW_OPT2 */
 #ifdef SAME_ROW_OPT
-                    if ((m - i) + s >= *k) { 
+                    if ((m - i) + s >= *k) {
 #endif /* SAME_ROW_OPT */
                         /*
-                         * Search through s-1 candidates for a fitting one 
+                         * Search through s-1 candidates for a fitting one
                          * to be "prev".
                          */
                         tmp = K[s-1];
@@ -578,7 +606,7 @@ merge(CandidateAlloc_T **firstCandidate,
                 }
 #endif /* SAME_ROW_OPT2 */
             }
-#endif /* NO_SAME_ROW */
+#endif /* ALLOW_SAME_ROW */
         }
 
         if (E[p].last) break;
@@ -587,7 +615,9 @@ merge(CandidateAlloc_T **firstCandidate,
     K[ck] = c;
 }
 
-/* Give score to a candidate */
+/*
+ * Give score to a candidate.
+ */
 static inline void
 ScoreCandidate(Candidate_T *c, P_T *P)
 {
@@ -602,13 +632,13 @@ ScoreCandidate(Candidate_T *c, P_T *P)
         score = prev->score;
 
         /* A jump increases score, unless the previous line is empty */
-        if (c->k > 1 && prev->hash != 0) {
+        if (c->k > 1 && prev->realhash != 0) {
             if ((c->line2 - prev->line2) > 1) score += 2;
             if ((c->line1 - prev->line1) > 1) score += 2;
             if ((c->line2 - prev->line2) > 1 &&
                 (c->line1 - prev->line1) > 1) score--;
         }
-        /* 
+        /*
          * By doing less than or equal we favor matches earlier
          * in the file.
          */
@@ -624,7 +654,7 @@ ScoreCandidate(Candidate_T *c, P_T *P)
 
     c->score = bestscore;
     /* If the lines differ, it's worse */
-    if (P[c->line1].realhash != c->hash) {
+    if (P[c->line1].realhash != c->realhash) {
         c->score += 5;
     }
     /*
@@ -656,9 +686,9 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
      * rest of the LCS algorithm.
      */
 
-    /* 
+    /*
      * A score of 0 means the Score has not been calculated yet.
-     * By setting the score to 1 in the lowest node, all scores 
+     * By setting the score to 1 in the lowest node, all scores
      * will be >= 1.
      */
 
@@ -701,7 +731,7 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
             break;
         }
     }
-    
+
     ckfree((char *) stack);
 }
 
@@ -730,12 +760,22 @@ LcsCore(Tcl_Interp *interp,
     /* Keep track of all candidates to free them easily */
     CandidateAlloc_T *candidates = NULL;
 
-    /* Find LCS */
-    /*printf("Doing K\n");*/
+    //printf("Doing K\n");
+
+    /* Initialise K candidate vector */
     K = (Candidate_T **) ckalloc(sizeof(Candidate_T *) * ((m < n ? m : n) + 2));
+
+    /* k is the last meaningful element of K */
     K[0] = NewCandidate(&candidates, 0, 0, 0, NULL, NULL);
-    K[1] = NewCandidate(&candidates, m + 1, n + 1, 0, NULL, NULL);
     k = 0;
+
+    /* Add a fence outside the used range of K */
+    K[1] = NewCandidate(&candidates, m + 1, n + 1, 0, NULL, NULL);
+
+    /*
+     * For each line in file 1, if it matches any line in file 2,
+     * merge it into the set of candidates.
+     */
 
     for (i = 1; i <= m; i++) {
         if (P[i].Eindex != 0 && (!noempty || P[i].realhash != 0)) {
@@ -762,7 +802,7 @@ LcsCore(Tcl_Interp *interp,
                     (long) c->line1, (long) c->line2, (long) i);
             Tcl_DStringAppend(&ds, buf, -1);
         }
-        
+
         ca = candidates;
         while (ca != NULL) {
             for (i = 0; i < ca->used; i++) {
@@ -793,12 +833,12 @@ LcsCore(Tcl_Interp *interp,
             }
             ca = ca->next;
         }
-    
+
         Tcl_SetVar(interp, "DiffUtil::Candidates", Tcl_DStringValue(&ds), TCL_GLOBAL_ONLY);
         Tcl_DStringFree(&ds);
     }
 #endif /* CANDIDATE_DEBUG */
-    
+
     /* Wrap up result */
 
     /*printf("Doing J\n");*/
@@ -806,26 +846,32 @@ LcsCore(Tcl_Interp *interp,
     for (i = 0; i <= m; i++) {
         J[i] = 0;
     }
+
+    /*
+     * K[k] lists the possible end points of length k, i.e. the longest
+     * common subsequences.  If there is more than one, check which is
+     * best.
+     */
+
     c = K[k];
-    /* Are there more than one possible end point? */
     if (c->peer != NULL) {
         Candidate_T *bestc;
         Line_T primscore, secscore, score2, bestps, bestss;
         /*
-         * Check the candidates score first. if they are equal, use a
+         * Check the candidates' score first. if they are equal, use a
          * secondary score where the best is the one where the distances
          * to start or end of file is the same in both files.
          */
         bestc = c;
         bestps = 1000000000;
-        bestss = 1000000000; 
+        bestss = 1000000000;
         while (c != NULL) {
             primscore = c->score;
             secscore  = labs(((long) m - (long) c->line1) -
                              ((long) n - (long) c->line2));
             score2 = labs((long) c->line1 - (long) c->line2);
             if (score2 < secscore) secscore = score2;
-            if (P[c->line1].realhash != c->hash) {
+            if (P[c->line1].realhash != c->realhash) {
                 /* Worse score if lines differ */
                 secscore += 100;
             }
@@ -839,18 +885,27 @@ LcsCore(Tcl_Interp *interp,
         }
         c = bestc;
     }
+
+    /*
+     * Traverse the chain from the selected K[k] candidate and fill
+     * in the resulting J vector.
+     */
+
     while (c != NULL) {
-        if (c->line1 < 0 || c->line1 > m) printf("GURKA\n");
+	/* Sanity check */
+        if (c->line1 < 0 || c->line1 > m) {
+	    Tcl_Panic("Bad line number when constructing J vector");
+	}
         J[c->line1] = c->line2;
         c = c->prev;
     }
-    
+
     /*printf("Clean up Candidates and K\n");*/
     FreeCandidates(&candidates);
     ckfree((char *) K);
 
     if (noempty) {
-        /* 
+        /*
          * We have ignored empty lines before which means that there
          * may be empty lines that can be matched.
          */
@@ -860,7 +915,7 @@ LcsCore(Tcl_Interp *interp,
 	for (i = 1; i <= (m + 1); i++) {
 	    if (i > m || J[i] != 0) {
 		if (cntempty1 > 0) {
-		    /* 
+		    /*
 		     * We have empty lines in the left part of this change
 		     * block. What to do with it?
 		     * FIXA
@@ -1318,15 +1373,15 @@ SetOptsAlign(Tcl_Interp *interp,
         if (Tcl_GetLongFromObj(interp, elemPtrs[i], &value) != TCL_OK) {
             return TCL_ERROR;
         }
-        value -= (first - 1); 
+        value -= (first - 1);
         if (value < 1) {
             Tcl_SetResult(interp, "bad align", TCL_STATIC);
             return TCL_ERROR;
         }
         optsPtr->align[i] = value;
     }
-    
-    /* Sort the align pairs */
+
+    /* Sort the align pairs (bubble sort) */
     if (optsPtr->alignLength > 2) {
         change = 1;
         while (change) {
@@ -1335,6 +1390,7 @@ SetOptsAlign(Tcl_Interp *interp,
                 if (optsPtr->align[i] > optsPtr->align[i + 2] ||
                     (optsPtr->align[i] == optsPtr->align[i + 2] &&
                      optsPtr->align[i+1] > optsPtr->align[i + 2])) {
+		    /* Swap */
                     tmp                   = optsPtr->align[i];
                     optsPtr->align[i]     = optsPtr->align[i + 2];
                     optsPtr->align[i + 2] = tmp;
@@ -1357,7 +1413,7 @@ NormaliseOpts(DiffOptions_T *optsPtr)
     int i;
     Line_T prev1, prev2;
 
-    /* 
+    /*
      * If there is both a range and align, move the alignment
      * to index from 1 withing the range.
      */
@@ -1381,7 +1437,7 @@ NormaliseOpts(DiffOptions_T *optsPtr)
         }
     }
 
-    /* 
+    /*
      * Check for contradictions in align
      */
     prev1 = prev2 = 0;
@@ -1645,13 +1701,13 @@ CompareStrings1(Tcl_Interp *interp,
     if (optsPtr->ignore & (IGNORE_SPACE_CHANGE | IGNORE_ALL_SPACE)) {
         /* Skip all leading white-space */
         while (*str1 != 0) {
-            chsize1 = Tcl_UtfToUniChar(str1, &c1); 
+            chsize1 = Tcl_UtfToUniChar(str1, &c1);
             if (!Tcl_UniCharIsSpace(c1)) break;
             str1 += chsize1;
             skip1start++;
         }
         while (*str2 != 0) {
-            chsize2 = Tcl_UtfToUniChar(str2, &c2); 
+            chsize2 = Tcl_UtfToUniChar(str2, &c2);
             if (!Tcl_UniCharIsSpace(c2)) break;
             str2 += chsize2;
             skip2start++;
@@ -1660,9 +1716,9 @@ CompareStrings1(Tcl_Interp *interp,
     }
     /* Skip leading equalities */
     while (*str1 != 0 && *str2 != 0) {
-        chsize1 = Tcl_UtfToUniChar(str1, &c1); 
-        chsize2 = Tcl_UtfToUniChar(str2, &c2); 
-        if (c1 != c2 && 
+        chsize1 = Tcl_UtfToUniChar(str1, &c1);
+        chsize2 = Tcl_UtfToUniChar(str2, &c2);
+        if (c1 != c2 &&
             (!nocase ||
              Tcl_UniCharToLower(c1) != Tcl_UniCharToLower(c2))) break;
         str1 += chsize1;
@@ -1678,7 +1734,7 @@ CompareStrings1(Tcl_Interp *interp,
 	 * The trivial case of nothing left.
 	 * Just fill in an empty J vector.
 	 */
-    
+
 	m = len1;
 	n = len2;
 	J = (Line_T *) ckalloc((m + 1) * sizeof(Line_T));
@@ -1834,7 +1890,7 @@ CompareStrings3(Tcl_Interp *interp,
 
     len1 = Tcl_GetCharLength(str1Ptr);
     len2 = Tcl_GetCharLength(str2Ptr);
- 
+
     /* Take care of trivial cases first */
     if (len1 == 0 || len2 == 0) {
         *resPtr = Tcl_NewListObj(0, NULL);
@@ -1862,13 +1918,13 @@ CompareStrings3(Tcl_Interp *interp,
     if (optsPtr->ignore & (IGNORE_SPACE_CHANGE | IGNORE_ALL_SPACE)) {
         /* Skip all leading white-space */
         while (*str1 != 0) {
-            chsize1 = Tcl_UtfToUniChar(str1, &c1); 
+            chsize1 = Tcl_UtfToUniChar(str1, &c1);
             if (!Tcl_UniCharIsSpace(c1)) break;
             str1 += chsize1;
             skip1start++;
         }
         while (*str2 != 0) {
-            chsize2 = Tcl_UtfToUniChar(str2, &c2); 
+            chsize2 = Tcl_UtfToUniChar(str2, &c2);
             if (!Tcl_UniCharIsSpace(c2)) break;
             str2 += chsize2;
             skip2start++;
@@ -1876,9 +1932,9 @@ CompareStrings3(Tcl_Interp *interp,
     }
     /* Skip leading equalities */
     while (*str1 != 0 && *str2 != 0) {
-        chsize1 = Tcl_UtfToUniChar(str1, &c1); 
-        chsize2 = Tcl_UtfToUniChar(str2, &c2); 
-        if (c1 != c2 && 
+        chsize1 = Tcl_UtfToUniChar(str1, &c1);
+        chsize2 = Tcl_UtfToUniChar(str2, &c2);
+        if (c1 != c2 &&
             (!nocase ||
              Tcl_UniCharToLower(c1) != Tcl_UniCharToLower(c2))) break;
         str1 += chsize1;
@@ -1913,7 +1969,7 @@ CompareStrings3(Tcl_Interp *interp,
             current2++;
         }
 
-        /* 
+        /*
          * Finished?
          * Since the result should always end with an equal pair
          * this is the only exit point from the loop.
@@ -2067,7 +2123,7 @@ DiffStrings2ObjCmd(dummy, interp, objc, objv)
     };
     enum options {
 	OPT_NOCASE, OPT_I, OPT_B, OPT_W, OPT_WORDS
-    };	  
+    };
 
     if (objc < 3) {
         Tcl_WrongNumArgs(interp, 1, objv, "?opts? line1 line2");
@@ -2080,7 +2136,7 @@ DiffStrings2ObjCmd(dummy, interp, objc, objv)
     opts.rFrom1 = opts.rFrom2 = 1;
     opts.rTo1   = opts.rTo2   = 0;
     opts.alignLength = 0;
-    
+
     for (t = 1; t < objc - 2; t++) {
 	if (Tcl_GetIndexFromObj(interp, objv[t], options, "option", 0,
 		&index) != TCL_OK) {
