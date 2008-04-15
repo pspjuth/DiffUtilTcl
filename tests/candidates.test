@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2004 by Peter Spjuth. All rights reserved.
 #
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 
 # This file does not contain any real tests, it is a debugging tool
 # used to visualize the candidates in the LCS algorithm.
@@ -24,6 +24,8 @@ proc visualize {list1 list2} {
     toplevel $top
 
     set size 30
+    set r1 6
+    set r2 8
     set m [llength $list1]
     set n [llength $list2]
     set width  [expr {($m + 1) * $size}]
@@ -33,14 +35,14 @@ proc visualize {list1 list2} {
     pack $c -side top -fill both -expand 1
 
     set i 1
-    set y [expr {$height - 5}]
+    set y [expr {$height - $r2}]
     foreach item $list1 {
         set x [expr {$i * $size}]
         $c create text $x $y -text $item -anchor s
         incr i
     }
     set j 1
-    set x 5
+    set x $r2
     foreach item $list2 {
         set y [expr {$height - $j * $size}]
         $c create text $x $y -text $item -anchor w
@@ -52,10 +54,10 @@ proc visualize {list1 list2} {
         set y [expr {$height - $j * $size}]
         if {$type == "K"} {
             set k $score
-            $c create oval [- $x 5] [- $y 5] [+ $x 5] [+ $y 5] -fill red \
+            $c create oval [- $x $r2] [- $y $r2] [+ $x $r2] [+ $y $r2] -fill red \
                     -tags "k" -outline red
         } elseif {$type == "C"} {
-            $c create oval [- $x 3] [- $y 3] [+ $x 3] [+ $y 3] -fill white \
+            $c create oval [- $x $r1] [- $y $r1] [+ $x $r1] [+ $y $r1] -fill white \
                     -tags "c" -outline white
             $c create text $x $y -text $score -fill black -tags "score"
             #$c create text $x $y -text $wasK -fill black -tags "score"
@@ -63,7 +65,7 @@ proc visualize {list1 list2} {
                 set cx [expr {$ci * $size}]
                 set cy [expr {$height - $cj * $size}]
 
-                $c create line $x $y $cx $cy -fill green -tag "peer" -width 3 \
+                $c create line $x $y $cx $cy -fill green -tag "peer" \
                         -arrow last
             }
             if {$pi > 0 && $pj > 0} {
@@ -74,7 +76,7 @@ proc visualize {list1 list2} {
                         -arrow last
             }
             if {$wasK > 0} {
-                $c create oval [- $x 5] [- $y 5] [+ $x 5] [+ $y 5] -fill purple \
+                $c create oval [- $x $r2] [- $y $r2] [+ $x $r2] [+ $y $r2] -fill purple \
                         -tags "wasK" -outline purple
             }
         } else {
@@ -111,7 +113,8 @@ proc candi {list1 list2 args} {
 # Test cases
 if 0 {
     package require Tk
-    #cand {a b r a c a d a b r a} {b r i c a b r a c}
+    #cand {a b c a b b a} {c b a b a c}
+    cand {a b r a c a d a b r a} {b r i c a b r a c}
     #cand {a b} {b b}
     #cand {b r i c a b r a c} {a b r a c a d a b r a}
     #cand {a b r a c a d a b i a} {b r i c a b r a c}
@@ -140,7 +143,7 @@ if 0 {
     #candi {a b c d e {} a b f g h {} a b i j k} \
             {a b c d e {}              a b i j k}
     #cand [split {  abc d  f ghi } ""] [split { abc x y ghi  } ""]
-    cand {a b123 b456 x} {a b456      x} -nonumber
+    #cand {a b123 b456 x} {a b456      x} -nonumber
     wm withdraw .
     tkwait window .t1
 }
