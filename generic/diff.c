@@ -13,7 +13,7 @@
  *       author's personal site: http://www.cs.dartmouth.edu/~doug/
  *
  ***********************************************************************
- * $Revision: 1.18 $
+ * $Revision: 1.19 $
  ***********************************************************************/
 
 #include <tcl.h>
@@ -24,8 +24,8 @@
 #include <sys/stat.h>
 #include "diffutil.h"
 
-/*#define CANDIDATE_DEBUG*/
-/*#define CANDIDATE_STATS*/
+//#define CANDIDATE_DEBUG
+//#define CANDIDATE_STATS
 
 /* A type to hold hashing values */
 typedef unsigned long Hash_T;
@@ -86,6 +86,8 @@ typedef struct {
 typedef struct {
     Line_T serial;
     int last;        /* True on the last element of each class */
+    int count;       /* On the first in each class, keeps the number
+		      * of lines in the class. Otherwise zero. */
     Hash_T realhash; /* Keep the realhash for reference */
 } E_T;
 
@@ -513,25 +515,29 @@ merge(CandidateAlloc_T **firstCandidate,
                 K[ck] = c;
                 c = newc;
                 ck = s + 1;
-#ifndef ALLOW_SAME_COLUMN
-                r = s + 1;
-#else  /* ALLOW_SAME_COLUMN */
+#ifdef ALLOW_SAME_COLUMN /*NonHM*/
 #ifdef SAME_COL_OPT
                 /*
-                 * If c is optimally placed, we can skip a lot by narrowing
-                 * the search space for the next iteration.
+		 * In the H/M algorithm, another k-candidate is not allowed
+		 * in the same column as a previous.  This is since further
+		 * k-candidates cannot give a longer sequence.  We want some
+		 * more matches so we keep k as lower boundary in this column.
+		 *
+                 * If c is "optimally" placed, we can skip a lot by narrowing
+                 * the search space for the next iteration by not allowing
+		 * any more k-candidates in this column (Thus following H/M).
                  * c is optimal if it's next to its previous candidate,
                  * but not if it has a peer in the same column.
                  * And not if the previous line is empty.
                  * Not if this candidate is not exactly equal.
                  */
 
-                if (c->prev != NULL &&
-                    c->k > 1 &&
-                    c->prev->realhash != 0 &&
+                if (c->prev != NULL                     &&
+                    c->k > 1                            &&
+                    c->prev->realhash != 0              &&
                     P[c->line1].realhash == c->realhash &&
-                    (c->line1 - c->prev->line1) <= 1 &&
-                    (c->line2 - c->prev->line2) <= 1 &&
+                    (c->line1 - c->prev->line1) <= 1    &&
+                    (c->line2 - c->prev->line2) <= 1    &&
                     (c->prev->peer == NULL ||
                      c->prev->peer->line1 < c->prev->line1)) {
                     /* Optimal */
@@ -542,9 +548,11 @@ merge(CandidateAlloc_T **firstCandidate,
 #else  /* SAME_COL_OPT */
                 r = s;
 #endif /* SAME_COL_OPT */
+#else  /* ALLOW_SAME_COLUMN */
+                r = s + 1;
 #endif /* ALLOW_SAME_COLUMN */
             }
-#ifdef ALLOW_SAME_ROW
+#ifdef ALLOW_SAME_ROW /*NonHM*/
         } else if (b1 == j) {
             /*
              * We have a new candidate on the same row as one of the
@@ -552,9 +560,9 @@ merge(CandidateAlloc_T **firstCandidate,
              */
             if (ck == s /*&& c->line1 == i*/) {
                 /*
-                 * If there already is a candidate for this level,
-                 * i.e. if K[s] is about to be updated,
-                 * create this candidate as a peer but do not update K.
+                 * If there already is a candidate for this level, i.e. if
+		 * there is a s-candidate below us and K[s] is about to be
+		 * updated, create this candidate as a peer but do not update K.
                  */
                 newc = NewCandidate(firstCandidate, i, j, E[p].realhash,
 			c->prev, c->peer);
@@ -756,7 +764,7 @@ LcsCore(Tcl_Interp *interp,
 {
     Candidate_T **K, *c;
     Line_T i, k, *J;
-    const int noempty = optsPtr->noempty;
+    const int allowempty = !optsPtr->noempty;
     /* Keep track of all candidates to free them easily */
     CandidateAlloc_T *candidates = NULL;
 
@@ -778,7 +786,7 @@ LcsCore(Tcl_Interp *interp,
      */
 
     for (i = 1; i <= m; i++) {
-        if (P[i].Eindex != 0 && (!noempty || P[i].realhash != 0)) {
+        if (P[i].Eindex != 0 && (allowempty || P[i].realhash != 0)) {
             /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
             merge(&candidates, K, &k, i, P, E, P[i].Eindex, optsPtr, m, n);
         }
@@ -904,7 +912,7 @@ LcsCore(Tcl_Interp *interp,
     FreeCandidates(&candidates);
     ckfree((char *) K);
 
-    if (noempty) {
+    if (!allowempty) {
         /*
          * We have ignored empty lines before which means that there
          * may be empty lines that can be matched.
@@ -939,6 +947,61 @@ LcsCore(Tcl_Interp *interp,
     }
 
     return J;
+}
+
+/*
+ * Build E vector from V vector.
+ *
+ * Returns the ckalloc:ed E vector.
+ */
+static E_T *
+BuildEVector(V_T *V, Line_T n)
+{
+    Line_T j, first;
+    E_T *E;
+
+    E = (E_T *) ckalloc((n + 1) * sizeof(E_T));
+    E[0].serial = 0;
+    E[0].last = 1;
+    E[0].count = 0;
+    first = 1;
+    for (j = 1; j <= n; j++) {
+        E[j].serial   = V[j].serial;
+        E[j].realhash = V[j].realhash;
+	E[j].count = 0;
+	E[first].count++;
+
+        if (j == n) {
+            E[j].last = 1;
+        } else {
+            if (V[j].hash != V[j+1].hash) {
+                E[j].last = 1;
+		first = j + 1;
+            } else {
+                E[j].last = 0;
+            }
+        }
+    }
+    return E;
+}
+
+        /* Binary search for hash in V */
+Line_T
+BSearchVVector(V_T *V, Line_T n, Hash_T h)
+{
+    Line_T first = 1;
+    Line_T last = n;
+    Line_T j = 1;
+    while (first <= last) {
+	j = (first + last) / 2;
+	if (V[j].hash == h) break;
+	if (V[j].hash < h) {
+	    first = j + 1;
+	} else {
+	    last = j - 1;
+	}
+    }
+    return j;
 }
 
 /*
@@ -1030,22 +1093,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
     qsort(&V[1], (unsigned long) n, sizeof(V_T), compareV);
 
     /* Build E vector */
-    E = (E_T *) ckalloc((n + 1) * sizeof(E_T));
-    E[0].serial = 0;
-    E[0].last = 1;
-    for (j = 1; j <= n; j++) {
-        E[j].serial   = V[j].serial;
-        E[j].realhash = V[j].realhash;
-        if (j == n) {
-            E[j].last = 1;
-        } else {
-            if (V[j].hash != V[j+1].hash) {
-                E[j].last = 1;
-            } else {
-                E[j].last = 0;
-            }
-        }
-    }
+    E = BuildEVector(V, n);
 
     /* Build P vector */
 
@@ -1086,6 +1134,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
         /* Binary search for hash in V */
         first = 1;
         last = n;
+	j = 1;
         while (first <= last) {
             j = (first + last) / 2;
             if (V[j].hash == h) break;
@@ -1606,22 +1655,7 @@ PrepareStringsLcs(Tcl_Interp *interp,
     qsort(&V[1], (unsigned long) n, sizeof(V_T), compareV);
 
     /* Build E vector */
-    E = (E_T *) ckalloc((n + 1) * sizeof(E_T));
-    E[0].serial = 0;
-    E[0].last = 1;
-    for (j = 1; j <= n; j++) {
-        E[j].serial   = V[j].serial;
-        E[j].realhash = V[j].realhash;
-        if (j == n) {
-            E[j].last = 1;
-        } else {
-            if (V[j].hash != V[j+1].hash) {
-                E[j].last = 1;
-            } else {
-                E[j].last = 0;
-            }
-        }
-    }
+    E = BuildEVector(V, n);
 
     /* Build P vector */
 
@@ -1646,6 +1680,7 @@ PrepareStringsLcs(Tcl_Interp *interp,
         /* Binary search for hash in V */
         first = 1;
         last = n;
+	j = 1;
         while (first <= last) {
             j = (first + last) / 2;
             if (V[j].hash == h) break;
