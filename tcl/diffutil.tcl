@@ -8,7 +8,7 @@
 #  Eskil, and will be released as a separate package when mature.
 #
 #----------------------------------------------------------------------
-# $Revision: 1.11 $
+# $Revision: 1.12 $
 #----------------------------------------------------------------------
 
 package provide DiffUtil 0.2
@@ -227,7 +227,7 @@ proc DiffUtil::diffFiles {args} {
             continue
         }
         switch -- $arg {
-            -i - -b - -w { lappend diffopts $arg }
+            -i - -b - -B - -w { lappend diffopts $arg }
             -nocase      { lappend diffopts -i }
             -align -
             -regsub -
@@ -498,6 +498,7 @@ proc DiffUtil::diffStrings {args} {
     foreach arg $args {
         switch -- $arg {
             -b           {set opts(-space)  1}
+	    -B		 {}
             -w           {set opts(-space)  2}
             -words       {set opts(-words)  1}
             -nocase - -i {set opts(-nocase) 1}
