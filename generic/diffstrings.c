@@ -569,12 +569,7 @@ DiffStrings2ObjCmd(dummy, interp, objc, objv)
 	return TCL_ERROR;
     }
 
-    opts.wordparse = 0;
-    opts.ignore = 0;
-    opts.noempty = 0;
-    opts.rFrom1 = opts.rFrom2 = 1;
-    opts.rTo1   = opts.rTo2   = 0;
-    opts.alignLength = 0;
+    InitDiffOptions_T(opts);
 
     for (t = 1; t < objc - 2; t++) {
 	if (Tcl_GetIndexFromObj(interp, objv[t], options, "option", 0,
