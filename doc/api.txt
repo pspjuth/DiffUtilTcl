@@ -1,0 +1,26 @@
+diffUtil::fullFunctionality
+returns 1 if all is supported
+
+diffUtil::diffFiles ?flags? file1 file2
+-nocase -i -b -w
+-align list
+-range list
+
+returns a list of {line1 size1 line2 size2}
+lines are numbered from 1..
+
+diffUtil::diffLists ?flags? list1 list2
+like diffFiles, but with lines in lists
+numbers in result are indexes i.e 0..
+
+diffUtil::diffStrings ?flags? line1 line2
+-nocase -i -b -w -words
+
+returns a list of substrings from alternating lines
+str1sub1 str2sub1 str1sub2 str2sub2...
+str1sub* concatenated gives line1
+str2sub* concatenated gives line2
+str1subN and str2subN are equal when N is odd
+
+diffUtil::matchBlocks ?flags? lines1 lines2
+returns like diffLists
