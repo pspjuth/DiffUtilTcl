@@ -59,7 +59,11 @@ ReadAndHashFiles(Tcl_Interp *interp,
     if (allocedV < 5000) allocedV = 5000;
     V = (V_T *) ckalloc(allocedV * sizeof(V_T));
 
-    /* Read file 2 and calculate hashes for each line */
+    /*
+     * Read file 2 and calculate hashes for each line, to fill in
+     * the V vector.
+     */
+
     ch = Tcl_FSOpenFileChannel(interp, name2Ptr, "r", 0);
     if (ch == NULL) {
         result = TCL_ERROR;
@@ -102,10 +106,12 @@ ReadAndHashFiles(Tcl_Interp *interp,
 
     qsort(&V[1], (unsigned long) n, sizeof(V_T), CompareV);
 
-    /* Build E vector */
+    /* Build E vector from V vector */
     E = BuildEVector(V, n);
 
-    /* Build P vector */
+    /*
+     * Build P vector from file 1
+     */
 
     /* Guess the number of lines in name1 for an inital allocation of P */
     allocedP = buf1.st_size / 40;
@@ -120,10 +126,10 @@ ReadAndHashFiles(Tcl_Interp *interp,
         goto cleanup;
     }
 
+    /* Skip the first lines if there is a range set. */
     line = 1;
     if (optsPtr->rFrom1 > 1) {
         while (line < optsPtr->rFrom1) {
-            /* Skip the first lines */
             Tcl_SetObjLength(linePtr, 0);
             if (Tcl_GetsObj(ch, linePtr) < 0) break;
             line++;
@@ -206,12 +212,13 @@ CompareFiles(
     Line_T m, n, *J;
     Tcl_Obj *subPtr;
 
-    /*printf("Doing ReadAndHash\n");*/
+    //printf("Doing ReadAndHash\n");
     if (ReadAndHashFiles(interp, name1Ptr, name2Ptr, optsPtr, &m, &n, &P, &E)
         != TCL_OK) {
         return TCL_ERROR;
     }
 
+    /* Handle the trivial case. */
     if (m == 0 || n == 0) {
 	*resPtr = Tcl_NewListObj(0, NULL);
 	if ((n > 0) || (m > 0)) {
@@ -304,12 +311,12 @@ CompareFiles(
                 if (J[current1] == current2) break;
             }
             /* Do they really match? */
-            /*printf("Compare %d (%ld) to %d\n", current1, J[current1],
-              current2);*/
+            //printf("Compare %d (%ld) to %d\n", current1, J[current1],
+            //  current2);
             if (J[current1] != current2) continue;
             if (CompareObjects(line1Ptr, line2Ptr, optsPtr) != 0) {
                 /* No match, continue until next. */
-                printf("Debug: NOT Match %ld %ld\n", current1, current2);
+                //printf("Debug: NOT Match %ld %ld\n", current1, current2);
                 continue;
             }
 
@@ -342,11 +349,11 @@ CompareFiles(
 }
 
 int
-DiffFilesObjCmd(dummy, interp, objc, objv)
-    ClientData dummy;    	/* Not used. */
-    Tcl_Interp *interp;		/* Current interpreter. */
-    int objc;			/* Number of arguments. */
-    Tcl_Obj *CONST objv[];	/* Argument objects. */
+DiffFilesObjCmd(
+    ClientData dummy,    	/* Not used. */
+    Tcl_Interp *interp,		/* Current interpreter. */
+    int objc,			/* Number of arguments. */
+    Tcl_Obj *CONST objv[])	/* Argument objects. */
 {
     int index, t, result = TCL_OK;
     Tcl_Obj *resPtr, *file1Ptr, *file2Ptr;
@@ -365,11 +372,7 @@ DiffFilesObjCmd(dummy, interp, objc, objv)
 	return TCL_ERROR;
     }
 
-    opts.ignore = 0;
-    opts.noempty = 0;
-    opts.rFrom1 = opts.rFrom2 = 1;
-    opts.rTo1   = opts.rTo2   = 0;
-    opts.alignLength = 0;
+    InitDiffOptions_T(opts);
 
     for (t = 1; t < objc - 2; t++) {
 	if (Tcl_GetIndexFromObj(interp, objv[t], options, "option", 0,

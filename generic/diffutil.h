@@ -28,6 +28,9 @@ typedef struct {
     Line_T staticAlign[STATIC_ALIGN];
 } DiffOptions_T;
 
+/* Helper to get a filled in DiffOptions_T */
+#define InitDiffOptions_T(opts) {opts.ignore = 0; opts.noempty = 0; opts.wordparse = 0; opts.rFrom1 = 1; opts.rTo1 = 0; opts.rFrom2 = 1; opts.rTo2 = 0; opts.alignLength = 0; opts.align = opts.staticAlign;}
+ 
 /* Flags in DiffOptions_T's ignore field */
 
 #define IGNORE_ALL_SPACE 1
