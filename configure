@@ -4767,7 +4767,7 @@ done
 #-----------------------------------------------------------------------
 
 
-    vars="diffutil.c diff.c"
+    vars="diffutil.c diff.c difffiles.c"
     for i in $vars; do
 	case $i in
 	    \$*)

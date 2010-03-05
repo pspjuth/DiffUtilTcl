@@ -340,6 +340,10 @@ VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win
 .c.@OBJEXT@:
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@
 
+diffutil.o: generic/diffutil.h
+difffiles.o: generic/diffutil.h
+diff.o: generic/diffutil.h
+
 #========================================================================
 # Distribution creation
 # You may need to tweak this target to make it work correctly.
