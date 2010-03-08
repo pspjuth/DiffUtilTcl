@@ -18,87 +18,43 @@
  * Read two files, hash them and prepare the datastructures needed in LCS.
  */
 static int
-ReadAndHashFiles(Tcl_Interp *interp,
-	         Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
-                 DiffOptions_T *optsPtr,
-                 Line_T *mPtr, Line_T *nPtr,
-                 P_T **PPtr, E_T **EPtr)
+HashLists(Tcl_Interp *interp,
+	Tcl_Obj *list1Ptr, Tcl_Obj *list2Ptr,
+	DiffOptions_T *optsPtr,
+	Line_T *mPtr, Line_T *nPtr,
+	P_T **PPtr, E_T **EPtr)
 {
-    int result = TCL_OK;
     V_T *V = NULL;
     E_T *E = NULL;
     P_T *P = NULL;
-    Tcl_StatBuf buf1, buf2;
     Hash_T h, realh;
-    Line_T line, j, m = 0, n = 0;
-    Line_T allocedV, allocedP, first, last;
-    Tcl_Channel ch;
-    Tcl_Obj *linePtr;
+    Line_T j, m = 0, n = 0;
+    int length1, length2, t;
+    Line_T first, last;
+    Tcl_Obj **elem1Ptrs, **elem2Ptrs;
 
-    /* Stat files first to quickly see if they don't exist */
-    if (Tcl_FSStat(name1Ptr, &buf1) != 0) {
-        /* FIXA: error message */
-        Tcl_SetResult(interp, "bad file", TCL_STATIC);
-        return TCL_ERROR;
-    }
-    if (Tcl_FSStat(name2Ptr, &buf2) != 0) {
-        /* FIXA: error message */
-        Tcl_SetResult(interp, "bad file", TCL_STATIC);
-        return TCL_ERROR;
+    if (Tcl_ListObjGetElements(interp, list1Ptr, &length1, &elem1Ptrs) != TCL_OK) {
+	return TCL_ERROR;
     }
 
-    /* Initialize an object to use as line buffer. */
-    linePtr = Tcl_NewObj();
-    Tcl_IncrRefCount(linePtr);
-    Tcl_SetObjLength(linePtr, 1000);
-    Tcl_SetObjLength(linePtr, 0);
+    if (Tcl_ListObjGetElements(interp, list2Ptr, &length2, &elem2Ptrs) != TCL_OK) {
+	return TCL_ERROR;
+    }
 
-    /* Guess the number of lines in name2 for an inital allocation of V */
-    allocedV = buf2.st_size / 40;
-    /* If the guess is low, alloc some more to be safe. */
-    if (allocedV < 5000) allocedV = 5000;
-    V = (V_T *) ckalloc(allocedV * sizeof(V_T));
+    m = length1;
+    n = length2;
+    V = (V_T *) ckalloc((n + 1) * sizeof(V_T));
 
     /*
-     * Read file 2 and calculate hashes for each line, to fill in
+     * Read list 2 and calculate hashes for each element, to fill in
      * the V vector.
      */
 
-    ch = Tcl_FSOpenFileChannel(interp, name2Ptr, "r", 0);
-    if (ch == NULL) {
-        result = TCL_ERROR;
-        goto cleanup;
+    for (t = 1; t <= n; t++) {
+        V[t].serial = t;
+
+        Hash(elem2Ptrs[t-1], optsPtr, &V[t].hash, &V[t].realhash);
     }
-
-    /* Skip the first lines if there is a range set. */
-    line = 1;
-    while (line < optsPtr->rFrom2) {
-	Tcl_SetObjLength(linePtr, 0);
-	if (Tcl_GetsObj(ch, linePtr) < 0) break;
-	line++;
-    }
-
-    n = 1;
-    while (1) {
-        V[n].serial = n;
-        Tcl_SetObjLength(linePtr, 0);
-        if (Tcl_GetsObj(ch, linePtr) < 0) {
-            n--;
-            break;
-        }
-
-        Hash(linePtr, optsPtr, &V[n].hash, &V[n].realhash);
-        if (optsPtr->rTo2 > 0 && optsPtr->rTo2 <= line) break;
-
-        n++;
-        line++;
-	/* Reallocate if more room is needed */
-        if (n >= allocedV) {
-            allocedV = allocedV * 3 / 2;
-            V = (V_T *) ckrealloc((char *) V, allocedV * sizeof(V_T));
-        }
-    }
-    Tcl_Close(interp, ch);
 
     /*
      * Sort the V vector on hash/serial to allow fast search.
@@ -110,42 +66,17 @@ ReadAndHashFiles(Tcl_Interp *interp,
     E = BuildEVector(V, n);
 
     /*
-     * Build P vector from file 1
+     * Build P vector from list 1
      */
 
-    /* Guess the number of lines in name1 for an inital allocation of P */
-    allocedP = buf1.st_size / 40;
-    /* If the guess is low, alloc some more to be safe. */
-    if (allocedP < 10000) allocedP = 10000;
-    P = (P_T *) ckalloc(allocedP * sizeof(P_T));
+    P = (P_T *) ckalloc((m + 1) * sizeof(P_T));
 
-    /* Read file and calculate hashes for each line */
-    ch = Tcl_FSOpenFileChannel(interp, name1Ptr, "r", 0);
-    if (ch == NULL) {
-        result = TCL_ERROR;
-        goto cleanup;
-    }
+    /* Read list and calculate hashes for each element */
 
-    /* Skip the first lines if there is a range set. */
-    line = 1;
-    if (optsPtr->rFrom1 > 1) {
-        while (line < optsPtr->rFrom1) {
-            Tcl_SetObjLength(linePtr, 0);
-            if (Tcl_GetsObj(ch, linePtr) < 0) break;
-            line++;
-        }
-    }
-
-    m = 1;
-    while (1) {
-        P[m].Eindex = 0;
-        Tcl_SetObjLength(linePtr, 0);
-        if (Tcl_GetsObj(ch, linePtr) < 0) {
-            m--;
-            break;
-        }
-        Hash(linePtr, optsPtr, &h, &realh);
-        P[m].realhash = realh;
+    for (t = 1; t <= m; t++) {
+        P[t].Eindex = 0;
+        Hash(elem1Ptrs[t-1], optsPtr, &h, &realh);
+        P[t].realhash = realh;
 
         /* Binary search for hash in V */
         first = 1;
@@ -163,47 +94,25 @@ ReadAndHashFiles(Tcl_Interp *interp,
         if (V[j].hash == h) {
 	    /* Search back to the first in the class */
             while (!E[j-1].last) j--;
-            P[m].Eindex = j;
-            /*printf("P %ld = %ld\n", m, j);*/
-        }
-
-	/* Abort if the limited range has been filled */
-        if (optsPtr->rTo1 > 0 && optsPtr->rTo1 <= line) break;
-
-        m++;
-        line++;
-	/* Realloc if necessary */
-        if (m >= allocedP) {
-            allocedP = allocedP * 3 / 2;
-            P = (P_T *) ckrealloc((char *) P,
-                                  allocedP * sizeof(P_T));
+            P[t].Eindex = j;
         }
     }
-    Tcl_Close(interp, ch);
 
-    /* Clean up */
-    cleanup:
     ckfree((char *) V);
-    Tcl_DecrRefCount(linePtr);
 
-    if (result != TCL_OK) {
-        if (P != NULL) ckfree((char *) P);
-        if (E != NULL) ckfree((char *) E);
-        P = NULL; E = NULL;
-    }
     *mPtr = m;
     *nPtr = n;
     *PPtr = P;
     *EPtr = E;
-    return result;
+    return TCL_OK;
 }
 
 /* Do the diff files operation */
 static int
-CompareFiles(
+CompareLists(
 	Tcl_Interp *interp,
-	Tcl_Obj *name1Ptr,
-	Tcl_Obj *name2Ptr,
+	Tcl_Obj *list1Ptr,
+	Tcl_Obj *list2Ptr,
 	DiffOptions_T *optsPtr,
 	Tcl_Obj **resPtr)
 {
@@ -211,9 +120,10 @@ CompareFiles(
     P_T *P;
     Line_T m, n, *J;
     Tcl_Obj *subPtr;
+    int length1, length2;
+    Tcl_Obj **elem1Ptrs, **elem2Ptrs;
 
-    //printf("Doing ReadAndHash\n");
-    if (ReadAndHashFiles(interp, name1Ptr, name2Ptr, optsPtr, &m, &n, &P, &E)
+    if (HashLists(interp, list1Ptr, list2Ptr, optsPtr, &m, &n, &P, &E)
         != TCL_OK) {
         return TCL_ERROR;
     }
@@ -230,16 +140,7 @@ CompareFiles(
 	return TCL_OK;
     }
 
-    //printf("Doing LcsCore m = %ld, n = %ld\n", m, n);
     J = LcsCore(interp, m, n, P, E, optsPtr);
-    //printf("Done LcsCore\n");
-    if (0) {
-        int i;
-        for (i = 0; i <= m; i++) {
-            printf("J(%d)=%ld ", i, J[i]);
-        }
-        printf("\n");
-    }
 
     ckfree((char *) E);
     ckfree((char *) P);
@@ -256,67 +157,31 @@ CompareFiles(
         Tcl_ListObjAppendElement(interp, *resPtr,
                                  NewChunk(interp, optsPtr, 1, m, 1, n));
     } else if (m > 0 && n > 0) {
-        Tcl_Channel ch1, ch2;
-        Tcl_Obj *line1Ptr, *line2Ptr;
         Line_T current1, current2, n1, n2;
         Line_T startblock1, startblock2;
-
-        /* Initialize objects to use as line buffers. */
-        line1Ptr = Tcl_NewObj();
-        Tcl_IncrRefCount(line1Ptr);
-        Tcl_SetObjLength(line1Ptr, 1000);
-        line2Ptr = Tcl_NewObj();
-        Tcl_IncrRefCount(line2Ptr);
-        Tcl_SetObjLength(line2Ptr, 1000);
-
-        ch1 = Tcl_FSOpenFileChannel(interp, name1Ptr, "r", 0);
-        ch2 = Tcl_FSOpenFileChannel(interp, name2Ptr, "r", 0);
-
-        /* Skip start if there is a range */
-        if (optsPtr->rFrom1 > 1) {
-            int line = 1;
-            while (line < optsPtr->rFrom1) {
-                /* Skip the first lines */
-                Tcl_SetObjLength(line1Ptr, 0);
-                if (Tcl_GetsObj(ch1, line1Ptr) < 0) break;
-                line++;
-            }
-        }
-        if (optsPtr->rFrom2 > 1) {
-            int line = 1;
-            while (line < optsPtr->rFrom2) {
-                /* Skip the first lines */
-                Tcl_SetObjLength(line2Ptr, 0);
-                if (Tcl_GetsObj(ch2, line2Ptr) < 0) break;
-                line++;
-            }
-        }
+	
+	Tcl_ListObjGetElements(interp, list1Ptr, &length1, &elem1Ptrs);
+	Tcl_ListObjGetElements(interp, list2Ptr, &length2, &elem2Ptrs);
 
         startblock1 = startblock2 = 1;
         current1 = current2 = 0;
 
         while (current1 < m || current2 < n) {
-            /* Scan file 1 until next supposed match */
+            /* Scan list 1 until next supposed match */
             while (current1 < m) {
                 current1++;
-                Tcl_SetObjLength(line1Ptr, 0);
-                Tcl_GetsObj(ch1, line1Ptr);
                 if (J[current1] != 0) break;
             }
-            /* Scan file 2 until next supposed match */
+            /* Scan list 2 until next supposed match */
             while (current2 < n) {
                 current2++;
-                Tcl_SetObjLength(line2Ptr, 0);
-                Tcl_GetsObj(ch2, line2Ptr);
                 if (J[current1] == current2) break;
             }
             /* Do they really match? */
-            //printf("Compare %d (%ld) to %d\n", current1, J[current1],
-            //  current2);
             if (J[current1] != current2) continue;
-            if (CompareObjects(line1Ptr, line2Ptr, optsPtr) != 0) {
+            if (CompareObjects(elem1Ptrs[current1-1], elem2Ptrs[current2-1],
+			    optsPtr) != 0) {
                 /* No match, continue until next. */
-                //printf("Debug: NOT Match %ld %ld\n", current1, current2);
                 continue;
             }
 
@@ -338,10 +203,6 @@ CompareFiles(
                               startblock1, n1, startblock2, n2);
             Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
         }
-        Tcl_Close(interp, ch1);
-        Tcl_Close(interp, ch2);
-        Tcl_DecrRefCount(line1Ptr);
-        Tcl_DecrRefCount(line2Ptr);
     }
 
     ckfree((char *) J);
@@ -356,19 +217,19 @@ DiffListsObjCmd(
     Tcl_Obj *CONST objv[])	/* Argument objects. */
 {
     int index, t, result = TCL_OK;
-    Tcl_Obj *resPtr, *file1Ptr, *file2Ptr;
+    Tcl_Obj *resPtr, *list1Ptr, *list2Ptr;
     DiffOptions_T opts;
     static CONST char *options[] = {
-	"-b", "-w", "-i", "-nocase", "-align", "-range",
-        "-noempty", "-nodigit", "-regsub", (char *) NULL
+	"-b", "-w", "-i", "-nocase",
+        "-noempty", "-nodigit", (char *) NULL
     };
     enum options {
-	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_RANGE,
-        OPT_NOEMPTY, OPT_NODIGIT, OPT_REGSUB
+	OPT_B, OPT_W, OPT_I, OPT_NOCASE,
+        OPT_NOEMPTY, OPT_NODIGIT
     };
 
     if (objc < 3) {
-        Tcl_WrongNumArgs(interp, 1, objv, "?opts? file1 file2");
+        Tcl_WrongNumArgs(interp, 1, objv, "?opts? list1 list2");
 	return TCL_ERROR;
     }
 
@@ -397,51 +258,19 @@ DiffListsObjCmd(
 	  case OPT_NOEMPTY:
             opts.noempty = 1;
             break;
-          case OPT_REGSUB:
-            /* ignored for now */
-            break;
-	  case OPT_RANGE:
-            t++;
-            if (t >= (objc - 2)) {
-                /* FIXA error message */
-                Tcl_SetResult(interp, "missing value", TCL_STATIC);
-                result = TCL_ERROR;
-                goto cleanup;
-            }
-            if (SetOptsRange(interp, objv[t], 1, &opts) != TCL_OK) {
-                result = TCL_ERROR;
-                goto cleanup;
-            }
-            break;
-	  case OPT_ALIGN:
-            t++;
-            if (t >= (objc - 2)) {
-                /* FIXA error message */
-                Tcl_SetResult(interp, "missing value", TCL_STATIC);
-                result = TCL_ERROR;
-                goto cleanup;
-            }
-            if (SetOptsAlign(interp, objv[t], 1, &opts) != TCL_OK) {
-                result = TCL_ERROR;
-                goto cleanup;
-            }
-            break;
 	}
     }
     NormaliseOpts(&opts);
-    file1Ptr = objv[objc-2];
-    file2Ptr = objv[objc-1];
+    list1Ptr = objv[objc-2];
+    list2Ptr = objv[objc-1];
 
-    if (CompareFiles(interp, file1Ptr, file2Ptr, &opts, &resPtr) != TCL_OK) {
+    if (CompareLists(interp, list1Ptr, list2Ptr, &opts, &resPtr) != TCL_OK) {
         result = TCL_ERROR;
         goto cleanup;
     }
     Tcl_SetObjResult(interp, resPtr);
 
     cleanup:
-    if (opts.alignLength > STATIC_ALIGN) {
-        ckfree((char *) opts.align);
-    }
 
     return result;
 }

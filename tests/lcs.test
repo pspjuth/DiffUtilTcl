@@ -44,6 +44,7 @@ proc lcs {list1 list2 args} {
     return [list $r1 $r2]
 }
 
+# Do lcs-tests through diffFiles
 proc lcs {list1 list2 args} {
     set ch [open _1 w]
     if {[llength $list1] > 0} {
@@ -62,6 +63,33 @@ proc lcs {list1 list2 args} {
     #puts "L1: [join $list1]"
     #puts "L2: [join $list2]"
     #puts "C : $::DiffUtil::Candidates"
+    set r1 {}
+    set r2 {}
+    set prev1 1
+    set prev2 1
+    foreach chunk $apa {
+        foreach {l1 n1 l2 n2} $chunk break
+        # Skip equal lines up to the chunk
+        for {} {$prev1 < $l1} {incr prev1 ; incr prev2} {
+            lappend r1 [expr {$prev1 - 1}]
+            lappend r2 [expr {$prev2 - 1}]
+        }
+        incr prev1 $n1
+        incr prev2 $n2
+        #puts "Chunk $chunk"
+    }
+    set l1 [expr {[llength $list1] + 1}]
+    for {} {$prev1 < $l1} {incr prev1 ; incr prev2} {
+        lappend r1 [expr {$prev1 - 1}]
+        lappend r2 [expr {$prev2 - 1}]
+    }
+    #puts [list $r1 $r2]
+    return [list $r1 $r2]
+}
+
+# Do lcs-tests through diffLists
+proc lcs {list1 list2 args} {
+    set apa [DiffUtil::diffLists $list1 $list2]
     set r1 {}
     set r2 {}
     set prev1 1
