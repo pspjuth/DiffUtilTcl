@@ -104,6 +104,12 @@ DiffFilesObjCmd(ClientData dummy,
                 Tcl_Obj *CONST objv[]);
 
 extern int
+DiffListsObjCmd(ClientData dummy,
+                Tcl_Interp *interp,
+                int objc,
+                Tcl_Obj *CONST objv[]);
+
+extern int
 DiffStringsObjCmd(ClientData dummy,
                   Tcl_Interp *interp,
                   int objc,

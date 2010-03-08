@@ -385,6 +385,7 @@ Diffutil_Init(Tcl_Interp *interp)
     }
 
     TCOC("DiffUtil::diffFiles", DiffFilesObjCmd);
+    TCOC("DiffUtil::diffLists", DiffListsObjCmd);
     TCOC("DiffUtil::diffStrings", DiffStringsObjCmd);
     TCOC("DiffUtil::diffStrings2", DiffStrings2ObjCmd);
     Tcl_SetVar(interp, "DiffUtil::version", PACKAGE_VERSION, TCL_GLOBAL_ONLY);
