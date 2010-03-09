@@ -14,6 +14,8 @@ package require \fBDiffUtil  ?0.2?\fR
 .sp
 \fB::DiffUtil::diffFiles\fR ?\fIoptions\fR? \fIfile1\fR \fIfile2\fR
 .sp
+\fB::DiffUtil::diffLists\fR ?\fIoptions\fR? \fIlist1\fR \fIlist2\fR
+.sp
 .BE
 .SH DESCRIPTION
 .PP
@@ -44,11 +46,42 @@ Ignore space changes.
 \fB-w\fR
 Ignore all spaces.
 .TP
+\fB-noempty\fR
+Ignore empty lines in initial compare step.
+.TP
+\fB-nodigit\fR
+Consider any sequence of digits equal.
+.TP
 \fB-align\fR \fIlist\fR
 Align lines.
 .TP
 \fB-range\fR \fIlist\fR
 Diff only a range of the files. The list is {first1 last1 first2 last2}
+.RE
+.TP
+\fB::DiffUtil::diffLists\fR ?\fIoptions\fR? \fIlist1\fR \fIlist2\fR
+Compare two lists element by element.
+Returns a list of differences, each in a four element list.
+{ElementIndex1 NumberOfElements1 ElementIndex2 NumberOfElements2}
+.RS
+.TP
+\fB-nocase\fR
+Ignore case.
+.TP
+\fB-i\fR
+Ignore case.
+.TP
+\fB-b\fR
+Ignore space changes.
+.TP
+\fB-w\fR
+Ignore all spaces.
+.TP
+\fB-noempty\fR
+Ignore empty lines in initial compare step.
+.TP
+\fB-nodigit\fR
+Consider any sequence of digits equal.
 .RE
 .PP
 .SH EXAMPLES

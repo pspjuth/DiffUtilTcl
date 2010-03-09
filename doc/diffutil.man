@@ -40,11 +40,46 @@ Ignore space changes.
 [opt_def -w]
 Ignore all spaces.
 
+[opt_def -noempty]
+Ignore empty lines in initial compare step.
+
+[opt_def -nodigit]
+Consider any sequence of digits equal.
+
 [opt_def -align [arg list]]
 Align lines.
 
 [opt_def -range [arg list]]
 Diff only a range of the files. The list is {first1 last1 first2 last2}
+
+[list_end]
+
+[call [cmd "::DiffUtil::diffLists"] \
+        [opt [arg options]] [arg list1] [arg list2]]
+
+Compare two lists element by element.
+Returns a list of differences, each in a four element list.
+{ElementIndex1 NumberOfElements1 ElementIndex2 NumberOfElements2}
+
+[list_begin opt]
+
+[opt_def -nocase]
+Ignore case.
+
+[opt_def -i]
+Ignore case.
+
+[opt_def -b]
+Ignore space changes.
+
+[opt_def -w]
+Ignore all spaces.
+
+[opt_def -noempty]
+Ignore empty lines in initial compare step.
+
+[opt_def -nodigit]
+Consider any sequence of digits equal.
 
 [list_end]
 

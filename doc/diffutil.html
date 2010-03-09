@@ -121,6 +121,7 @@
 </ul>
 <ul class="syntax">
 <li><a href="#1"><b class="cmd">::DiffUtil::diffFiles</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">file1</i> <i class="arg">file2</i></a></li>
+<li><a href="#2"><b class="cmd">::DiffUtil::diffLists</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">list1</i> <i class="arg">list2</i></a></li>
 </ul>
 </div>
 </div>
@@ -148,10 +149,32 @@ Returns a list of differences, each in a four element list.
 <dd><p>Ignore space changes.</p></dd>
 <dt><b class="option">-w</b></dt>
 <dd><p>Ignore all spaces.</p></dd>
+<dt><b class="option">-noempty</b></dt>
+<dd><p>Ignore empty lines in initial compare step.</p></dd>
+<dt><b class="option">-nodigit</b></dt>
+<dd><p>Consider any sequence of digits equal.</p></dd>
 <dt><b class="option">-align</b> <i class="arg">list</i></dt>
 <dd><p>Align lines.</p></dd>
 <dt><b class="option">-range</b> <i class="arg">list</i></dt>
 <dd><p>Diff only a range of the files. The list is {first1 last1 first2 last2}</p></dd>
+</dl></dd>
+<dt><a name="2"><b class="cmd">::DiffUtil::diffLists</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">list1</i> <i class="arg">list2</i></a></dt>
+<dd><p>Compare two lists element by element.
+Returns a list of differences, each in a four element list.
+{ElementIndex1 NumberOfElements1 ElementIndex2 NumberOfElements2}</p>
+<dl class="options">
+<dt><b class="option">-nocase</b></dt>
+<dd><p>Ignore case.</p></dd>
+<dt><b class="option">-i</b></dt>
+<dd><p>Ignore case.</p></dd>
+<dt><b class="option">-b</b></dt>
+<dd><p>Ignore space changes.</p></dd>
+<dt><b class="option">-w</b></dt>
+<dd><p>Ignore all spaces.</p></dd>
+<dt><b class="option">-noempty</b></dt>
+<dd><p>Ignore empty lines in initial compare step.</p></dd>
+<dt><b class="option">-nodigit</b></dt>
+<dd><p>Consider any sequence of digits equal.</p></dd>
 </dl></dd>
 </dl>
 </div>
