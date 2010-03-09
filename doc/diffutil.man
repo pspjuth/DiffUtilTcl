@@ -1,0 +1,62 @@
+[manpage_begin DiffUtil n 0.2]
+[copyright {2010, Peter Spjuth}]
+[moddesc   {Comparision Utilities}]
+[titledesc {Compare Stuff}]
+[require Tcl 8.4]
+[require DiffUtil [opt 0.2]]
+[description]
+[para]
+
+This package provides utilites for comparisons of strings, lists
+and files.
+The base comparison is a Longest Common Substring algorithm based
+on J. W. Hunt and M. D. McIlroy, "An algorithm for differential
+file comparison," Comp. Sci. Tech. Rep. #41, Bell Telephone
+Laboratories (1976). Available on the Web at the second
+author's personal site: http://www.cs.dartmouth.edu/~doug/
+
+[section COMMANDS]
+
+[list_begin definitions]
+
+[call [cmd "::DiffUtil::diffFiles"] \
+        [opt [arg options]] [arg file1] [arg file2]]
+
+Compare two files line by line.
+Returns a list of differences, each in a four element list.
+{LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
+
+[list_begin opt]
+
+[opt_def -nocase]
+Ignore case.
+
+[opt_def -i]
+Ignore case.
+
+[opt_def -b]
+Ignore space changes.
+
+[opt_def -w]
+Ignore all spaces.
+
+[opt_def -align [arg list]]
+Align lines.
+
+[opt_def -range [arg list]]
+Diff only a range of the files. The list is {first1 last1 first2 last2}
+
+[list_end]
+
+[list_end]
+
+[section EXAMPLES]
+
+[para]
+[example {
+% DiffUtil::diffFiles $file1 $file2
+{{3 2 3 4}}
+}]
+
+[keywords diff lcs {longest common substring}]
+[manpage_end]

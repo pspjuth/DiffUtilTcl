@@ -1,0 +1,170 @@
+<html><head>
+<title>DiffUtil - Comparision Utilities</title>
+<style type="text/css"><!--
+    HTML {
+	background: 	#FFFFFF;
+	color: 		black;
+    }
+    BODY {
+	background: 	#FFFFFF;
+	color:	 	black;
+    }
+    DIV.doctools {
+	margin-left:	10%;
+	margin-right:	10%;
+    }
+    DIV.doctools H1,DIV.doctools H2 {
+	margin-left:	-5%;
+    }
+    H1, H2, H3, H4 {
+	margin-top: 	1em;
+	font-family:	sans-serif;
+	font-size:	large;
+	color:		#005A9C;
+	background: 	transparent;
+	text-align:		left;
+    }
+    H1.title {
+	text-align: center;
+    }
+    UL,OL {
+	margin-right: 0em;
+	margin-top: 3pt;
+	margin-bottom: 3pt;
+    }
+    UL LI {
+	list-style: disc;
+    }
+    OL LI {
+	list-style: decimal;
+    }
+    DT {
+	padding-top: 	1ex;
+    }
+    UL.toc,UL.toc UL, UL.toc UL UL {
+	font:		normal 12pt/14pt sans-serif;
+	list-style:	none;
+    }
+    LI.section, LI.subsection {
+	list-style: 	none;
+	margin-left: 	0em;
+	text-indent:	0em;
+	padding: 	0em;
+    }
+    PRE {
+	display: 	block;
+	font-family:	monospace;
+	white-space:	pre;
+	margin:		0%;
+	padding-top:	0.5ex;
+	padding-bottom:	0.5ex;
+	padding-left:	1ex;
+	padding-right:	1ex;
+	width:		100%;
+    }
+    PRE.example {
+	color: 		black;
+	background: 	#f5dcb3;
+	border:		1px solid black;
+    }
+    UL.requirements LI, UL.syntax LI {
+	list-style: 	none;
+	margin-left: 	0em;
+	text-indent:	0em;
+	padding:	0em;
+    }
+    DIV.synopsis {
+	color: 		black;
+	background: 	#80ffff;
+	border:		1px solid black;
+	font-family:	serif;
+	margin-top: 	1em;
+	margin-bottom: 	1em;
+    }
+    UL.syntax {
+	margin-top: 	1em;
+	border-top:	1px solid black;
+    }
+    UL.requirements {
+	margin-bottom: 	1em;
+	border-bottom:	1px solid black;
+    }
+--></style>
+</head>
+<! -- Generated from file 'doc/diffutil.man' by tcllib/doctools with format 'html'
+   -->
+<! -- Copyright &copy; 2010, Peter Spjuth
+   -->
+<! -- CVS: $Id$ DiffUtil.n
+   -->
+<body><div class="doctools">
+<h1 class="title">DiffUtil(n) 0.2 diffutil &quot;Comparision Utilities&quot;</h1>
+<div id="name" class="section"><h2><a name="name">Name</a></h2>
+<p>DiffUtil - Compare Stuff</p>
+</div>
+<div id="toc" class="section"><h2><a name="toc">Table Of Contents</a></h2>
+<ul class="toc">
+<li class="section"><a href="#toc">Table Of Contents</a></li>
+<li class="section"><a href="#synopsis">Synopsis</a></li>
+<li class="section"><a href="#section1">Description</a></li>
+<li class="section"><a href="#section2">COMMANDS</a></li>
+<li class="section"><a href="#section3">EXAMPLES</a></li>
+<li class="section"><a href="#keywords">Keywords</a></li>
+<li class="section"><a href="#copyright">Copyright</a></li>
+</ul>
+</div>
+<div id="synopsis" class="section"><h2><a name="synopsis">Synopsis</a></h2>
+<div class="synopsis">
+<ul class="requirements">
+<li>package require <b class="pkgname">Tcl 8.4</b></li>
+<li>package require <b class="pkgname">DiffUtil <span class="opt">?0.2?</span></b></li>
+</ul>
+<ul class="syntax">
+<li><a href="#1"><b class="cmd">::DiffUtil::diffFiles</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">file1</i> <i class="arg">file2</i></a></li>
+</ul>
+</div>
+</div>
+<div id="section1" class="section"><h2><a name="section1">Description</a></h2>
+<p>This package provides utilites for comparisons of strings, lists
+and files.
+The base comparison is a Longest Common Substring algorithm based
+on J. W. Hunt and M. D. McIlroy, &quot;An algorithm for differential
+file comparison,&quot; Comp. Sci. Tech. Rep. #41, Bell Telephone
+Laboratories (1976). Available on the Web at the second
+author's personal site: http://www.cs.dartmouth.edu/~doug/</p>
+</div>
+<div id="section2" class="section"><h2><a name="section2">COMMANDS</a></h2>
+<dl class="definitions">
+<dt><a name="1"><b class="cmd">::DiffUtil::diffFiles</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">file1</i> <i class="arg">file2</i></a></dt>
+<dd><p>Compare two files line by line.
+Returns a list of differences, each in a four element list.
+{LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}</p>
+<dl class="options">
+<dt><b class="option">-nocase</b></dt>
+<dd><p>Ignore case.</p></dd>
+<dt><b class="option">-i</b></dt>
+<dd><p>Ignore case.</p></dd>
+<dt><b class="option">-b</b></dt>
+<dd><p>Ignore space changes.</p></dd>
+<dt><b class="option">-w</b></dt>
+<dd><p>Ignore all spaces.</p></dd>
+<dt><b class="option">-align</b> <i class="arg">list</i></dt>
+<dd><p>Align lines.</p></dd>
+<dt><b class="option">-range</b> <i class="arg">list</i></dt>
+<dd><p>Diff only a range of the files. The list is {first1 last1 first2 last2}</p></dd>
+</dl></dd>
+</dl>
+</div>
+<div id="section3" class="section"><h2><a name="section3">EXAMPLES</a></h2>
+<pre class="example">
+% DiffUtil::diffFiles $file1 $file2
+{{3 2 3 4}}
+</pre>
+</div>
+<div id="keywords" class="section"><h2><a name="keywords">Keywords</a></h2>
+<p>diff, lcs, longest common substring</p>
+</div>
+<div id="copyright" class="section"><h2><a name="copyright">Copyright</a></h2>
+<p>Copyright &copy; 2010, Peter Spjuth</p>
+</div>
+</div></body></html>
