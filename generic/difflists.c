@@ -76,6 +76,7 @@ HashLists(Tcl_Interp *interp,
     for (t = 1; t <= m; t++) {
         P[t].Eindex = 0;
         Hash(elem1Ptrs[t-1], optsPtr, &h, &realh);
+        P[t].hash = h;
         P[t].realhash = realh;
 
         /* Binary search for hash in V */

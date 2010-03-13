@@ -41,13 +41,17 @@ Ignore case.
 Ignore case.
 .TP
 \fB-b\fR
-Ignore space changes.
+Ignore space changes. Any sequence of whitespace is treated as a single
+space, except at beginning of line where it is completely ignored.
 .TP
 \fB-w\fR
 Ignore all spaces.
 .TP
 \fB-noempty\fR
-Ignore empty lines in initial compare step.
+Ignore empty lines in initial compare step. I.e. empty lines are considered
+not equal at first. Multiple equal lines gives longer runtimes and by avoiding
+the very common empty line, runtimes are improved. With ?-b? or ?-w?,
+all-space lines are considered empty.
 .TP
 \fB-nodigit\fR
 Consider any sequence of digits equal.

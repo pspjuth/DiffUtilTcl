@@ -64,6 +64,7 @@ typedef struct {
     int last;        /* True on the last element of each class */
     int count;       /* On the first in each class, keeps the number
 		      * of lines in the class. Otherwise zero. */
+    Hash_T hash;     /* Keep the hash for reference */
     Hash_T realhash; /* Keep the realhash for reference */
 } E_T;
 
@@ -76,6 +77,7 @@ typedef struct {
  */
 typedef struct {
     Line_T Eindex;   /* First element in equivalent class in E vector */
+    Hash_T hash;     /* Keep the hash for reference */
     Hash_T realhash; /* Keep the realhash for reference */
 } P_T;
 

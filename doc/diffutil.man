@@ -35,13 +35,17 @@ Ignore case.
 Ignore case.
 
 [opt_def -b]
-Ignore space changes.
+Ignore space changes. Any sequence of whitespace is treated as a single
+space, except at beginning of line where it is completely ignored.
 
 [opt_def -w]
 Ignore all spaces.
 
 [opt_def -noempty]
-Ignore empty lines in initial compare step.
+Ignore empty lines in initial compare step. I.e. empty lines are considered
+not equal at first. Multiple equal lines gives longer runtimes and by avoiding
+the very common empty line, runtimes are improved. With [opt -b] or [opt -w],
+all-space lines are considered empty.
 
 [opt_def -nodigit]
 Consider any sequence of digits equal.

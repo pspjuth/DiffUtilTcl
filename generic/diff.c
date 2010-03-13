@@ -710,7 +710,7 @@ LcsCore(Tcl_Interp *interp,
      */
 
     for (i = 1; i <= m; i++) {
-        if (P[i].Eindex != 0 && (allowempty || P[i].realhash != 0)) {
+        if (P[i].Eindex != 0 && (allowempty || P[i].hash != 0)) {
             /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
             merge(&candidates, K, &k, i, P, E, P[i].Eindex, optsPtr, m, n);
         }
@@ -858,7 +858,7 @@ LcsCore(Tcl_Interp *interp,
 		cntempty1 = 0;
 		continue;
 	    }
-	    if (P[i].realhash == 0) {
+	    if (P[i].hash == 0) {
 		cntempty1++;
 		continue;
 	    }
@@ -891,6 +891,7 @@ BuildEVector(V_T *V, Line_T n)
     first = 1;
     for (j = 1; j <= n; j++) {
         E[j].serial   = V[j].serial;
+        E[j].hash     = V[j].hash;
         E[j].realhash = V[j].realhash;
 	E[j].count = 0;
 	E[first].count++;

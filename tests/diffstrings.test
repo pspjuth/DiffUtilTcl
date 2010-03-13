@@ -65,7 +65,7 @@ test diffstrings-1.4 {equal} {
     RunTest $s1 $s2
 } [list {abc def} {abc def}]
 
-test diffstrings-1.5 {long substring that is not a solution} {
+test diffstrings-1.5 {long substring that is not a solution} {knownbug} {
     set s1 [string map {{ } {}} {s     abc efg ijk mnopeterj}]
     set s2 [string map {{ } {}} {speterabcdefghijklmno     j}]
     RunTest $s1 $s2
@@ -101,7 +101,7 @@ test diffstrings-2.3 {words} {
     RunTest $s1 $s2 -words
 } [list {abc } {abc } def daf { ghi } { ghi } jkl jil { mno} { mno}]
 
-test diffstrings-2.4.1 {words} {CDiff} {
+test diffstrings-2.4.1 {words} {CDiff knownbug} {
     set s1 {abc def ghi}
     set s2 {abc de}
     RunTest $s1 $s2 -words

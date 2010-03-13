@@ -146,11 +146,15 @@ Returns a list of differences, each in a four element list.
 <dt><b class="option">-i</b></dt>
 <dd><p>Ignore case.</p></dd>
 <dt><b class="option">-b</b></dt>
-<dd><p>Ignore space changes.</p></dd>
+<dd><p>Ignore space changes. Any sequence of whitespace is treated as a single
+space, except at beginning of line where it is completely ignored.</p></dd>
 <dt><b class="option">-w</b></dt>
 <dd><p>Ignore all spaces.</p></dd>
 <dt><b class="option">-noempty</b></dt>
-<dd><p>Ignore empty lines in initial compare step.</p></dd>
+<dd><p>Ignore empty lines in initial compare step. I.e. empty lines are considered
+not equal at first. Multiple equal lines gives longer runtimes and by avoiding
+the very common empty line, runtimes are improved. With <span class="opt">?-b?</span> or <span class="opt">?-w?</span>,
+all-space lines are considered empty.</p></dd>
 <dt><b class="option">-nodigit</b></dt>
 <dd><p>Consider any sequence of digits equal.</p></dd>
 <dt><b class="option">-align</b> <i class="arg">list</i></dt>

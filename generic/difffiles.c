@@ -145,6 +145,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
             break;
         }
         Hash(linePtr, optsPtr, &h, &realh);
+        P[m].hash = h;
         P[m].realhash = realh;
 
         /* Binary search for hash in V */
