@@ -212,6 +212,10 @@ CompareFiles(
     P_T *P;
     Line_T m, n, *J;
     Tcl_Obj *subPtr;
+    Tcl_Channel ch1, ch2;
+    Tcl_Obj *line1Ptr, *line2Ptr;
+    Line_T current1, current2, n1, n2;
+    Line_T startblock1, startblock2;
 
     //printf("Doing ReadAndHash\n");
     if (ReadAndHashFiles(interp, name1Ptr, name2Ptr, optsPtr, &m, &n, &P, &E)
@@ -252,98 +256,88 @@ CompareFiles(
      */
 
     *resPtr = Tcl_NewListObj(0, NULL);
-    /* Take care of trivial cases first */
-    if ((m == 0 && n > 0) || (m > 0 && n == 0)) {
-        Tcl_ListObjAppendElement(interp, *resPtr,
-                                 NewChunk(interp, optsPtr, 1, m, 1, n));
-    } else if (m > 0 && n > 0) {
-        Tcl_Channel ch1, ch2;
-        Tcl_Obj *line1Ptr, *line2Ptr;
-        Line_T current1, current2, n1, n2;
-        Line_T startblock1, startblock2;
 
-        /* Initialize objects to use as line buffers. */
-        line1Ptr = Tcl_NewObj();
-        Tcl_IncrRefCount(line1Ptr);
-        Tcl_SetObjLength(line1Ptr, 1000);
-        line2Ptr = Tcl_NewObj();
-        Tcl_IncrRefCount(line2Ptr);
-        Tcl_SetObjLength(line2Ptr, 1000);
+    /* Initialize objects to use as line buffers. */
+    line1Ptr = Tcl_NewObj();
+    Tcl_IncrRefCount(line1Ptr);
+    Tcl_SetObjLength(line1Ptr, 1000);
+    line2Ptr = Tcl_NewObj();
+    Tcl_IncrRefCount(line2Ptr);
+    Tcl_SetObjLength(line2Ptr, 1000);
 
-        ch1 = Tcl_FSOpenFileChannel(interp, name1Ptr, "r", 0);
-        ch2 = Tcl_FSOpenFileChannel(interp, name2Ptr, "r", 0);
+    ch1 = Tcl_FSOpenFileChannel(interp, name1Ptr, "r", 0);
+    ch2 = Tcl_FSOpenFileChannel(interp, name2Ptr, "r", 0);
 
-        /* Skip start if there is a range */
-        if (optsPtr->rFrom1 > 1) {
-            int line = 1;
-            while (line < optsPtr->rFrom1) {
-                /* Skip the first lines */
-                Tcl_SetObjLength(line1Ptr, 0);
-                if (Tcl_GetsObj(ch1, line1Ptr) < 0) break;
-                line++;
-            }
-        }
-        if (optsPtr->rFrom2 > 1) {
-            int line = 1;
-            while (line < optsPtr->rFrom2) {
-                /* Skip the first lines */
-                Tcl_SetObjLength(line2Ptr, 0);
-                if (Tcl_GetsObj(ch2, line2Ptr) < 0) break;
-                line++;
-            }
-        }
-
-        startblock1 = startblock2 = 1;
-        current1 = current2 = 0;
-
-        while (current1 < m || current2 < n) {
-            /* Scan file 1 until next supposed match */
-            while (current1 < m) {
-                current1++;
-                Tcl_SetObjLength(line1Ptr, 0);
-                Tcl_GetsObj(ch1, line1Ptr);
-                if (J[current1] != 0) break;
-            }
-            /* Scan file 2 until next supposed match */
-            while (current2 < n) {
-                current2++;
-                Tcl_SetObjLength(line2Ptr, 0);
-                Tcl_GetsObj(ch2, line2Ptr);
-                if (J[current1] == current2) break;
-            }
-            /* Do they really match? */
-            //printf("Compare %d (%ld) to %d\n", current1, J[current1],
-            //  current2);
-            if (J[current1] != current2) continue;
-            if (CompareObjects(line1Ptr, line2Ptr, optsPtr) != 0) {
-                /* No match, continue until next. */
-                //printf("Debug: NOT Match %ld %ld\n", current1, current2);
-                continue;
-            }
-
-            n1 = current1 - startblock1;
-            n2 = current2 - startblock2;
-            if (n1 > 0 || n2 > 0) {
-                subPtr = NewChunk(interp, optsPtr,
-                                  startblock1, n1, startblock2, n2);
-                Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
-            }
-            startblock1 = current1 + 1;
-            startblock2 = current2 + 1;
-        }
-        /* Scrape up the last */
-        n1 = m - startblock1 + 1;
-        n2 = n - startblock2 + 1;
-        if (n1 > 0 || n2 > 0) {
-            subPtr = NewChunk(interp, optsPtr,
-                              startblock1, n1, startblock2, n2);
-            Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
-        }
-        Tcl_Close(interp, ch1);
-        Tcl_Close(interp, ch2);
-        Tcl_DecrRefCount(line1Ptr);
-        Tcl_DecrRefCount(line2Ptr);
+    /* Skip start if there is a range */
+    if (optsPtr->rFrom1 > 1) {
+	int line = 1;
+	while (line < optsPtr->rFrom1) {
+	    /* Skip the first lines */
+	    Tcl_SetObjLength(line1Ptr, 0);
+	    if (Tcl_GetsObj(ch1, line1Ptr) < 0) break;
+	    line++;
+	}
     }
+    if (optsPtr->rFrom2 > 1) {
+	int line = 1;
+	while (line < optsPtr->rFrom2) {
+	    /* Skip the first lines */
+	    Tcl_SetObjLength(line2Ptr, 0);
+	    if (Tcl_GetsObj(ch2, line2Ptr) < 0) break;
+	    line++;
+	}
+    }
+
+    startblock1 = startblock2 = 1;
+    current1 = current2 = 0;
+
+    while (current1 < m || current2 < n) {
+	/* Scan file 1 until next supposed match */
+	while (current1 < m) {
+	    current1++;
+	    Tcl_SetObjLength(line1Ptr, 0);
+	    Tcl_GetsObj(ch1, line1Ptr);
+	    if (J[current1] != 0) break;
+	}
+	/* Scan file 2 until next supposed match */
+	while (current2 < n) {
+	    current2++;
+	    Tcl_SetObjLength(line2Ptr, 0);
+	    Tcl_GetsObj(ch2, line2Ptr);
+	    if (J[current1] == current2) break;
+	}
+	/* Do they really match? */
+	//printf("Compare %d (%ld) to %d\n", current1, J[current1],
+	//  current2);
+	if (J[current1] != current2) continue;
+	if (CompareObjects(line1Ptr, line2Ptr, optsPtr) != 0) {
+	    /* No match, continue until next. */
+	    //printf("Debug: NOT Match %ld %ld\n", current1, current2);
+	    continue;
+	}
+
+	n1 = current1 - startblock1;
+	n2 = current2 - startblock2;
+	if (n1 > 0 || n2 > 0) {
+	    subPtr = NewChunk(interp, optsPtr,
+		    startblock1, n1, startblock2, n2);
+	    Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+	}
+	startblock1 = current1 + 1;
+	startblock2 = current2 + 1;
+    }
+    /* Scrape up the last */
+    n1 = m - startblock1 + 1;
+    n2 = n - startblock2 + 1;
+    if (n1 > 0 || n2 > 0) {
+	subPtr = NewChunk(interp, optsPtr,
+		startblock1, n1, startblock2, n2);
+	Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+    }
+    Tcl_Close(interp, ch1);
+    Tcl_Close(interp, ch2);
+    Tcl_DecrRefCount(line1Ptr);
+    Tcl_DecrRefCount(line2Ptr);
 
     ckfree((char *) J);
     return TCL_OK;

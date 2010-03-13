@@ -123,6 +123,8 @@ CompareLists(
     Tcl_Obj *subPtr;
     int length1, length2;
     Tcl_Obj **elem1Ptrs, **elem2Ptrs;
+    Line_T current1, current2, n1, n2;
+    Line_T startblock1, startblock2;
 
     if (HashLists(interp, list1Ptr, list2Ptr, optsPtr, &m, &n, &P, &E)
         != TCL_OK) {
@@ -148,62 +150,54 @@ CompareLists(
 
     /*
      * Now we have a list of matching lines in J.  We need to go through
-     * the files and check that matching lines really are matching.
+     * the lists and check that matching elements really are matching.
      * At the same time we generate a list of insert/delete/change opers.
      */
 
     *resPtr = Tcl_NewListObj(0, NULL);
-    /* Take care of trivial cases first */
-    if ((m == 0 && n > 0) || (m > 0 && n == 0)) {
-        Tcl_ListObjAppendElement(interp, *resPtr,
-                                 NewChunk(interp, optsPtr, 1, m, 1, n));
-    } else if (m > 0 && n > 0) {
-        Line_T current1, current2, n1, n2;
-        Line_T startblock1, startblock2;
-	
-	Tcl_ListObjGetElements(interp, list1Ptr, &length1, &elem1Ptrs);
-	Tcl_ListObjGetElements(interp, list2Ptr, &length2, &elem2Ptrs);
 
-        startblock1 = startblock2 = 1;
-        current1 = current2 = 0;
+    Tcl_ListObjGetElements(interp, list1Ptr, &length1, &elem1Ptrs);
+    Tcl_ListObjGetElements(interp, list2Ptr, &length2, &elem2Ptrs);
 
-        while (current1 < m || current2 < n) {
-            /* Scan list 1 until next supposed match */
-            while (current1 < m) {
-                current1++;
-                if (J[current1] != 0) break;
-            }
-            /* Scan list 2 until next supposed match */
-            while (current2 < n) {
-                current2++;
-                if (J[current1] == current2) break;
-            }
-            /* Do they really match? */
-            if (J[current1] != current2) continue;
-            if (CompareObjects(elem1Ptrs[current1-1], elem2Ptrs[current2-1],
-			    optsPtr) != 0) {
-                /* No match, continue until next. */
-                continue;
-            }
+    startblock1 = startblock2 = 1;
+    current1 = current2 = 0;
 
-            n1 = current1 - startblock1;
-            n2 = current2 - startblock2;
-            if (n1 > 0 || n2 > 0) {
-                subPtr = NewChunk(interp, optsPtr,
-                                  startblock1, n1, startblock2, n2);
-                Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
-            }
-            startblock1 = current1 + 1;
-            startblock2 = current2 + 1;
-        }
-        /* Scrape up the last */
-        n1 = m - startblock1 + 1;
-        n2 = n - startblock2 + 1;
-        if (n1 > 0 || n2 > 0) {
-            subPtr = NewChunk(interp, optsPtr,
-                              startblock1, n1, startblock2, n2);
-            Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
-        }
+    while (current1 < m || current2 < n) {
+	/* Scan list 1 until next supposed match */
+	while (current1 < m) {
+	    current1++;
+	    if (J[current1] != 0) break;
+	}
+	/* Scan list 2 until next supposed match */
+	while (current2 < n) {
+	    current2++;
+	    if (J[current1] == current2) break;
+	}
+	/* Do they really match? */
+	if (J[current1] != current2) continue;
+	if (CompareObjects(elem1Ptrs[current1-1], elem2Ptrs[current2-1],
+			optsPtr) != 0) {
+	    /* No match, continue until next. */
+	    continue;
+	}
+
+	n1 = current1 - startblock1;
+	n2 = current2 - startblock2;
+	if (n1 > 0 || n2 > 0) {
+	    subPtr = NewChunk(interp, optsPtr,
+		    startblock1, n1, startblock2, n2);
+	    Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+	}
+	startblock1 = current1 + 1;
+	startblock2 = current2 + 1;
+    }
+    /* Scrape up the last */
+    n1 = m - startblock1 + 1;
+    n2 = n - startblock2 + 1;
+    if (n1 > 0 || n2 > 0) {
+	subPtr = NewChunk(interp, optsPtr,
+		startblock1, n1, startblock2, n2);
+	Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
     }
 
     ckfree((char *) J);
