@@ -211,7 +211,6 @@ CompareFiles(
     E_T *E;
     P_T *P;
     Line_T m, n, *J;
-    Tcl_Obj *subPtr;
     Tcl_Channel ch1, ch2;
     Tcl_Obj *line1Ptr, *line2Ptr;
     Line_T current1, current2, n1, n2;
@@ -227,8 +226,7 @@ CompareFiles(
     if (m == 0 || n == 0) {
 	*resPtr = Tcl_NewListObj(0, NULL);
 	if ((n > 0) || (m > 0)) {
-	    Tcl_ListObjAppendElement(interp, *resPtr,
-		    NewChunk(interp, optsPtr, 1, m, 1, n));
+	    AppendChunk(interp, *resPtr, optsPtr, 1, m, 1, n);
 	}
 	ckfree((char *) E);
 	ckfree((char *) P);
@@ -319,9 +317,8 @@ CompareFiles(
 	n1 = current1 - startblock1;
 	n2 = current2 - startblock2;
 	if (n1 > 0 || n2 > 0) {
-	    subPtr = NewChunk(interp, optsPtr,
+	    AppendChunk(interp, *resPtr, optsPtr,
 		    startblock1, n1, startblock2, n2);
-	    Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
 	}
 	startblock1 = current1 + 1;
 	startblock2 = current2 + 1;
@@ -330,9 +327,8 @@ CompareFiles(
     n1 = m - startblock1 + 1;
     n2 = n - startblock2 + 1;
     if (n1 > 0 || n2 > 0) {
-	subPtr = NewChunk(interp, optsPtr,
+	AppendChunk(interp, *resPtr, optsPtr,
 		startblock1, n1, startblock2, n2);
-	Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
     }
     Tcl_Close(interp, ch1);
     Tcl_Close(interp, ch2);

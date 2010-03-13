@@ -976,6 +976,15 @@ NewChunk(Tcl_Interp *interp, DiffOptions_T *optsPtr,
     return subPtr;
 }
 
+/* Add a chunk to a result list */
+void
+AppendChunk(Tcl_Interp *interp, Tcl_Obj *listPtr, DiffOptions_T *optsPtr,
+	Line_T start1, Line_T n1, Line_T start2, Line_T n2) {
+    Tcl_ListObjAppendElement(interp, listPtr,
+	    NewChunk(interp, optsPtr, start1, n1, start2, n2));
+}
+
+
 /* Fill in the range option from a Tcl Value */
 int
 SetOptsRange(Tcl_Interp *interp, Tcl_Obj *rangePtr, int first,

@@ -240,7 +240,6 @@ CompareStrings2(Tcl_Interp *interp,
                Tcl_Obj **resPtr)
 {
     Line_T m, n, *J;
-    Tcl_Obj *subPtr;
 
     CompareStrings1(interp, str1Ptr, str2Ptr, optsPtr, &J, &m, &n);
 
@@ -252,8 +251,7 @@ CompareStrings2(Tcl_Interp *interp,
     *resPtr = Tcl_NewListObj(0, NULL);
     /* Take care of trivial cases first */
     if ((m == 0 && n > 0) || (m > 0 && n == 0)) {
-        Tcl_ListObjAppendElement(interp, *resPtr,
-                                 NewChunk(interp, optsPtr, 1, m, 1, n));
+	AppendChunk(interp, *resPtr, optsPtr, 1, m, 1, n);
     } else if (m > 0 && n > 0) {
         Line_T current1, current2, n1, n2;
         Line_T startblock1, startblock2;
@@ -277,9 +275,8 @@ CompareStrings2(Tcl_Interp *interp,
             n1 = current1 - startblock1;
             n2 = current2 - startblock2;
             if (n1 > 0 || n2 > 0) {
-                subPtr = NewChunk(interp, optsPtr,
-                                  startblock1, n1, startblock2, n2);
-                Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+                AppendChunk(interp, *resPtr, optsPtr,
+			startblock1, n1, startblock2, n2);
             }
             startblock1 = current1 + 1;
             startblock2 = current2 + 1;
@@ -288,9 +285,8 @@ CompareStrings2(Tcl_Interp *interp,
         n1 = m - startblock1 + 1;
         n2 = n - startblock2 + 1;
         if (n1 > 0 || n2 > 0) {
-            subPtr = NewChunk(interp, optsPtr,
-                              startblock1, n1, startblock2, n2);
-            Tcl_ListObjAppendElement(interp, *resPtr, subPtr);
+            AppendChunk(interp, *resPtr, optsPtr,
+		    startblock1, n1, startblock2, n2);
         }
     }
 

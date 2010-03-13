@@ -82,6 +82,9 @@ typedef struct {
 } P_T;
 
 
+extern void      AppendChunk(Tcl_Interp *interp, Tcl_Obj *listPtr,
+			DiffOptions_T *optsPtr,	Line_T start1, Line_T n1,
+			Line_T start2, Line_T n2);
 extern E_T *     BuildEVector(V_T *V, Line_T n);
 extern int       CompareObjects(Tcl_Obj *obj1Ptr, Tcl_Obj *obj2Ptr,
 			DiffOptions_T *optsPtr);
