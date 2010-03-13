@@ -843,23 +843,56 @@ LcsCore(Tcl_Interp *interp,
          */
 
 	Line_T lastline1 = 0, lastline2 = 0;
-	Line_T cntempty1 = 0;
+	Line_T cntempty1 = 0, emptyI = 0;
+	Line_T cntempty2 = 0, emptyJ = 0;
+	Line_T j, firstJ, lastJ;
+
 	for (i = 1; i <= (m + 1); i++) {
 	    if (i > m || J[i] != 0) {
 		if (cntempty1 > 0) {
 		    /*
 		     * We have empty lines in the left part of this change
-		     * block. What to do with it?
-		     * FIXA
+		     * block.
 		     */
+		    firstJ = lastline2 + 1;
+		    lastJ = i > m ? n : J[i];
+		    cntempty2 = 0;
+
+		    for (j = 1; j <= m; j++) {
+			if (E[j].serial >= firstJ && E[j].serial <= lastJ &&
+				E[j].hash == 0) {
+			    cntempty2++;
+			    /* Remember the first one */
+			    if (emptyJ == 0) {
+				emptyJ = E[j].serial;
+			    }
+			}
+		    }
+
+		    if (cntempty2 > 0) {
+			/*
+			 * We have empty lines in both parts of this change
+			 * block. What to do with it?
+			 * FIXA
+			 * Match the first ones, to handle a simple case
+			 */
+			J[emptyI] = emptyJ;
+		    }
 		}
 		lastline1 = i;
 		lastline2 = J[i];
 		cntempty1 = 0;
+		cntempty2 = 0;
+		emptyI = 0;
+		emptyJ = 0;
 		continue;
 	    }
 	    if (P[i].hash == 0) {
 		cntempty1++;
+		/* Remember the first one */
+		if (emptyI == 0) {
+		    emptyI = i;
+		}
 		continue;
 	    }
 	}
