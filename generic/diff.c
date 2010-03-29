@@ -115,6 +115,9 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
 	HASH_ADD(hash, string[i]);
     }
     *real = hash;
+    if (optsPtr->regsubPtr != NULL) {
+	/* ignored for now */
+    }
     if (optsPtr->ignore != 0) {
         const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
         const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
@@ -174,6 +177,10 @@ CompareObjects(Tcl_Obj *obj1Ptr,
 
     string1 = Tcl_GetStringFromObj(obj1Ptr, &length1);
     string2 = Tcl_GetStringFromObj(obj2Ptr, &length2);
+
+    if (optsPtr->regsubPtr != NULL) {
+	/* ignored for now */
+    }
 
     /* Use the fast way when no ignore flag is used. */
     if (optsPtr->ignore == 0) {

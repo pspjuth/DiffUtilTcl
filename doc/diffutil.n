@@ -64,6 +64,13 @@ equal and matching, regardless of their contents.
 .TP
 \fB-range\fR \fIlist\fR
 Diff only a range of the files. The list is {first1 last1 first2 last2}
+.TP
+\fB-regsub\fR \fIlist\fR
+Apply a search/replace regular expression before comparing. The list consists
+of an even number of elements. Each pair is a regular expression and a
+substitution, as used in \fBregsub -all\fR. Multiple pairs are allowed
+and multiple ?-regsub? are allowed. All patterns will be applied in order
+on each line.
 .RE
 .TP
 \fB::DiffUtil::diffLists\fR ?\fIoptions\fR? \fIlist1\fR \fIlist2\fR

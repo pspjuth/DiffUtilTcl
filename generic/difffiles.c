@@ -389,7 +389,22 @@ DiffFilesObjCmd(
             opts.noempty = 1;
             break;
           case OPT_REGSUB:
-            /* ignored for now */
+            t++;
+            if (t >= (objc - 2)) {
+                /* FIXA error message */
+                Tcl_SetResult(interp, "missing value", TCL_STATIC);
+                result = TCL_ERROR;
+                goto cleanup;
+            }
+	    if (opts.regsubPtr == NULL) {
+		opts.regsubPtr = Tcl_NewListObj(0, NULL);
+		Tcl_IncrRefCount(opts.regsubPtr);
+	    }
+	    if (Tcl_ListObjAppendList(interp, opts.regsubPtr, objv[t])
+		    != TCL_OK) {
+                result = TCL_ERROR;
+                goto cleanup;
+	    }
             break;
 	  case OPT_RANGE:
             t++;
@@ -430,6 +445,9 @@ DiffFilesObjCmd(
     Tcl_SetObjResult(interp, resPtr);
 
     cleanup:
+    if (opts.regsubPtr != NULL) {
+	Tcl_DecrRefCount(opts.regsubPtr);
+    }
     if (opts.alignLength > STATIC_ALIGN) {
         ckfree((char *) opts.align);
     }

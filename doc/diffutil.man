@@ -59,6 +59,13 @@ equal and matching, regardless of their contents.
 [opt_def -range [arg list]]
 Diff only a range of the files. The list is {first1 last1 first2 last2}
 
+[opt_def -regsub [arg list]]
+Apply a search/replace regular expression before comparing. The list consists
+of an even number of elements. Each pair is a regular expression and a
+substitution, as used in [cmd "regsub -all"]. Multiple pairs are allowed
+and multiple [opt -regsub] are allowed. All patterns will be applied in order
+on each line.
+
 [list_end]
 
 [call [cmd "::DiffUtil::diffLists"] \

@@ -164,6 +164,12 @@ pair is a line number in the first and second file. Those lines are considered
 equal and matching, regardless of their contents.</p></dd>
 <dt><b class="option">-range</b> <i class="arg">list</i></dt>
 <dd><p>Diff only a range of the files. The list is {first1 last1 first2 last2}</p></dd>
+<dt><b class="option">-regsub</b> <i class="arg">list</i></dt>
+<dd><p>Apply a search/replace regular expression before comparing. The list consists
+of an even number of elements. Each pair is a regular expression and a
+substitution, as used in <b class="cmd">regsub -all</b>. Multiple pairs are allowed
+and multiple <span class="opt">?-regsub?</span> are allowed. All patterns will be applied in order
+on each line.</p></dd>
 </dl></dd>
 <dt><a name="2"><b class="cmd">::DiffUtil::diffLists</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">list1</i> <i class="arg">list2</i></a></dt>
 <dd><p>Compare two lists element by element.
