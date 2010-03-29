@@ -139,7 +139,8 @@ author's personal site: http://www.cs.dartmouth.edu/~doug/</p>
 <dt><a name="1"><b class="cmd">::DiffUtil::diffFiles</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">file1</i> <i class="arg">file2</i></a></dt>
 <dd><p>Compare two files line by line.
 Returns a list of differences, each in a four element list.
-{LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}</p>
+{LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
+The first line in a file is number 1.</p>
 <dl class="options">
 <dt><b class="option">-nocase</b></dt>
 <dd><p>Ignore case.</p></dd>
@@ -158,7 +159,9 @@ all-space lines are considered empty.</p></dd>
 <dt><b class="option">-nodigit</b></dt>
 <dd><p>Consider any sequence of digits equal.</p></dd>
 <dt><b class="option">-align</b> <i class="arg">list</i></dt>
-<dd><p>Align lines.</p></dd>
+<dd><p>Align lines. The argument is a list with an even number of elements. Each
+pair is a line number in the first and second file. Those lines are considered
+equal and matching, regardless of their contents.</p></dd>
 <dt><b class="option">-range</b> <i class="arg">list</i></dt>
 <dd><p>Diff only a range of the files. The list is {first1 last1 first2 last2}</p></dd>
 </dl></dd>

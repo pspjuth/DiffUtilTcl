@@ -25,6 +25,7 @@ author's personal site: http://www.cs.dartmouth.edu/~doug/
 Compare two files line by line.
 Returns a list of differences, each in a four element list.
 {LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
+The first line in a file is number 1.
 
 [list_begin opt]
 
@@ -51,7 +52,9 @@ all-space lines are considered empty.
 Consider any sequence of digits equal.
 
 [opt_def -align [arg list]]
-Align lines.
+Align lines. The argument is a list with an even number of elements. Each
+pair is a line number in the first and second file. Those lines are considered
+equal and matching, regardless of their contents.
 
 [opt_def -range [arg list]]
 Diff only a range of the files. The list is {first1 last1 first2 last2}
