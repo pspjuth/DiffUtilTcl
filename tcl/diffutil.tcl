@@ -353,6 +353,19 @@ proc DiffUtil::diffFiles {args} {
     return $diffs
 }
 
+# Compare two lists
+# Usage: diffLists ?options? file1 file2
+# -nocase -i  : Ignore case
+# -b          : Ignore space changes
+# -w          : Ignore all spaces
+#
+# Returns a list of differences, each in a four element list.
+# {LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
+proc DiffUtil::diffLists {args} {
+    # Not yet implemented in Tcl version
+    return
+}
+
 # Recursively look for common substrings in strings s1 and s2
 # The strings are known to not have anything in common at start or end.
 # The return value is like for diffString, except the first pair is not
