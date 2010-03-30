@@ -70,6 +70,10 @@ typedef struct CandidateAlloc_T {
     Candidate_T candidates[CANDIDATE_ALLOC];
 } CandidateAlloc_T;
 
+static int       DiffOptsRegsub(Tcl_Interp *interp, Tcl_Obj *obj1Ptr,
+			Tcl_Obj *rePtr, Tcl_Obj *sub1Ptr,
+			Tcl_Obj **resultPtrPtr, DiffOptions_T *optsPtr);
+
 /*
  * Check if an index pair fails to match due to alignment
  */
@@ -107,6 +111,21 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
     char *string, *str;
     Tcl_UniChar c;
 
+    Tcl_IncrRefCount(objPtr);
+    if (optsPtr->regsubPtr != NULL) {
+	int objc;
+	Tcl_Obj **objv;
+	Tcl_Obj *resultPtr = NULL;
+	Tcl_ListObjGetElements(NULL, optsPtr->regsubPtr, &objc, &objv);
+	for (i = 0; i < objc; i +=2) {
+	    /* Silently ignore errors from regsub */
+	    if (DiffOptsRegsub(NULL, objPtr, objv[i], objv[i+1], &resultPtr,
+			    optsPtr) == TCL_OK) {
+		Tcl_DecrRefCount(objPtr);
+		objPtr = resultPtr;
+	    }
+	}
+    }
     string = Tcl_GetStringFromObj(objPtr, &length);
 
     /* Use the fast way when no ignore flag is used. */
@@ -115,9 +134,6 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
 	HASH_ADD(hash, string[i]);
     }
     *real = hash;
-    if (optsPtr->regsubPtr != NULL) {
-	/* ignored for now */
-    }
     if (optsPtr->ignore != 0) {
         const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
         const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
@@ -156,6 +172,7 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
         }
     }
     *result = hash;
+    Tcl_DecrRefCount(objPtr);
     return;
 }
 
@@ -169,22 +186,46 @@ CompareObjects(Tcl_Obj *obj1Ptr,
                DiffOptions_T *optsPtr)
 {
     int c1, c2, i1, i2, length1, length2, start;
+    int i, result = 0;
     char *string1, *string2;
     const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
     const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
     const int ignorecase     = (optsPtr->ignore & IGNORE_CASE);
     const int ignorenum      = (optsPtr->ignore & IGNORE_NUMBERS);
 
+    Tcl_IncrRefCount(obj1Ptr);
+    Tcl_IncrRefCount(obj2Ptr);
+    if (optsPtr->regsubPtr != NULL) {
+	int objc;
+	Tcl_Obj **objv;
+	Tcl_Obj *resultPtr = NULL;
+
+	Tcl_ListObjGetElements(NULL, optsPtr->regsubPtr, &objc, &objv);
+
+	for (i = 0; i < objc; i += 2) {
+	    /* Silently ignore errors from regsub */
+	    if (DiffOptsRegsub(NULL, obj1Ptr, objv[i], objv[i+1], &resultPtr,
+			    optsPtr) == TCL_OK) {
+		Tcl_DecrRefCount(obj1Ptr);
+		obj1Ptr = resultPtr;
+	    }
+	}
+	for (i = 0; i < objc; i += 2) {
+	    /* Silently ignore errors from regsub */
+	    if (DiffOptsRegsub(NULL, obj2Ptr, objv[i], objv[i+1], &resultPtr,
+			    optsPtr) == TCL_OK) {
+		Tcl_DecrRefCount(obj2Ptr);
+		obj2Ptr = resultPtr;
+	    }
+	}
+    }
     string1 = Tcl_GetStringFromObj(obj1Ptr, &length1);
     string2 = Tcl_GetStringFromObj(obj2Ptr, &length2);
 
-    if (optsPtr->regsubPtr != NULL) {
-	/* ignored for now */
-    }
-
     /* Use the fast way when no ignore flag is used. */
     if (optsPtr->ignore == 0) {
-        return strcmp(string1, string2);
+        result = strcmp(string1, string2);
+	goto cleanup;
     }
 
     i1 = i2 = 0;
@@ -237,14 +278,17 @@ CompareObjects(Tcl_Obj *obj1Ptr,
             c2 = tolower(c2);
         }
 
-        if (i1 >= length1 && i2 <  length2) return -1;
-        if (i1 < length1  && i2 >= length2) return  1;
-        if (c1 < c2) return -1;
-        if (c1 > c2) return  1;
+        if (i1 >= length1 && i2 <  length2) { result = -1; goto cleanup; }
+        if (i1 < length1  && i2 >= length2) { result =  1; goto cleanup; }
+        if (c1 < c2) { result = -1; goto cleanup; }
+        if (c1 > c2) { result =  1; goto cleanup; }
         i1++;
         i2++;
     }
-    return 0;
+    cleanup:
+    Tcl_DecrRefCount(obj1Ptr);
+    Tcl_DecrRefCount(obj2Ptr);
+    return result;
 }
 
 /*
@@ -1148,4 +1192,299 @@ NormaliseOpts(DiffOptions_T *optsPtr)
         prev1 = optsPtr->align[i];
         prev2 = optsPtr->align[i + 1];
     }
+}
+
+/*
+ * Do a regsub on an object.
+ * Mostly copied from Tcl_RegsubObjCmd.
+ */
+static int
+DiffOptsRegsub(
+    Tcl_Interp *interp,		/* Current interpreter. */
+    Tcl_Obj *obj1Ptr,           /* Input object. */
+    Tcl_Obj *rePtr,             /* Regexp object. */
+    Tcl_Obj *sub1Ptr,           /* Substitution. */
+    Tcl_Obj **resultPtrPtr,     /* Store result, if successful. */ 
+    DiffOptions_T *optsPtr)     /* Options. */ 
+{
+    int idx, result, cflags, all, wlen, wsublen, numMatches, offset;
+    int start, end, subStart, subEnd, match;
+    Tcl_RegExp regExpr;
+    Tcl_RegExpInfo info;
+    Tcl_Obj *resultPtr, *objPtr, *subPtr;
+    Tcl_UniChar ch, *wsrc, *wfirstChar, *wstring, *wsubspec, *wend;
+
+    cflags = TCL_REG_ADVANCED;
+    all = 1;
+    offset = 0;
+    resultPtr = NULL;
+    if (optsPtr->ignore & IGNORE_CASE) {
+	cflags |= TCL_REG_NOCASE;
+    }
+
+    if ((strpbrk(Tcl_GetString(sub1Ptr), "&\\") == NULL)
+	    && (strpbrk(Tcl_GetString(rePtr), "*+?{}()[].\\|^$") == NULL)) {
+	/*
+	 * This is a simple one pair string map situation. We make use of a
+	 * slightly modified version of the one pair STR_MAP code.
+	 */
+
+	int slen, nocase;
+	int (*strCmpFn)(const Tcl_UniChar*,const Tcl_UniChar*,unsigned long);
+	Tcl_UniChar *p, wsrclc;
+
+	numMatches = 0;
+	nocase = (cflags & TCL_REG_NOCASE);
+	strCmpFn = nocase ? Tcl_UniCharNcasecmp : Tcl_UniCharNcmp;
+
+	wsrc = Tcl_GetUnicodeFromObj(rePtr, &slen);
+	wstring = Tcl_GetUnicodeFromObj(obj1Ptr, &wlen);
+	wsubspec = Tcl_GetUnicodeFromObj(sub1Ptr, &wsublen);
+	wend = wstring + wlen - (slen ? slen - 1 : 0);
+	result = TCL_OK;
+
+	if (slen == 0) {
+	    /*
+	     * regsub behavior for "" matches between each character. 'string
+	     * map' skips the "" case.
+	     */
+
+	    if (wstring < wend) {
+		resultPtr = Tcl_NewUnicodeObj(wstring, 0);
+		Tcl_IncrRefCount(resultPtr);
+		for (; wstring < wend; wstring++) {
+		    Tcl_AppendUnicodeToObj(resultPtr, wsubspec, wsublen);
+		    Tcl_AppendUnicodeToObj(resultPtr, wstring, 1);
+		    numMatches++;
+		}
+		wlen = 0;
+	    }
+	} else {
+	    wsrclc = Tcl_UniCharToLower(*wsrc);
+	    for (p = wfirstChar = wstring; wstring < wend; wstring++) {
+		if ((*wstring == *wsrc ||
+			(nocase && Tcl_UniCharToLower(*wstring)==wsrclc)) &&
+			(slen==1 || (strCmpFn(wstring, wsrc,
+				(unsigned long) slen) == 0))) {
+		    if (numMatches == 0) {
+			resultPtr = Tcl_NewUnicodeObj(wstring, 0);
+			Tcl_IncrRefCount(resultPtr);
+		    }
+		    if (p != wstring) {
+			Tcl_AppendUnicodeToObj(resultPtr, p, wstring - p);
+			p = wstring + slen;
+		    } else {
+			p += slen;
+		    }
+		    wstring = p - 1;
+
+		    Tcl_AppendUnicodeToObj(resultPtr, wsubspec, wsublen);
+		    numMatches++;
+		}
+	    }
+	    if (numMatches) {
+		wlen    = wfirstChar + wlen - p;
+		wstring = p;
+	    }
+	}
+	objPtr = NULL;
+	subPtr = NULL;
+	goto regsubDone;
+    }
+
+    regExpr = Tcl_GetRegExpFromObj(interp, rePtr, cflags);
+    if (regExpr == NULL) {
+	return TCL_ERROR;
+    }
+
+    /*
+     * Make sure to avoid problems where the objects are shared. This can
+     * cause RegExpObj <> UnicodeObj shimmering that causes data corruption.
+     * [Bug #461322]
+     */
+
+    if (obj1Ptr == rePtr) {
+	objPtr = Tcl_DuplicateObj(obj1Ptr);
+    } else {
+	objPtr = obj1Ptr;
+    }
+    wstring = Tcl_GetUnicodeFromObj(objPtr, &wlen);
+    if (sub1Ptr == rePtr) {
+	subPtr = Tcl_DuplicateObj(sub1Ptr);
+    } else {
+	subPtr = sub1Ptr;
+    }
+    wsubspec = Tcl_GetUnicodeFromObj(subPtr, &wsublen);
+
+    result = TCL_OK;
+
+    /*
+     * The following loop is to handle multiple matches within the same source
+     * string; each iteration handles one match and its corresponding
+     * substitution. If "-all" hasn't been specified then the loop body only
+     * gets executed once. We must use 'offset <= wlen' in particular for the
+     * case where the regexp pattern can match the empty string - this is
+     * useful when doing, say, 'regsub -- ^ $str ...' when $str might be
+     * empty.
+     */
+
+    numMatches = 0;
+    for ( ; offset <= wlen; ) {
+
+	/*
+	 * The flags argument is set if string is part of a larger string, so
+	 * that "^" won't match.
+	 */
+
+	match = Tcl_RegExpExecObj(interp, regExpr, objPtr, offset,
+		10 /* matches */, ((offset > 0 &&
+		(wstring[offset-1] != (Tcl_UniChar)'\n'))
+		? TCL_REG_NOTBOL : 0));
+
+	if (match < 0) {
+	    result = TCL_ERROR;
+	    goto done;
+	}
+	if (match == 0) {
+	    break;
+	}
+	if (numMatches == 0) {
+	    resultPtr = Tcl_NewUnicodeObj(wstring, 0);
+	    Tcl_IncrRefCount(resultPtr);
+	    if (offset > 0) {
+		/*
+		 * Copy the initial portion of the string in if an offset was
+		 * specified.
+		 */
+
+		Tcl_AppendUnicodeToObj(resultPtr, wstring, offset);
+	    }
+	}
+	numMatches++;
+
+	/*
+	 * Copy the portion of the source string before the match to the
+	 * result variable.
+	 */
+
+	Tcl_RegExpGetInfo(regExpr, &info);
+	start = info.matches[0].start;
+	end = info.matches[0].end;
+	Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, start);
+
+	/*
+	 * Append the subSpec argument to the variable, making appropriate
+	 * substitutions. This code is a bit hairy because of the backslash
+	 * conventions and because the code saves up ranges of characters in
+	 * subSpec to reduce the number of calls to Tcl_SetVar.
+	 */
+
+	wsrc = wfirstChar = wsubspec;
+	wend = wsubspec + wsublen;
+	for (ch = *wsrc; wsrc != wend; wsrc++, ch = *wsrc) {
+	    if (ch == '&') {
+		idx = 0;
+	    } else if (ch == '\\') {
+		ch = wsrc[1];
+		if ((ch >= '0') && (ch <= '9')) {
+		    idx = ch - '0';
+		} else if ((ch == '\\') || (ch == '&')) {
+		    *wsrc = ch;
+		    Tcl_AppendUnicodeToObj(resultPtr, wfirstChar,
+			    wsrc - wfirstChar + 1);
+		    *wsrc = '\\';
+		    wfirstChar = wsrc + 2;
+		    wsrc++;
+		    continue;
+		} else {
+		    continue;
+		}
+	    } else {
+		continue;
+	    }
+
+	    if (wfirstChar != wsrc) {
+		Tcl_AppendUnicodeToObj(resultPtr, wfirstChar,
+			wsrc - wfirstChar);
+	    }
+
+	    if (idx <= info.nsubs) {
+		subStart = info.matches[idx].start;
+		subEnd = info.matches[idx].end;
+		if ((subStart >= 0) && (subEnd >= 0)) {
+		    Tcl_AppendUnicodeToObj(resultPtr,
+			    wstring + offset + subStart, subEnd - subStart);
+		}
+	    }
+
+	    if (*wsrc == '\\') {
+		wsrc++;
+	    }
+	    wfirstChar = wsrc + 1;
+	}
+
+	if (wfirstChar != wsrc) {
+	    Tcl_AppendUnicodeToObj(resultPtr, wfirstChar, wsrc - wfirstChar);
+	}
+
+	if (end == 0) {
+	    /*
+	     * Always consume at least one character of the input string in
+	     * order to prevent infinite loops.
+	     */
+
+	    if (offset < wlen) {
+		Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, 1);
+	    }
+	    offset++;
+	} else {
+	    offset += end;
+	    if (start == end) {
+		/*
+		 * We matched an empty string, which means we must go forward
+		 * one more step so we don't match again at the same spot.
+		 */
+
+		if (offset < wlen) {
+		    Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, 1);
+		}
+		offset++;
+	    }
+	}
+	if (!all) {
+	    break;
+	}
+    }
+
+    /*
+     * Copy the portion of the source string after the last match to the
+     * result variable.
+     */
+
+  regsubDone:
+    if (numMatches == 0) {
+	/*
+	 * On zero matches, just ignore the offset, since it shouldn't matter
+	 * to us in this case, and the user may have skewed it.
+	 */
+
+	resultPtr = obj1Ptr;
+	Tcl_IncrRefCount(resultPtr);
+    } else if (offset < wlen) {
+	Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, wlen - offset);
+    }
+    *resultPtrPtr = resultPtr;
+    Tcl_IncrRefCount(resultPtr);
+
+  done:
+    if (objPtr && (obj1Ptr == rePtr)) {
+	Tcl_DecrRefCount(objPtr);
+    }
+    if (subPtr && (sub1Ptr == rePtr)) {
+	Tcl_DecrRefCount(subPtr);
+    }
+    if (resultPtr) {
+	Tcl_DecrRefCount(resultPtr);
+    }
+    return result;
 }

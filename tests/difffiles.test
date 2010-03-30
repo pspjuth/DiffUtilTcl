@@ -245,13 +245,13 @@ test difffiles-7.3.2 {ignore digit, preference} {TclDiff} {
             [RunTest $l1 $l4 -nodigit]
 } [list [list {3 1 3 0}] [list {3 1 3 0}] [list {3 1 3 0}]]
 
-test difffiles-8.1 {flag -regsub} {TclDiff} {
+test difffiles-8.1 {flag -regsub} {
     set l1 {axa byb aa bb}
     set l2 {aya bxb ee ff}
     list [RunTest $l1 $l2] [RunTest $l1 $l2 -regsub {{x|y} {}}]
 } [list [list {1 4 1 4}] [list {3 2 3 2}]]
 
-test difffiles-8.2 {flag -regsub} {TclDiff} {
+test difffiles-8.2 {flag -regsub} {
     set l1 {axa byb axa bb}
     set l2 {    aya bxb ee ff}
     list [RunTest $l1 $l2] [RunTest $l1 $l2 -regsub {{.*(y|x).*} {\1}}]
