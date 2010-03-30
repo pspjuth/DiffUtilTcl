@@ -53,7 +53,7 @@ HashLists(Tcl_Interp *interp,
     for (t = 1; t <= n; t++) {
         V[t].serial = t;
 
-        Hash(elem2Ptrs[t-1], optsPtr, &V[t].hash, &V[t].realhash);
+        Hash(elem2Ptrs[t-1], optsPtr, 0, &V[t].hash, &V[t].realhash);
     }
 
     /*
@@ -75,7 +75,7 @@ HashLists(Tcl_Interp *interp,
 
     for (t = 1; t <= m; t++) {
         P[t].Eindex = 0;
-        Hash(elem1Ptrs[t-1], optsPtr, &h, &realh);
+        Hash(elem1Ptrs[t-1], optsPtr, 1, &h, &realh);
         P[t].hash = h;
         P[t].realhash = realh;
 

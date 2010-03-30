@@ -103,6 +103,7 @@ CheckAlign(DiffOptions_T *optsPtr, Line_T i, Line_T j)
 void
 Hash(Tcl_Obj *objPtr,         /* Input Object */
      DiffOptions_T *optsPtr,  /* Options      */
+     int left,                /* Which side the string belongs to. */
      Hash_T *result,          /* Hash value   */
      Hash_T *real)            /* Hash value when ignoring ignore */
 {
@@ -110,13 +111,15 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
     int i, length;
     char *string, *str;
     Tcl_UniChar c;
+    Tcl_Obj *regsubPtr = left ? optsPtr->regsubLeftPtr :
+	    optsPtr->regsubRightPtr;
 
     Tcl_IncrRefCount(objPtr);
-    if (optsPtr->regsubPtr != NULL) {
+    if (regsubPtr != NULL) {
 	int objc;
 	Tcl_Obj **objv;
 	Tcl_Obj *resultPtr = NULL;
-	Tcl_ListObjGetElements(NULL, optsPtr->regsubPtr, &objc, &objv);
+	Tcl_ListObjGetElements(NULL, regsubPtr, &objc, &objv);
 	for (i = 0; i < objc; i +=2) {
 	    /* Silently ignore errors from regsub */
 	    if (DiffOptsRegsub(NULL, objPtr, objv[i], objv[i+1], &resultPtr,
@@ -195,12 +198,12 @@ CompareObjects(Tcl_Obj *obj1Ptr,
 
     Tcl_IncrRefCount(obj1Ptr);
     Tcl_IncrRefCount(obj2Ptr);
-    if (optsPtr->regsubPtr != NULL) {
+    if (optsPtr->regsubLeftPtr != NULL) {
 	int objc;
 	Tcl_Obj **objv;
 	Tcl_Obj *resultPtr = NULL;
 
-	Tcl_ListObjGetElements(NULL, optsPtr->regsubPtr, &objc, &objv);
+	Tcl_ListObjGetElements(NULL, optsPtr->regsubLeftPtr, &objc, &objv);
 
 	for (i = 0; i < objc; i += 2) {
 	    /* Silently ignore errors from regsub */
@@ -210,6 +213,14 @@ CompareObjects(Tcl_Obj *obj1Ptr,
 		obj1Ptr = resultPtr;
 	    }
 	}
+    }
+    if (optsPtr->regsubRightPtr != NULL) {
+	int objc;
+	Tcl_Obj **objv;
+	Tcl_Obj *resultPtr = NULL;
+
+	Tcl_ListObjGetElements(NULL, optsPtr->regsubRightPtr, &objc, &objv);
+
 	for (i = 0; i < objc; i += 2) {
 	    /* Silently ignore errors from regsub */
 	    if (DiffOptsRegsub(NULL, obj2Ptr, objv[i], objv[i+1], &resultPtr,

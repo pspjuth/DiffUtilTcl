@@ -87,7 +87,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
             break;
         }
 
-        Hash(linePtr, optsPtr, &V[n].hash, &V[n].realhash);
+        Hash(linePtr, optsPtr, 0, &V[n].hash, &V[n].realhash);
         if (optsPtr->rTo2 > 0 && optsPtr->rTo2 <= line) break;
 
         n++;
@@ -144,7 +144,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
             m--;
             break;
         }
-        Hash(linePtr, optsPtr, &h, &realh);
+        Hash(linePtr, optsPtr, 1, &h, &realh);
         P[m].hash = h;
         P[m].realhash = realh;
 
@@ -351,11 +351,13 @@ DiffFilesObjCmd(
     DiffOptions_T opts;
     static CONST char *options[] = {
 	"-b", "-w", "-i", "-nocase", "-align", "-range",
-        "-noempty", "-nodigit", "-regsub", (char *) NULL
+        "-noempty", "-nodigit", "-regsub", "-regsubleft",
+	"-regsubright", (char *) NULL
     };
     enum options {
 	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_RANGE,
-        OPT_NOEMPTY, OPT_NODIGIT, OPT_REGSUB
+        OPT_NOEMPTY, OPT_NODIGIT, OPT_REGSUB, OPT_REGSUBLEFT,
+	OPT_REGSUBRIGHT
     };
 
     if (objc < 3) {
@@ -389,6 +391,8 @@ DiffFilesObjCmd(
             opts.noempty = 1;
             break;
           case OPT_REGSUB:
+          case OPT_REGSUBLEFT:
+          case OPT_REGSUBRIGHT:
             t++;
             if (t >= (objc - 2)) {
                 /* FIXA error message */
@@ -396,16 +400,29 @@ DiffFilesObjCmd(
                 result = TCL_ERROR;
                 goto cleanup;
             }
-	    if (opts.regsubPtr == NULL) {
-		opts.regsubPtr = Tcl_NewListObj(0, NULL);
-		Tcl_IncrRefCount(opts.regsubPtr);
+	    if (index != OPT_REGSUBRIGHT) {
+		if (opts.regsubLeftPtr == NULL) {
+		    opts.regsubLeftPtr = Tcl_NewListObj(0, NULL);
+		    Tcl_IncrRefCount(opts.regsubLeftPtr);
+		}
+		if (Tcl_ListObjAppendList(interp, opts.regsubLeftPtr, objv[t])
+			!= TCL_OK) {
+		    result = TCL_ERROR;
+		    goto cleanup;
+		}
 	    }
-	    if (Tcl_ListObjAppendList(interp, opts.regsubPtr, objv[t])
-		    != TCL_OK) {
-                result = TCL_ERROR;
-                goto cleanup;
+	    if (index != OPT_REGSUBLEFT) {
+		if (opts.regsubRightPtr == NULL) {
+		    opts.regsubRightPtr = Tcl_NewListObj(0, NULL);
+		    Tcl_IncrRefCount(opts.regsubRightPtr);
+		}
+		if (Tcl_ListObjAppendList(interp, opts.regsubRightPtr, objv[t])
+			!= TCL_OK) {
+		    result = TCL_ERROR;
+		    goto cleanup;
+		}
 	    }
-            break;
+	    break;
 	  case OPT_RANGE:
             t++;
             if (t >= (objc - 2)) {
@@ -445,8 +462,11 @@ DiffFilesObjCmd(
     Tcl_SetObjResult(interp, resPtr);
 
     cleanup:
-    if (opts.regsubPtr != NULL) {
-	Tcl_DecrRefCount(opts.regsubPtr);
+    if (opts.regsubLeftPtr != NULL) {
+	Tcl_DecrRefCount(opts.regsubLeftPtr);
+    }
+    if (opts.regsubRightPtr != NULL) {
+	Tcl_DecrRefCount(opts.regsubRightPtr);
     }
     if (opts.alignLength > STATIC_ALIGN) {
         ckfree((char *) opts.align);

@@ -256,3 +256,11 @@ test difffiles-8.2 {flag -regsub} {
     set l2 {    aya bxb ee ff}
     list [RunTest $l1 $l2] [RunTest $l1 $l2 -regsub {{.*(y|x).*} {\1}}]
 } [list [list {1 4 1 4}] [list {1 1 1 0} {4 1 3 2}]]
+
+test difffiles-8.3 {flag -regsub} {
+    set l1 {axa byb epe bb}
+    set l2 {apa bqb exe ff}
+    list [RunTest $l1 $l2] \
+            [RunTest $l1 $l2 -regsubleft {{x|y} {}} -regsubright {{p|q} {}}] \
+            [RunTest $l1 $l2 -regsub {{x|y} {}} -regsub {{p|q} {}}]
+} [list [list {1 4 1 4}] [list {3 2 3 2}] [list {4 1 4 1}]]

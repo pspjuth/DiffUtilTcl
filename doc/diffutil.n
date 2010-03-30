@@ -71,6 +71,12 @@ of an even number of elements. Each pair is a regular expression and a
 substitution, as used in \fBregsub -all\fR. Multiple pairs are allowed
 and multiple ?-regsub? are allowed. All patterns will be applied in order
 on each line.
+.TP
+\fB-regsubleft\fR \fIlist\fR
+Like ?-regsub? but only applied to the first file.
+.TP
+\fB-regsubright\fR \fIlist\fR
+Like ?-regsub? but only applied to the second file.
 .RE
 .TP
 \fB::DiffUtil::diffLists\fR ?\fIoptions\fR? \fIlist1\fR \fIlist2\fR

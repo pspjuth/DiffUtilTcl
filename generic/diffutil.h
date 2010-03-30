@@ -23,7 +23,8 @@ typedef struct {
     /* Range */
     Line_T rFrom1, rTo1, rFrom2, rTo2;
     /* Regsub */
-    Tcl_Obj *regsubPtr;
+    Tcl_Obj *regsubLeftPtr;
+    Tcl_Obj *regsubRightPtr;
     /* Alignment */
     int alignLength;
     Line_T *align;
@@ -31,7 +32,7 @@ typedef struct {
 } DiffOptions_T;
 
 /* Helper to get a filled in DiffOptions_T */
-#define InitDiffOptions_T(opts) {opts.ignore = 0; opts.noempty = 0; opts.wordparse = 0; opts.rFrom1 = 1; opts.rTo1 = 0; opts.rFrom2 = 1; opts.rTo2 = 0; opts.regsubPtr = NULL; opts.alignLength = 0; opts.align = opts.staticAlign;}
+#define InitDiffOptions_T(opts) {opts.ignore = 0; opts.noempty = 0; opts.wordparse = 0; opts.rFrom1 = 1; opts.rTo1 = 0; opts.rFrom2 = 1; opts.rTo2 = 0; opts.regsubLeftPtr = NULL; opts.regsubRightPtr = NULL; opts.alignLength = 0; opts.align = opts.staticAlign;}
  
 /* Flags in DiffOptions_T's ignore field */
 
@@ -91,8 +92,8 @@ extern E_T *     BuildEVector(V_T *V, Line_T n);
 extern int       CompareObjects(Tcl_Obj *obj1Ptr, Tcl_Obj *obj2Ptr,
 			DiffOptions_T *optsPtr);
 extern int       CompareV(const void *a1, const void *a2);
-extern void      Hash(Tcl_Obj *objPtr, DiffOptions_T *optsPtr, Hash_T *result,
-			Hash_T *real);
+extern void      Hash(Tcl_Obj *objPtr, DiffOptions_T *optsPtr, int left,
+			Hash_T *result, Hash_T *real);
 extern Line_T *  LcsCore(Tcl_Interp *interp, Line_T m, Line_T n, P_T *P,
 			E_T *E, DiffOptions_T *optsPtr);
 extern Tcl_Obj * NewChunk(Tcl_Interp *interp, DiffOptions_T *optsPtr,

@@ -66,6 +66,12 @@ substitution, as used in [cmd "regsub -all"]. Multiple pairs are allowed
 and multiple [opt -regsub] are allowed. All patterns will be applied in order
 on each line.
 
+[opt_def -regsubleft [arg list]]
+Like [opt -regsub] but only applied to the first file.
+
+[opt_def -regsubright [arg list]]
+Like [opt -regsub] but only applied to the second file.
+
 [list_end]
 
 [call [cmd "::DiffUtil::diffLists"] \

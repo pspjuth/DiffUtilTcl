@@ -170,6 +170,10 @@ of an even number of elements. Each pair is a regular expression and a
 substitution, as used in <b class="cmd">regsub -all</b>. Multiple pairs are allowed
 and multiple <span class="opt">?-regsub?</span> are allowed. All patterns will be applied in order
 on each line.</p></dd>
+<dt><b class="option">-regsubleft</b> <i class="arg">list</i></dt>
+<dd><p>Like <span class="opt">?-regsub?</span> but only applied to the first file.</p></dd>
+<dt><b class="option">-regsubright</b> <i class="arg">list</i></dt>
+<dd><p>Like <span class="opt">?-regsub?</span> but only applied to the second file.</p></dd>
 </dl></dd>
 <dt><a name="2"><b class="cmd">::DiffUtil::diffLists</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">list1</i> <i class="arg">list2</i></a></dt>
 <dd><p>Compare two lists element by element.

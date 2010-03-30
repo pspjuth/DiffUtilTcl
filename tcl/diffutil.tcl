@@ -205,8 +205,10 @@ proc DiffUtil::diffFiles {args} {
     set opts(-align) {}
     set opts(-range) {}
     set opts(-noempty)  0  ;# Allowed but ignored
-    set opts(-regsubRE) {}
-    set opts(-regsubSub) {}
+    set opts(-regsubREL) {}
+    set opts(-regsubSubL) {}
+    set opts(-regsubRER) {}
+    set opts(-regsubSubR) {}
 
     set value ""
     foreach arg $args {
@@ -216,14 +218,34 @@ proc DiffUtil::diffFiles {args} {
                     if {[catch {regsub -all $RE "a string" $Sub Dummy}]} {
                         return -code error "Bad regexp: '$RE'"
                     } else {
-                        lappend opts(-regsubRE) $RE
-                        lappend opts(-regsubSub) $Sub
+                        lappend opts(-regsubREL) $RE
+                        lappend opts(-regsubSubL) $Sub
+                        lappend opts(-regsubRER) $RE
+                        lappend opts(-regsubSubR) $Sub
+                    }
+                }
+            } elseif {$value eq "-regsubleft"} {
+                foreach {RE Sub} $arg {
+                    if {[catch {regsub -all $RE "a string" $Sub Dummy}]} {
+                        return -code error "Bad regexp left: '$RE'"
+                    } else {
+                        lappend opts(-regsubREL) $RE
+                        lappend opts(-regsubSubL) $Sub
+                    }
+                }
+            } elseif {$value eq "-regsubright"} {
+                foreach {RE Sub} $arg {
+                    if {[catch {regsub -all $RE "a string" $Sub Dummy}]} {
+                        return -code error "Bad regexp right: '$RE'"
+                    } else {
+                        lappend opts(-regsubRER) $RE
+                        lappend opts(-regsubSubR) $Sub
                     }
                 }
             } else {
                 set opts($value) $arg
-                set value ""
             }
+            set value ""
             continue
         }
         switch -- $arg {
@@ -231,11 +253,15 @@ proc DiffUtil::diffFiles {args} {
             -nocase      { lappend diffopts -i }
             -align -
             -regsub -
+            -regsubleft -
+            -regsubright -
             -range { set value $arg }
             -noempty { set opts($arg) 1 }
             -nodigit {
-                lappend opts(-regsubRE) {\d+}
-                lappend opts(-regsubSub) "0"
+                lappend opts(-regsubREL) {\d+}
+                lappend opts(-regsubSubL) "0"
+                lappend opts(-regsubRER) {\d+}
+                lappend opts(-regsubSubR) "0"
             }
             default {
                 return -code error "bad option \"$arg\""
@@ -246,7 +272,8 @@ proc DiffUtil::diffFiles {args} {
     # The simple case
     if {[llength $opts(-align)] == 0     && \
             [llength $opts(-range)] == 0 && \
-                [llength $opts(-regsubRE)] == 0} {
+            [llength $opts(-regsubREL)] == 0 && \
+            [llength $opts(-regsubRER)] == 0} {
         return [ExecDiffFiles $diffopts $file1 $file2]
     }
     if {[llength $opts(-range)] != 0 && [llength $opts(-range)] != 4} {
@@ -319,7 +346,7 @@ proc DiffUtil::diffFiles {args} {
         set cho1 [open $tmp1 "w"]
         set start1 $n1
         while {$n1 <= $align1 && [gets $ch1 line] >= 0} {
-            foreach RE $opts(-regsubRE) Sub $opts(-regsubSub) {
+            foreach RE $opts(-regsubREL) Sub $opts(-regsubSubL) {
                 regsub -all $RE $line $Sub line
             }
             puts $cho1 $line
@@ -329,7 +356,7 @@ proc DiffUtil::diffFiles {args} {
         set cho2 [open $tmp2 "w"]
         set start2 $n2
         while {$n2 <= $align2 && [gets $ch2 line] >= 0} {
-            foreach RE $opts(-regsubRE) Sub $opts(-regsubSub) {
+            foreach RE $opts(-regsubRER) Sub $opts(-regsubSubR) {
                 regsub -all $RE $line $Sub line
             }
             puts $cho2 $line
