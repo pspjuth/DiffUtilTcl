@@ -1,0 +1,11 @@
+The following files contain current revision and needs to be changed
+when bumping revisions:
+configure.in
+doc/diffutil.man
+tcl/diffutil.tcl
+win/makefile.vc
+
+Then rerun
+autoconf
+configure
+make
