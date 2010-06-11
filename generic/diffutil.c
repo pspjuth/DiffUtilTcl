@@ -75,9 +75,9 @@ UniCharFirst(ustring1, length1, ustring2, length2, nocase)
     return match;
 }
 
-// Recursively look for common substrings in strings str1 and str2
-// res should point to list object where the result
-// will be appended.
+/* Recursively look for common substrings in strings str1 and str2
+ * res should point to list object where the result
+ * will be appended. */
 static void
 CompareMidString(interp, obj1, obj2, res, wordparse, nocase)
     Tcl_Interp *interp;
@@ -94,7 +94,7 @@ CompareMidString(interp, obj1, obj2, res, wordparse, nocase)
     str1 = Tcl_GetUnicodeFromObj(obj1, &len1);
     str2 = Tcl_GetUnicodeFromObj(obj2, &len2);
 
-    // Is str1 a substring of str2 ?
+    /* Is str1 a substring of str2 ?*/
     if (len1 < len2) {
 	if ((t = UniCharFirst(str1, len1, str2, len2, nocase)) != -1) {
 	    Tcl_ListObjAppendElement(interp, res, Tcl_NewObj());
@@ -110,7 +110,7 @@ CompareMidString(interp, obj1, obj2, res, wordparse, nocase)
 	}
     }
 
-    // Is str2 a substring of str1 ?
+    /* Is str2 a substring of str1 ?*/
     if (len2 < len1) {
 	if ((t = UniCharFirst(str2, len2, str1, len1, nocase)) != -1) {
 	    Tcl_ListObjAppendElement(interp, res,
@@ -126,17 +126,17 @@ CompareMidString(interp, obj1, obj2, res, wordparse, nocase)
 	}
     }
 
-    // Are they too short to be considered ?
+    /* Are they too short to be considered ? */
     if (len1 < 4 || len2 < 4) {
 	Tcl_ListObjAppendElement(interp, res, obj1);
 	Tcl_ListObjAppendElement(interp, res, obj2);
         return;
     }
 
-    // Find the longest string common to both strings
+    /* Find the longest string common to both strings */
 
     foundlen = -1;
-    minlen = 2; // The shortest common substring we detect is 3 chars
+    minlen = 2; /* The shortest common substring we detect is 3 chars*/
 
     for (t = 0, u = minlen; u < len1; t++, u++) {
         i = UniCharFirst(str1 + t, u - t + 1, str2, len2, nocase);
@@ -186,13 +186,13 @@ CompareMidString(interp, obj1, obj2, res, wordparse, nocase)
     }
 
     if (foundlen < 0) {
-	// No common string found
+      /* No common string found */
 	Tcl_ListObjAppendElement(interp, res, obj1);
 	Tcl_ListObjAppendElement(interp, res, obj2);
         return;
     }
 
-    // Handle left part, recursively
+    /* Handle left part, recursively */
     apa1 = Tcl_NewUnicodeObj(str1, found1);
     apa2 = Tcl_NewUnicodeObj(str2, found2);
     Tcl_IncrRefCount(apa1);
@@ -201,13 +201,13 @@ CompareMidString(interp, obj1, obj2, res, wordparse, nocase)
     Tcl_DecrRefCount(apa1);
     Tcl_DecrRefCount(apa2);
 
-    // Handle middle (common) part
+    /* Handle middle (common) part*/
     Tcl_ListObjAppendElement(interp, res,
 	    Tcl_NewUnicodeObj(str1 + found1, foundlen));
     Tcl_ListObjAppendElement(interp, res,
 	    Tcl_NewUnicodeObj(str2 + found2, foundlen));
     
-    // Handle right part, recursively
+    /* Handle right part, recursively*/
     apa1 = Tcl_NewUnicodeObj(str1 + found1 + foundlen, -1);
     apa2 = Tcl_NewUnicodeObj(str2 + found2 + foundlen, -1);
     Tcl_IncrRefCount(apa1);
@@ -229,7 +229,7 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
     int ignore = 0, wordparse = 0;
     int len1, len2;
     Tcl_UniChar *line1, *line2, *s1, *s2, *e1, *e2;
-    //char *line1, *line2, *s1, *s2, *e1, *e2, *prev, *prev2;
+    /*char *line1, *line2, *s1, *s2, *e1, *e2, *prev, *prev2;*/
     Tcl_UniChar *word1, *word2;
     int wordflag;
     Tcl_Obj *res, *mid1, *mid2;
@@ -275,7 +275,7 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
     e1 = line1 + len1;
     e2 = line2 + len2;
 
-    // Skip whitespace in both ends
+    /* Skip whitespace in both ends*/
     if (ignore > 0) {
 	while (s1 < e1 && Tcl_UniCharIsSpace(*s1)) s1++;
 	while (s2 < e2 && Tcl_UniCharIsSpace(*s2)) s2++;
@@ -283,8 +283,8 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
 	while (e2 > s2 && Tcl_UniCharIsSpace(*(e2-1))) e2--;
     }
     
-    // Skip matching chars in both ends
-    // Forwards
+    /* Skip matching chars in both ends
+     * Forwards */
     word1 = s1; word2 = s2;
     wordflag = 0;
     while (s1 < e1 && s2 < e2) {
@@ -313,7 +313,7 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
 	s1 = word1;
 	s2 = word2;
     }
-    // Backwards
+    /* Backwards*/
     word1 = e1; word2 = e2;
     wordflag = 0;
     while (e1 > s1 && e2 > s2) {

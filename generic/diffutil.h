@@ -2,8 +2,8 @@
  * $Revision: 1.2 $
  ***********************************************************************/
 
-//#define CANDIDATE_DEBUG
-//#define CANDIDATE_STATS
+/*#define CANDIDATE_DEBUG*/
+/*#define CANDIDATE_STATS*/
 
 /* A type to hold hashing values */
 typedef unsigned long Hash_T;

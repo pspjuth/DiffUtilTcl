@@ -152,7 +152,7 @@ CompareStrings1(Tcl_Interp *interp,
             str2 += chsize2;
             skip2start++;
         }
-	//printf("Ignore %d %d %d\n", optsPtr->ignore, skip1start, skip2start);
+	/*printf("Ignore %d %d %d\n", optsPtr->ignore, skip1start, skip2start); */
     }
     /* Skip leading equalities */
     while (*str1 != 0 && *str2 != 0) {
@@ -186,7 +186,7 @@ CompareStrings1(Tcl_Interp *interp,
 	PrepareStringsLcs(interp, str1, len1, str2, len2,
 		optsPtr, &m, &n, &P, &E);
 
-	//printf("Doing LcsCore m = %ld, n = %ld for '%s' '%s'\n", m, n, string1, string2);
+	/*printf("Doing LcsCore m = %ld, n = %ld for '%s' '%s'\n", m, n, string1, string2); */
 	J = LcsCore(interp, m, n, P, E, optsPtr);
 	/*printf("Done LcsCore\n");*/
 

@@ -216,7 +216,7 @@ CompareFiles(
     Line_T current1, current2, n1, n2;
     Line_T startblock1, startblock2;
 
-    //printf("Doing ReadAndHash\n");
+    /*printf("Doing ReadAndHash\n"); */
     if (ReadAndHashFiles(interp, name1Ptr, name2Ptr, optsPtr, &m, &n, &P, &E)
         != TCL_OK) {
         return TCL_ERROR;
@@ -233,9 +233,9 @@ CompareFiles(
 	return TCL_OK;
     }
 
-    //printf("Doing LcsCore m = %ld, n = %ld\n", m, n);
+    /*printf("Doing LcsCore m = %ld, n = %ld\n", m, n); */
     J = LcsCore(interp, m, n, P, E, optsPtr);
-    //printf("Done LcsCore\n");
+    /*printf("Done LcsCore\n"); */
     if (0) {
         int i;
         for (i = 0; i <= m; i++) {
@@ -305,12 +305,12 @@ CompareFiles(
 	    if (J[current1] == current2) break;
 	}
 	/* Do they really match? */
-	//printf("Compare %d (%ld) to %d\n", current1, J[current1],
-	//  current2);
+	/*printf("Compare %d (%ld) to %d\n", current1, J[current1], */
+	/*  current2); */
 	if (J[current1] != current2) continue;
 	if (CompareObjects(line1Ptr, line2Ptr, optsPtr) != 0) {
 	    /* No match, continue until next. */
-	    //printf("Debug: NOT Match %ld %ld\n", current1, current2);
+	    /*printf("Debug: NOT Match %ld %ld\n", current1, current2); */
 	    continue;
 	}
 

@@ -612,6 +612,9 @@ merge(CandidateAlloc_T **firstCandidate,
 /*
  * Give score to a candidate.
  */
+#if defined(__hpux)||defined(_AIX)||defined(_WIN32)
+#define inline
+#endif
 static inline void
 ScoreCandidate(Candidate_T *c, P_T *P)
 {
@@ -754,7 +757,7 @@ LcsCore(Tcl_Interp *interp,
     /* Keep track of all candidates to free them easily */
     CandidateAlloc_T *candidates = NULL;
 
-    //printf("Doing K\n");
+    /*printf("Doing K\n"); */
 
     /* Initialise K candidate vector */
     K = (Candidate_T **) ckalloc(sizeof(Candidate_T *) * ((m < n ? m : n) + 2));
@@ -778,7 +781,7 @@ LcsCore(Tcl_Interp *interp,
         }
     }
 
-    //printf("Doing Score k = %ld\n", k);
+    /*printf("Doing Score k = %ld\n", k); */
     ScoreCandidates(k, K, P);
 
     /* Debug, dump candidates to a variable */
