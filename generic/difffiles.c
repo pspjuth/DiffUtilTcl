@@ -214,7 +214,7 @@ CompareFiles(
     Tcl_Channel ch1, ch2;
     Tcl_Obj *line1Ptr, *line2Ptr;
     Line_T current1, current2, n1, n2;
-    Line_T startblock1, startblock2;
+    Line_T startBlock1, startBlock2;
 
     /*printf("Doing ReadAndHash\n"); */
     if (ReadAndHashFiles(interp, name1Ptr, name2Ptr, optsPtr, &m, &n, &P, &E)
@@ -286,7 +286,7 @@ CompareFiles(
 	}
     }
 
-    startblock1 = startblock2 = 1;
+    startBlock1 = startBlock2 = 1;
     current1 = current2 = 0;
 
     while (current1 < m || current2 < n) {
@@ -314,21 +314,21 @@ CompareFiles(
 	    continue;
 	}
 
-	n1 = current1 - startblock1;
-	n2 = current2 - startblock2;
+	n1 = current1 - startBlock1;
+	n2 = current2 - startBlock2;
 	if (n1 > 0 || n2 > 0) {
 	    AppendChunk(interp, *resPtr, optsPtr,
-		    startblock1, n1, startblock2, n2);
+		    startBlock1, n1, startBlock2, n2);
 	}
-	startblock1 = current1 + 1;
-	startblock2 = current2 + 1;
+	startBlock1 = current1 + 1;
+	startBlock2 = current2 + 1;
     }
     /* Scrape up the last */
-    n1 = m - startblock1 + 1;
-    n2 = n - startblock2 + 1;
+    n1 = m - startBlock1 + 1;
+    n2 = n - startBlock2 + 1;
     if (n1 > 0 || n2 > 0) {
 	AppendChunk(interp, *resPtr, optsPtr,
-		startblock1, n1, startblock2, n2);
+		startBlock1, n1, startBlock2, n2);
     }
     Tcl_Close(interp, ch1);
     Tcl_Close(interp, ch2);

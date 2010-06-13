@@ -15,7 +15,7 @@
 #include "diffutil.h"
 
 /*
- * Read two files, hash them and prepare the datastructures needed in LCS.
+ * Scan two lists, hash them and prepare the datastructures needed in LCS.
  */
 static int
 HashLists(Tcl_Interp *interp,
@@ -108,7 +108,7 @@ HashLists(Tcl_Interp *interp,
     return TCL_OK;
 }
 
-/* Do the diff files operation */
+/* Do the diff lists operation */
 static int
 CompareLists(
 	Tcl_Interp *interp,
@@ -123,7 +123,7 @@ CompareLists(
     int length1, length2;
     Tcl_Obj **elem1Ptrs, **elem2Ptrs;
     Line_T current1, current2, n1, n2;
-    Line_T startblock1, startblock2;
+    Line_T startBlock1, startBlock2;
 
     if (HashLists(interp, list1Ptr, list2Ptr, optsPtr, &m, &n, &P, &E)
         != TCL_OK) {
@@ -157,7 +157,7 @@ CompareLists(
     Tcl_ListObjGetElements(interp, list1Ptr, &length1, &elem1Ptrs);
     Tcl_ListObjGetElements(interp, list2Ptr, &length2, &elem2Ptrs);
 
-    startblock1 = startblock2 = 1;
+    startBlock1 = startBlock2 = 1;
     current1 = current2 = 0;
 
     while (current1 < m || current2 < n) {
@@ -179,21 +179,21 @@ CompareLists(
 	    continue;
 	}
 
-	n1 = current1 - startblock1;
-	n2 = current2 - startblock2;
+	n1 = current1 - startBlock1;
+	n2 = current2 - startBlock2;
 	if (n1 > 0 || n2 > 0) {
 	    AppendChunk(interp, *resPtr, optsPtr,
-		    startblock1, n1, startblock2, n2);
+		    startBlock1, n1, startBlock2, n2);
 	}
-	startblock1 = current1 + 1;
-	startblock2 = current2 + 1;
+	startBlock1 = current1 + 1;
+	startBlock2 = current2 + 1;
     }
     /* Scrape up the last */
-    n1 = m - startblock1 + 1;
-    n2 = n - startblock2 + 1;
+    n1 = m - startBlock1 + 1;
+    n2 = n - startBlock2 + 1;
     if (n1 > 0 || n2 > 0) {
 	AppendChunk(interp, *resPtr, optsPtr,
-		startblock1, n1, startblock2, n2);
+		startBlock1, n1, startBlock2, n2);
     }
 
     ckfree((char *) J);

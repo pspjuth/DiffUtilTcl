@@ -195,35 +195,35 @@ test difffiles-5.8 {priority} {
     # view 6 or 7 are preferable.
 } [list {7 6 7 0}]
 
-test difffiles-6.1 {noempty} {
+test difffiles-6.1 {noempty} -body {
     set l1 {a b c {} d {}   e f g}
     set l2 {a b c {}   {} d e f g}
     RunTest $l1 $l2
-} [list {5 1 5 0} {7 0 6 1}]
+} -result [list {5 1 5 0} {7 0 6 1}]
 
-test difffiles-6.2 {noempty} {CDiff} {
+test difffiles-6.2 {noempty} -constraints {CDiff} -body {
     set l1 {a b c {}    d {} e f g}
     set l2 {a b c {} {} d    e f g}
     RunTest $l1 $l2 -noempty
-} [list {5 0 5 1} {6 1 7 0}]
+} -result [list {5 0 5 1} {6 1 7 0}]
 
-test difffiles-6.3 {noempty} {CDiff knownbug} {
+test difffiles-6.3 {noempty} -constraints {CDiff knownbug} -body {
     set l1 {a b c {} {}    d {} e f g}
     set l2 {a b c {} {} {} d    e f g}
     RunTest $l1 $l2 -noempty
-} [list {6 0 6 1} {7 1 8 0}]
+} -result [list {6 0 6 1} {7 1 8 0}]
 
-test difffiles-7.1 {ignore digit} {
+test difffiles-7.1 {ignore digit} -body {
     set l1 {a b123c x b02c   b13c d}
     set l2 {a         b02c x      d}
     list [RunTest $l1 $l2] [RunTest $l1 $l2 -nodigit]
-} [list [list {2 2 2 0} {5 1 3 1}] [list {4 2 4 0}]]
+} -result [list [list {2 2 2 0} {5 1 3 1}] [list {4 2 4 0}]]
 
-test difffiles-7.2 {ignore digit} {
+test difffiles-7.2 {ignore digit} -body {
     set l1 {a b123 12c 456   a76b93u x}
     set l2 {a b2   1c  7890  a0b12u  x}
     RunTest $l1 $l2 -nodigit
-} {}
+} -result {}
 
 test difffiles-7.3.1 {ignore digit, preference} {CDiff} {
     set l1 {a b123 b456 x}

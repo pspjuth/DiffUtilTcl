@@ -1,5 +1,9 @@
 /***********************************************************************
- * $Revision: 1.2 $
+ *
+ * This is the C implementation of the DiffUtil package
+ *
+ * Copyright (c) 2004, 2010, Peter Spjuth
+ *
  ***********************************************************************/
 
 /*#define CANDIDATE_DEBUG*/

@@ -1,9 +1,8 @@
 /***********************************************************************
  *
- * This file implements the central LCS function for comparing things,
- * and the diffFiles command.
+ * This file implements the central LCS function for comparing things.
  *
- * Copyright (c) 2004, Peter Spjuth
+ * Copyright (c) 2004, 2010, Peter Spjuth
  *
  ***********************************************************************
  * References:
@@ -76,6 +75,8 @@ static int       DiffOptsRegsub(Tcl_Interp *interp, Tcl_Obj *obj1Ptr,
 
 /*
  * Check if an index pair fails to match due to alignment
+ * Returns true if it fails.
+ * This assumes the align list is sorted, as done by NormaliseOpts.
  */
 static int
 CheckAlign(DiffOptions_T *optsPtr, Line_T i, Line_T j)
@@ -83,8 +84,11 @@ CheckAlign(DiffOptions_T *optsPtr, Line_T i, Line_T j)
     int t;
 
     for (t = 0; t < optsPtr->alignLength; t += 2) {
+	/* If both are below, it is ok since the list is sorted */
         if (i <  optsPtr->align[t] && j <  optsPtr->align[t + 1]) return 0;
+	/* If aligned, it must be ok */
         if (i == optsPtr->align[t] && j == optsPtr->align[t + 1]) return 0;
+	/* Fail if just one is below the align level */
         if (i <= optsPtr->align[t] || j <= optsPtr->align[t + 1]) return 1;
     }
     return 0;
@@ -111,8 +115,8 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
     int i, length;
     char *string, *str;
     Tcl_UniChar c;
-    Tcl_Obj *regsubPtr = left ? optsPtr->regsubLeftPtr :
-	    optsPtr->regsubRightPtr;
+    Tcl_Obj *regsubPtr = left ?
+	    optsPtr->regsubLeftPtr : optsPtr->regsubRightPtr;
 
     Tcl_IncrRefCount(objPtr);
     if (regsubPtr != NULL) {
@@ -138,10 +142,10 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
     }
     *real = hash;
     if (optsPtr->ignore != 0) {
-        const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
-        const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
-        const int ignorecase     = (optsPtr->ignore & IGNORE_CASE);
-        const int ignorenum      = (optsPtr->ignore & IGNORE_NUMBERS);
+        const int ignoreAllSpace = (optsPtr->ignore & IGNORE_ALL_SPACE);
+        const int ignoreSpace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
+        const int ignoreCase     = (optsPtr->ignore & IGNORE_CASE);
+        const int ignoreNum      = (optsPtr->ignore & IGNORE_NUMBERS);
         /*
          * By starting in space, IGNORE_SPACE_CHANGE will ignore all
          * space in the beginning of a line.
@@ -154,20 +158,20 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
             str += Tcl_UtfToUniChar(str, &c);
             if (c == '\n') break;
             if (Tcl_UniCharIsSpace(c)) {
-                if (ignoreallspace) continue;
+                if (ignoreAllSpace) continue;
                 /* Any consecutive whitespace is regarded as a single space */
-                if (ignorespace && in == IN_SPACE) continue;
-                if (ignorespace)
+                if (ignoreSpace && in == IN_SPACE) continue;
+                if (ignoreSpace)
 		    c = ' ';
                 in = IN_SPACE;
-            } else if (ignorenum && Tcl_UniCharIsDigit(c)) {
+            } else if (ignoreNum && Tcl_UniCharIsDigit(c)) {
                 if (in == IN_NUMBER) continue;
                 /* A string of digits is replaced by a single 0 */
                 c = '0';
                 in = IN_NUMBER;
             } else {
                 in = IN_NONE;
-                if (ignorecase) {
+                if (ignoreCase) {
                     c = Tcl_UniCharToLower(c);
                 }
             }
@@ -181,7 +185,8 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
 
 /*
  * Compare two strings, ignoring things in the same way as hash does.
- * Should be recoded to use Unicode functions.
+ * FIXA: Should be recoded to use Unicode functions.
+ * Returns true if they differ.
  */
 int
 CompareObjects(Tcl_Obj *obj1Ptr,
@@ -191,10 +196,10 @@ CompareObjects(Tcl_Obj *obj1Ptr,
     int c1, c2, i1, i2, length1, length2, start;
     int i, result = 0;
     char *string1, *string2;
-    const int ignoreallspace = (optsPtr->ignore & IGNORE_ALL_SPACE);
-    const int ignorespace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
-    const int ignorecase     = (optsPtr->ignore & IGNORE_CASE);
-    const int ignorenum      = (optsPtr->ignore & IGNORE_NUMBERS);
+    const int ignoreAllSpace = (optsPtr->ignore & IGNORE_ALL_SPACE);
+    const int ignoreSpace    = (optsPtr->ignore & IGNORE_SPACE_CHANGE);
+    const int ignoreCase     = (optsPtr->ignore & IGNORE_CASE);
+    const int ignoreNum      = (optsPtr->ignore & IGNORE_NUMBERS);
 
     Tcl_IncrRefCount(obj1Ptr);
     Tcl_IncrRefCount(obj2Ptr);
@@ -235,7 +240,11 @@ CompareObjects(Tcl_Obj *obj1Ptr,
 
     /* Use the fast way when no ignore flag is used. */
     if (optsPtr->ignore == 0) {
-        result = strcmp(string1, string2);
+	if (length1 != length2) {
+	    result = 1;
+	} else {
+	    result = Tcl_UtfNcmp(string1, string2, length1);
+	}
 	goto cleanup;
     }
 
@@ -243,11 +252,11 @@ CompareObjects(Tcl_Obj *obj1Ptr,
     while (i1 < length1 && i2 < length2) {
         c1 = string1[i1];
         if (isspace(c1)) {
-            if (ignoreallspace || ignorespace) {
+            if (ignoreAllSpace || ignoreSpace) {
                 /* Scan up to non-space */
                 start = i1;
                 while (i1 < length1 && isspace(string1[i1])) i1++;
-                if (ignoreallspace || start == 0) {
+                if (ignoreAllSpace || start == 0) {
                     c1 = string1[i1];
                 } else {
                     i1--;
@@ -255,23 +264,23 @@ CompareObjects(Tcl_Obj *obj1Ptr,
                 }
             }
         }
-        if (ignorenum && isdigit(c1)) {
+        if (ignoreNum && isdigit(c1)) {
             /* Scan up to non-digit */
             while (i1 < length1 && isdigit(string1[i1])) i1++;
             i1--;
             c1 = '0';
         }
-        if (ignorecase && isupper(c1)) {
+        if (ignoreCase && isupper(c1)) {
             c1 = tolower(c1);
         }
 
         c2 = string2[i2];
         if (isspace(c2)) {
-            if (ignoreallspace || ignorespace) {
+            if (ignoreAllSpace || ignoreSpace) {
                 /* Scan up to non-space */
                 start = i2;
                 while (i2 < length2 && isspace(string2[i2])) i2++;
-                if (ignoreallspace || start == 0) {
+                if (ignoreAllSpace || start == 0) {
                     c2 = string2[i2];
                 } else {
                     i2--;
@@ -279,13 +288,13 @@ CompareObjects(Tcl_Obj *obj1Ptr,
                 }
             }
         }
-        if (ignorenum && isdigit(c2)) {
+        if (ignoreNum && isdigit(c2)) {
             /* Scan up to non-digit */
             while (i2 < length2 && isdigit(string2[i2])) i2++;
             i2--;
             c2 = '0';
         }
-        if (ignorecase && isupper(c2)) {
+        if (ignoreCase && isupper(c2)) {
             c2 = tolower(c2);
         }
 
@@ -753,7 +762,7 @@ LcsCore(Tcl_Interp *interp,
 {
     Candidate_T **K, *c;
     Line_T i, k, *J;
-    const int allowempty = !optsPtr->noempty;
+    const int allowEmpty = !optsPtr->noempty;
     /* Keep track of all candidates to free them easily */
     CandidateAlloc_T *candidates = NULL;
 
@@ -775,7 +784,7 @@ LcsCore(Tcl_Interp *interp,
      */
 
     for (i = 1; i <= m; i++) {
-        if (P[i].Eindex != 0 && (allowempty || P[i].hash != 0)) {
+        if (P[i].Eindex != 0 && (allowEmpty || P[i].hash != 0)) {
             /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
             merge(&candidates, K, &k, i, P, E, P[i].Eindex, optsPtr, m, n);
         }
@@ -901,32 +910,32 @@ LcsCore(Tcl_Interp *interp,
     FreeCandidates(&candidates);
     ckfree((char *) K);
 
-    if (!allowempty) {
+    if (!allowEmpty) {
         /*
          * We have ignored empty lines before which means that there
          * may be empty lines that can be matched.
          */
 
-	Line_T lastline1 = 0, lastline2 = 0;
-	Line_T cntempty1 = 0, emptyI = 0;
-	Line_T cntempty2 = 0, emptyJ = 0;
+	Line_T lastLine1 = 0, lastLine2 = 0;
+	Line_T countEmpty1 = 0, emptyI = 0;
+	Line_T countEmpty2 = 0, emptyJ = 0;
 	Line_T j, firstJ, lastJ;
 
 	for (i = 1; i <= (m + 1); i++) {
 	    if (i > m || J[i] != 0) {
-		if (cntempty1 > 0) {
+		if (countEmpty1 > 0) {
 		    /*
 		     * We have empty lines in the left part of this change
 		     * block.
 		     */
-		    firstJ = lastline2 + 1;
+		    firstJ = lastLine2 + 1;
 		    lastJ = i > m ? n : J[i];
-		    cntempty2 = 0;
+		    countEmpty2 = 0;
 
 		    for (j = 1; j <= m; j++) {
 			if (E[j].serial >= firstJ && E[j].serial <= lastJ &&
 				E[j].hash == 0) {
-			    cntempty2++;
+			    countEmpty2++;
 			    /* Remember the first one */
 			    if (emptyJ == 0) {
 				emptyJ = E[j].serial;
@@ -934,7 +943,7 @@ LcsCore(Tcl_Interp *interp,
 			}
 		    }
 
-		    if (cntempty2 > 0) {
+		    if (countEmpty2 > 0) {
 			/*
 			 * We have empty lines in both parts of this change
 			 * block. What to do with it?
@@ -944,16 +953,16 @@ LcsCore(Tcl_Interp *interp,
 			J[emptyI] = emptyJ;
 		    }
 		}
-		lastline1 = i;
-		lastline2 = J[i];
-		cntempty1 = 0;
-		cntempty2 = 0;
+		lastLine1 = i;
+		lastLine2 = J[i];
+		countEmpty1 = 0;
+		countEmpty2 = 0;
 		emptyI = 0;
 		emptyJ = 0;
 		continue;
 	    }
 	    if (P[i].hash == 0) {
-		cntempty1++;
+		countEmpty1++;
 		/* Remember the first one */
 		if (emptyI == 0) {
 		    emptyI = i;
