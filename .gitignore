@@ -4,6 +4,5 @@ pkgIndex.tcl
 *.dll
 config.status
 config.log
-lib.vfs
 *.o
 *.so
