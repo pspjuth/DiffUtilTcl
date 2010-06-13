@@ -1,8 +1,10 @@
 autom4te.cache
 Makefile
 pkgIndex.tcl
+lib.vfs/DiffUtil/tcl/diffutil.tcl
 *.dll
 config.status
 config.log
 *.o
 *.so
+*.dylib
