@@ -269,10 +269,6 @@ bigtest: binaries libraries
 testt: binaries libraries
 	$(TCLSHT) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
 
-testti: binaries libraries
-	@cd tcl && ./instrument.tcl diffFiles CompareMidString diffStrings
-	$(TCLSHT) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
-
 # An experiment to do profiling.
 # To do profiling the package must be statically linked.
 # A tclsh built for profiling and static linking is needed.
