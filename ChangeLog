@@ -1,3 +1,7 @@
+2010-06-21  Peter Spjuth  <peter.spjuth@gmail.com>
+
+	Made -noempty work reasonably.
+
 2010-06-12  Peter Spjuth  <peter.spjuth@gmail.com>
 
 	Patch from Andreas Kupries to compile on more platforms.

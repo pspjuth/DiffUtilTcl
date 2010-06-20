@@ -69,9 +69,55 @@ typedef struct CandidateAlloc_T {
     Candidate_T candidates[CANDIDATE_ALLOC];
 } CandidateAlloc_T;
 
+/* A dynamic list of lines */
+typedef struct LineList_T {
+    Line_T staticList[25];
+    Line_T *Elems;
+    unsigned long alloced, n;
+} LineList_T;
+
 static int       DiffOptsRegsub(Tcl_Interp *interp, Tcl_Obj *obj1Ptr,
 			Tcl_Obj *rePtr, Tcl_Obj *sub1Ptr,
 			Tcl_Obj **resultPtrPtr, DiffOptions_T *optsPtr);
+
+static void
+InitLineList(LineList_T *listPtr)
+{
+    listPtr->Elems = listPtr->staticList;
+    listPtr->alloced = 25;
+    listPtr->n = 0;
+}
+
+static void
+AddToLineList(LineList_T *listPtr, Line_T Value)
+{
+    if (listPtr->n >= listPtr->alloced) {
+	/* Full, need to realloc */
+	if (listPtr->Elems == listPtr->staticList) {
+	    listPtr->Elems = (Line_T *)
+		    ckalloc(sizeof(Line_T) * listPtr->alloced * 2);
+	    memcpy(listPtr->Elems, listPtr->staticList, 25 * sizeof(Line_T));
+	    listPtr->alloced *= 2;
+	} else {
+	    ckrealloc((void *) listPtr->Elems,
+		    sizeof(Line_T) * listPtr->alloced * 2);
+	    listPtr->alloced *= 2;
+	}
+    }
+    listPtr->Elems[listPtr->n] = Value;
+    listPtr->n++;
+}
+
+static void
+FreeLineList(LineList_T *listPtr)
+{
+    if (listPtr->Elems != listPtr->staticList) {
+	ckfree((void *) listPtr->Elems);
+	listPtr->Elems = listPtr->staticList;
+    }
+    listPtr->alloced = 25;
+    listPtr->n = 0;
+}
 
 /*
  * Check if an index pair fails to match due to alignment
@@ -742,6 +788,83 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
 }
 
 /*
+ * We have ignored empty lines before which means that there
+ * may be empty lines that can be matched.
+ */
+static void
+PostProcessAllowEmpty(
+	const Line_T m,          /* Size of file 1 */
+	const Line_T n,          /* Size of file 2 */
+	const P_T * const P,     /* P vector */
+	const E_T * const E,     /* E vector */
+	Line_T * const J)        /* J vector */
+{
+    Line_T lastLine1 = 0, lastLine2 = 0;
+    Line_T i, j, firstJ, lastJ;
+    LineList_T iList, jList;
+
+    InitLineList(&iList);
+    InitLineList(&jList);
+
+    for (i = 1; i <= (m + 1); i++) {
+	if (i > m || J[i] != 0) {
+	    if (iList.n > 0) {
+		/*
+		 * We have empty lines in the left part of this change
+		 * block.
+		 */
+		firstJ = lastLine2 + 1;
+		lastJ = i > m ? n : J[i];
+		
+		for (j = 1; j <= m; j++) {
+		    if (E[j].serial >= firstJ && E[j].serial <= lastJ &&
+			    E[j].hash == 0) {
+			AddToLineList(&jList, E[j].serial);
+		    }
+		}
+
+		if (jList.n > 0) {
+		    /*
+		     * We have empty lines in both parts of this change
+		     * block. What to do with it?
+		     */
+		    Line_T leftCount = i - lastLine1 - 1;
+		    Line_T rightCount = lastJ - lastLine2 - 1;
+
+		    if (iList.n == leftCount || 
+			    jList.n == rightCount) {
+			/* Either side is only empty lines, simple match */
+			for (j = 0; j < iList.n && j < jList.n; j++) {
+			    J[iList.Elems[j]] = jList.Elems[j];
+			}
+		    }
+		    /*
+		     * FIXA: maybe simple cases with empty lines in beginning
+		     * or end should be handled.
+		     */
+		}
+	    }
+	    lastLine1 = i;
+	    lastLine2 = J[i];
+	    FreeLineList(&iList);
+	    FreeLineList(&jList);
+	    continue;
+	}
+	if (P[i].hash == 0) {
+	    AddToLineList(&iList, i);
+	    continue;
+	}
+    }
+    
+    FreeLineList(&iList);
+    FreeLineList(&jList);
+    /*
+     * This could be left to block matching if that is improved
+     * to handle equal lines within change blocks.
+     */
+}
+
+/*
  * The core part of the LCS algorithm.
  * It is independent of data since it only works on hashes.
  *
@@ -916,65 +1039,7 @@ LcsCore(Tcl_Interp *interp,
          * may be empty lines that can be matched.
          */
 
-	Line_T lastLine1 = 0, lastLine2 = 0;
-	Line_T countEmpty1 = 0, emptyI = 0;
-	Line_T countEmpty2 = 0, emptyJ = 0;
-	Line_T j, firstJ, lastJ;
-
-	for (i = 1; i <= (m + 1); i++) {
-	    if (i > m || J[i] != 0) {
-		if (countEmpty1 > 0) {
-		    /*
-		     * We have empty lines in the left part of this change
-		     * block.
-		     */
-		    firstJ = lastLine2 + 1;
-		    lastJ = i > m ? n : J[i];
-		    countEmpty2 = 0;
-
-		    for (j = 1; j <= m; j++) {
-			if (E[j].serial >= firstJ && E[j].serial <= lastJ &&
-				E[j].hash == 0) {
-			    countEmpty2++;
-			    /* Remember the first one */
-			    if (emptyJ == 0) {
-				emptyJ = E[j].serial;
-			    }
-			}
-		    }
-
-		    if (countEmpty2 > 0) {
-			/*
-			 * We have empty lines in both parts of this change
-			 * block. What to do with it?
-			 * FIXA
-			 * Match the first ones, to handle a simple case
-			 */
-			J[emptyI] = emptyJ;
-		    }
-		}
-		lastLine1 = i;
-		lastLine2 = J[i];
-		countEmpty1 = 0;
-		countEmpty2 = 0;
-		emptyI = 0;
-		emptyJ = 0;
-		continue;
-	    }
-	    if (P[i].hash == 0) {
-		countEmpty1++;
-		/* Remember the first one */
-		if (emptyI == 0) {
-		    emptyI = i;
-		}
-		continue;
-	    }
-	}
-
-        /*
-         * This could be left to block matching if that is improved
-         * to handle equal lines within change blocks.
-         */
+	PostProcessAllowEmpty(m, n, P, E, J);
     }
 
     return J;

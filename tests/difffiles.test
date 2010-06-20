@@ -207,11 +207,33 @@ test difffiles-6.2 {noempty} -constraints {CDiff} -body {
     RunTest $l1 $l2 -noempty
 } -result [list {5 0 5 1} {6 1 7 0}]
 
-test difffiles-6.3 {noempty} -constraints {CDiff knownbug} -body {
+test difffiles-6.3 {noempty} -constraints {CDiff} -body {
+    # Stretches of empty should still be handled
     set l1 {a b c {} {}    d {} e f g}
     set l2 {a b c {} {} {} d    e f g}
     RunTest $l1 $l2 -noempty
 } -result [list {6 0 6 1} {7 1 8 0}]
+
+test difffiles-6.4 {noempty} -constraints {CDiff} -body {
+    # Stretches of empty should still be handled
+    set l1 {a b c {} {} {} d {} {} e f g}
+    set l2 {a b c {} {} {} d {} {} e h g}
+    RunTest $l1 $l2 -noempty
+} -result [list {11 1 11 1}]
+
+test difffiles-6.5 {noempty} -constraints {CDiff} -body {
+    # Long strech of empty, to trigger reallocation
+    set l1 {a b c {} {} {} d {} {} e f g {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} x}
+    set l2 {a b c {} {} {} d {} {} e h g {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} x}
+    RunTest $l1 $l2 -noempty
+} -result [list {11 1 11 1}]
+
+test difffiles-6.6 {noempty} -constraints {CDiff} -body {
+    # Within a change group, empty are left unmatched
+    set l1 {a b c d e {} f g}
+    set l2 {a b c d q {} x g}
+    RunTest $l1 $l2 -noempty
+} -result [list {5 3 5 3}]
 
 test difffiles-7.1 {ignore digit} -body {
     set l1 {a b123c x b02c   b13c d}
@@ -236,6 +258,7 @@ test difffiles-7.3.1 {ignore digit, preference} {CDiff} {
 } [list [list {3 1 3 0}] [list {3 1 3 0}] [list {2 1 2 0}]]
 
 test difffiles-7.3.2 {ignore digit, preference} {TclDiff} {
+    # Tcl version fully ignores, and cannot prefer the exact match
     set l1 {a b123 b456 x}
     set l2 {a b123      x}
     set l3 {a b222      x}

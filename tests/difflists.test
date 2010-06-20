@@ -145,7 +145,7 @@ test difflists-6.2 {noempty} {CDiff} {
     RunTest $l1 $l2 -noempty
 } [list {5 0 5 1} {6 1 7 0}]
 
-test difflists-6.3 {noempty} {CDiff knownbug} {
+test difflists-6.3 {noempty} {CDiff} {
     set l1 {a b c {} {}    d {} e f g}
     set l2 {a b c {} {} {} d    e f g}
     RunTest $l1 $l2 -noempty

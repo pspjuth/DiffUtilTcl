@@ -47,6 +47,8 @@ Ignore empty lines in initial compare step. I.e. empty lines are considered
 not equal at first. Multiple equal lines gives longer runtimes and by avoiding
 the very common empty line, runtimes are improved. With [opt -b] or [opt -w],
 all-space lines are considered empty.
+Empty lines that obviously matches are noted as equal in a post processing
+step, but empty lines within change blocks will be reported as changes.
 
 [opt_def -nodigit]
 Consider any sequence of digits equal.
@@ -96,7 +98,12 @@ Ignore space changes.
 Ignore all spaces.
 
 [opt_def -noempty]
-Ignore empty lines in initial compare step.
+Ignore empty elements in initial compare step. I.e. empty elements are considered
+not equal at first. Multiple equal elements give longer runtimes and by avoiding
+the very common empty element, runtimes are improved. With [opt -b] or [opt -w],
+all-space elements are considered empty.
+Empty elements that obviously matches are noted as equal in a post processing
+step, but empty elements within change blocks will be reported as changes.
 
 [opt_def -nodigit]
 Consider any sequence of digits equal.
