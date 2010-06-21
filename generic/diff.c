@@ -1123,6 +1123,54 @@ AppendChunk(Tcl_Interp *interp, Tcl_Obj *listPtr, DiffOptions_T *optsPtr,
 	    NewChunk(interp, optsPtr, start1, n1, start2, n2));
 }
 
+/*
+ * Given a valid J vector,
+ * generate a list of insert/delete/change operations.
+ */
+
+Tcl_Obj *
+BuildResultFromJ(Tcl_Interp *interp, DiffOptions_T *optsPtr,
+	Line_T m, Line_T n, Line_T *J)
+{
+    Tcl_Obj *resPtr;
+    Line_T current1, current2, n1, n2;
+    Line_T startBlock1, startBlock2;
+
+    resPtr = Tcl_NewListObj(0, NULL);
+    startBlock1 = startBlock2 = 1;
+    current1 = current2 = 0;
+
+    while (current1 < m || current2 < n) {
+	/* Scan list 1 until next supposed match */
+	while (current1 < m) {
+	    current1++;
+	    if (J[current1] != 0) break;
+	}
+	/* Scan list 2 until next supposed match */
+	while (current2 < n) {
+	    current2++;
+	    if (J[current1] == current2) break;
+	}
+	if (J[current1] != current2) continue;
+
+	n1 = current1 - startBlock1;
+	n2 = current2 - startBlock2;
+	if (n1 > 0 || n2 > 0) {
+	    AppendChunk(interp, resPtr, optsPtr,
+		    startBlock1, n1, startBlock2, n2);
+	}
+	startBlock1 = current1 + 1;
+	startBlock2 = current2 + 1;
+    }
+    /* Scrape up the last */
+    n1 = m - startBlock1 + 1;
+    n2 = n - startBlock2 + 1;
+    if (n1 > 0 || n2 > 0) {
+	AppendChunk(interp, resPtr, optsPtr,
+		startBlock1, n1, startBlock2, n2);
+    }
+    return resPtr;
+}
 
 /* Fill in the range option from a Tcl Value */
 int
