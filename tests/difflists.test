@@ -194,3 +194,12 @@ test difflists-7.3.1 {ignore digit, preference} {CDiff} {
 #    set l2 {    aya bxb ee ff}
 #    list [RunTest $l1 $l2] [RunTest $l1 $l2 -regsub {{.*(y|x).*} {\1}}]
 #} [list [list {1 4 1 4}] [list {1 1 1 0} {4 1 3 2}]]
+
+test difflists-9.1 {hash} {
+    # Different elements that hash to the same thing.
+    # Hash is currenctly hash = hash*129+char, and run over utf-8 string.
+    # \x83 becomes \xc2 \x83 in utf-8.
+    set l1 {a ab\x83 c}
+    set l2 {a ac\x42\x02 c}
+    RunTest $l1 $l2
+} [list {2 1 2 1}]

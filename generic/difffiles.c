@@ -233,16 +233,7 @@ CompareFiles(
 	return TCL_OK;
     }
 
-    /*printf("Doing LcsCore m = %ld, n = %ld\n", m, n); */
     J = LcsCore(interp, m, n, P, E, optsPtr);
-    /*printf("Done LcsCore\n"); */
-    if (0) {
-        int i;
-        for (i = 0; i <= m; i++) {
-            printf("J(%d)=%ld ", i, J[i]);
-        }
-        printf("\n");
-    }
 
     ckfree((char *) E);
     ckfree((char *) P);
@@ -250,10 +241,7 @@ CompareFiles(
     /*
      * Now we have a list of matching lines in J.  We need to go through
      * the files and check that matching lines really are matching.
-     * At the same time we generate a list of insert/delete/change opers.
      */
-
-    *resPtr = Tcl_NewListObj(0, NULL);
 
     /* Initialize objects to use as line buffers. */
     line1Ptr = Tcl_NewObj();
@@ -309,10 +297,37 @@ CompareFiles(
 	/*  current2); */
 	if (J[current1] != current2) continue;
 	if (CompareObjects(line1Ptr, line2Ptr, optsPtr) != 0) {
-	    /* No match, continue until next. */
-	    /*printf("Debug: NOT Match %ld %ld\n", current1, current2); */
-	    continue;
+	    /* Unmark since they don't match */
+	    J[current1] = 0;
 	}
+    }
+
+    Tcl_Close(interp, ch1);
+    Tcl_Close(interp, ch2);
+    Tcl_DecrRefCount(line1Ptr);
+    Tcl_DecrRefCount(line2Ptr);
+
+    /*
+     * Now the J vector is valid, generate a list of
+     * insert/delete/change operations.
+     */
+
+    *resPtr = Tcl_NewListObj(0, NULL);
+    startBlock1 = startBlock2 = 1;
+    current1 = current2 = 0;
+
+    while (current1 < m || current2 < n) {
+	/* Scan file 1 until next supposed match */
+	while (current1 < m) {
+	    current1++;
+	    if (J[current1] != 0) break;
+	}
+	/* Scan file 2 until next supposed match */
+	while (current2 < n) {
+	    current2++;
+	    if (J[current1] == current2) break;
+	}
+	if (J[current1] != current2) continue;
 
 	n1 = current1 - startBlock1;
 	n2 = current2 - startBlock2;
@@ -330,10 +345,6 @@ CompareFiles(
 	AppendChunk(interp, *resPtr, optsPtr,
 		startBlock1, n1, startBlock2, n2);
     }
-    Tcl_Close(interp, ch1);
-    Tcl_Close(interp, ch2);
-    Tcl_DecrRefCount(line1Ptr);
-    Tcl_DecrRefCount(line2Ptr);
 
     ckfree((char *) J);
     return TCL_OK;

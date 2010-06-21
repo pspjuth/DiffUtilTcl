@@ -287,3 +287,12 @@ test difffiles-8.3 {flag -regsub} {
             [RunTest $l1 $l2 -regsubleft {{x|y} {}} -regsubright {{p|q} {}}] \
             [RunTest $l1 $l2 -regsub {{x|y} {}} -regsub {{p|q} {}}]
 } [list [list {1 4 1 4}] [list {3 2 3 2}] [list {4 1 4 1}]]
+
+test difffiles-9.1 {hash} {
+    # Different elements that hash to the same thing.
+    # Hash is currenctly hash = hash*129+char, and run over utf-8 string.
+    # \x83 becomes \xc2 \x83 in utf-8.
+    set l1 {a ab\x83 c}
+    set l2 {a ac\x42\x02 c}
+    RunTest $l1 $l2
+} [list {2 1 2 1}]

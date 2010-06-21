@@ -184,7 +184,7 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
     /* Use the fast way when no ignore flag is used. */
     hash = 0;
     for (i = 0; i < length; i++) {
-	HASH_ADD(hash, string[i]);
+	HASH_ADD(hash, (unsigned char) string[i]);
     }
     *real = hash;
     if (optsPtr->ignore != 0) {

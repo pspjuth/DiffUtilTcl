@@ -149,10 +149,7 @@ CompareLists(
     /*
      * Now we have a list of matching lines in J.  We need to go through
      * the lists and check that matching elements really are matching.
-     * At the same time we generate a list of insert/delete/change opers.
      */
-
-    *resPtr = Tcl_NewListObj(0, NULL);
 
     Tcl_ListObjGetElements(interp, list1Ptr, &length1, &elem1Ptrs);
     Tcl_ListObjGetElements(interp, list2Ptr, &length2, &elem2Ptrs);
@@ -175,9 +172,32 @@ CompareLists(
 	if (J[current1] != current2) continue;
 	if (CompareObjects(elem1Ptrs[current1-1], elem2Ptrs[current2-1],
 			optsPtr) != 0) {
-	    /* No match, continue until next. */
-	    continue;
+	    /* Unmark since they don't match */
+	    J[current1] = 0;
 	}
+    }
+
+    /*
+     * Now the J vector is valid, generate a list of
+     * insert/delete/change operations.
+     */
+
+    *resPtr = Tcl_NewListObj(0, NULL);
+    startBlock1 = startBlock2 = 1;
+    current1 = current2 = 0;
+
+    while (current1 < m || current2 < n) {
+	/* Scan list 1 until next supposed match */
+	while (current1 < m) {
+	    current1++;
+	    if (J[current1] != 0) break;
+	}
+	/* Scan list 2 until next supposed match */
+	while (current2 < n) {
+	    current2++;
+	    if (J[current1] == current2) break;
+	}
+	if (J[current1] != current2) continue;
 
 	n1 = current1 - startBlock1;
 	n2 = current2 - startBlock2;
