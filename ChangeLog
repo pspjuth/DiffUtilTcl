@@ -1,5 +1,9 @@
 2010-06-21  Peter Spjuth  <peter.spjuth@gmail.com>
 
+	Bug fix. List indices in diffLists started at 1 instead of 0.
+
+2010-06-21  Peter Spjuth  <peter.spjuth@gmail.com>
+
 	Bumped revision to 0.3.
 
 2010-06-21  Peter Spjuth  <peter.spjuth@gmail.com>

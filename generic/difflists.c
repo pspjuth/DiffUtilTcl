@@ -240,6 +240,12 @@ DiffListsObjCmd(
 	}
     }
     NormaliseOpts(&opts);
+    /*
+     * Element indexes starts with 0, while LCS works from 1.
+     * By starting the range from 0, the result is adjusted.
+     */
+    opts.rFrom1 = 0;
+    opts.rFrom2 = 0;
     list1Ptr = objv[objc-2];
     list2Ptr = objv[objc-1];
 
