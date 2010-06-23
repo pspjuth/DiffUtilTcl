@@ -203,3 +203,29 @@ test difflists-9.1 {hash} {CDiff} {
     set l2 {a ac\x42\x02 c}
     RunTest $l1 $l2
 } [list {1 1 1 1}]
+
+test difflists-10.1 {result style} -constraints {CDiff} -body {
+    DiffUtil::diffLists -result {} {}
+} -returnCodes 1 -result "wrong # args*" -match glob
+
+test difflists-10.2 {result style} -constraints {CDiff} -body {
+    DiffUtil::diffLists -result gurka {} {}
+} -returnCodes 1 -result {bad result style "gurka": must be diff or match}
+
+test difflists-10.3 {result style} {CDiff} {
+    set l1 {a b c}
+    set l2 {a d c}
+    RunTest $l1 $l2 -result diff
+} [list {1 1 1 1}]
+
+test difflists-10.4 {result style} {CDiff} {
+    set l1 {a b c}
+    set l2 {a d c}
+    RunTest $l1 $l2 -result match
+} [list {0 2} {0 2}]
+
+test difflists-10.5 {result style} {CDiff} {
+    set l1 {a b c d   f g h i j k l}
+    set l2 {  b c d e f g x y   k l}
+    RunTest $l1 $l2 -result match
+} [list {1 2 3 4 5 9 10} {0 1 2 4 5 8 9}]

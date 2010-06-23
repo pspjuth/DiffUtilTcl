@@ -1,9 +1,9 @@
-[manpage_begin DiffUtil n 0.3]
+[manpage_begin DiffUtil n 0.3.1]
 [copyright {2010, Peter Spjuth}]
 [moddesc   {Comparision Utilities}]
 [titledesc {Compare Stuff}]
 [require Tcl 8.4]
-[require DiffUtil [opt 0.3]]
+[require DiffUtil [opt 0.3.1]]
 [description]
 [para]
 
@@ -23,9 +23,7 @@ author's personal site: http://www.cs.dartmouth.edu/~doug/
         [opt [arg options]] [arg file1] [arg file2]]
 
 Compare two files line by line.
-Returns a list of differences, each in a four element list.
-{LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
-The first line in a file is number 1.
+The return value depends on the [arg -result] option, see below.
 
 [list_begin opt]
 
@@ -45,7 +43,7 @@ Ignore all spaces.
 [opt_def -noempty]
 Ignore empty lines in initial compare step. I.e. empty lines are considered
 not equal at first. Multiple equal lines gives longer runtimes and by avoiding
-the very common empty line, runtimes are improved. With [opt -b] or [opt -w],
+the very common empty line, runtimes are improved. With [arg -b] or [arg -w],
 all-space lines are considered empty.
 Empty lines that obviously matches are noted as equal in a post processing
 step, but empty lines within change blocks will be reported as changes.
@@ -65,14 +63,28 @@ Diff only a range of the files. The list is {first1 last1 first2 last2}
 Apply a search/replace regular expression before comparing. The list consists
 of an even number of elements. Each pair is a regular expression and a
 substitution, as used in [cmd "regsub -all"]. Multiple pairs are allowed
-and multiple [opt -regsub] are allowed. All patterns will be applied in order
+and multiple [arg -regsub] are allowed. All patterns will be applied in order
 on each line.
 
 [opt_def -regsubleft [arg list]]
-Like [opt -regsub] but only applied to the first file.
+Like [arg -regsub] but only applied to the first file.
 
 [opt_def -regsubright [arg list]]
-Like [opt -regsub] but only applied to the second file.
+Like [arg -regsub] but only applied to the second file.
+
+[opt_def -result [arg style]]
+Select result style. The default is [arg diff].
+[list_begin definitions]
+[def [const diff]]
+Returns a list of differences, each in a four element list.
+{LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
+The first line in a file is number 1.
+[def [const match]]
+The return value is a list of two lists of equal length. The first
+sublist is of line numbers in [arg file1], and the second sublist is
+of line numbers in [arg file2].  Each corresponding pair of line numbers
+corresponds to equal lines in the files.
+[list_end]
 
 [list_end]
 
@@ -80,8 +92,7 @@ Like [opt -regsub] but only applied to the second file.
         [opt [arg options]] [arg list1] [arg list2]]
 
 Compare two lists element by element.
-Returns a list of differences, each in a four element list.
-{ElementIndex1 NumberOfElements1 ElementIndex2 NumberOfElements2}
+The return value depends on the [arg -result] option, see below.
 
 [list_begin opt]
 
@@ -100,13 +111,26 @@ Ignore all spaces.
 [opt_def -noempty]
 Ignore empty elements in initial compare step. I.e. empty elements are considered
 not equal at first. Multiple equal elements give longer runtimes and by avoiding
-the very common empty element, runtimes are improved. With [opt -b] or [opt -w],
+the very common empty element, runtimes are improved. With [arg -b] or [arg -w],
 all-space elements are considered empty.
 Empty elements that obviously matches are noted as equal in a post processing
 step, but empty elements within change blocks will be reported as changes.
 
 [opt_def -nodigit]
 Consider any sequence of digits equal.
+
+[opt_def -result [arg style]]
+Select result style. The default is [arg diff].
+[list_begin definitions]
+[def [const diff]]
+Returns a list of differences, each in a four element list.
+{ElementIndex1 NumberOfElements1 ElementIndex2 NumberOfElements2}
+[def [const match]]
+The return value is a list of two lists of equal length. The first
+sublist is of indices in [arg list1], and the second sublist is
+of indices in [arg list2].  Each corresponding pair of indices
+corresponds to equal elements in the sequences.
+[list_end]
 
 [list_end]
 

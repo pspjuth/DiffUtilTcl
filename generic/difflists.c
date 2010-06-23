@@ -195,16 +195,19 @@ DiffListsObjCmd(
     int objc,			/* Number of arguments. */
     Tcl_Obj *CONST objv[])	/* Argument objects. */
 {
-    int index, t, result = TCL_OK;
+    int index, resultStyle, t, result = TCL_OK;
     Tcl_Obj *resPtr, *list1Ptr, *list2Ptr;
     DiffOptions_T opts;
     static CONST char *options[] = {
 	"-b", "-w", "-i", "-nocase",
-        "-noempty", "-nodigit", (char *) NULL
+        "-noempty", "-nodigit", "-result", (char *) NULL
     };
     enum options {
 	OPT_B, OPT_W, OPT_I, OPT_NOCASE,
-        OPT_NOEMPTY, OPT_NODIGIT
+        OPT_NOEMPTY, OPT_NODIGIT, OPT_RESULT
+    };
+    static CONST char *resultOptions[] = {
+	"diff", "match", (char *) NULL
     };
 
     if (objc < 3) {
@@ -237,6 +240,20 @@ DiffListsObjCmd(
 	  case OPT_NOEMPTY:
             opts.noempty = 1;
             break;
+	  case OPT_RESULT:
+	      t++;
+	      if (t >= objc - 2) {
+		  Tcl_WrongNumArgs(interp, 1, objv, "?opts? list1 list2");
+		  result = TCL_ERROR;
+		  goto cleanup;
+	      }
+	      if (Tcl_GetIndexFromObj(interp, objv[t], resultOptions,
+			      "result style", 0, &resultStyle) != TCL_OK) {
+		  result = TCL_ERROR;
+		  goto cleanup;
+	      }
+	      opts.resultStyle = resultStyle;
+	      break;
 	}
     }
     NormaliseOpts(&opts);

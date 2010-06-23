@@ -1,3 +1,7 @@
+2010-06-23  Peter Spjuth  <peter.spjuth@gmail.com>
+	Bumped revision to 0.3.1
+	Added -result option to diffFiles and diffLists.
+
 2010-06-21  Peter Spjuth  <peter.spjuth@gmail.com>
 
 	Bug fix. List indices in diffLists started at 1 instead of 0.

@@ -296,3 +296,29 @@ test difffiles-9.1 {hash} {
     set l2 {a ac\x42\x02 c}
     RunTest $l1 $l2
 } [list {2 1 2 1}]
+
+test difffiles-10.1 {result style} -constraints {CDiff} -body {
+    DiffUtil::diffFiles -result {} {}
+} -returnCodes 1 -result "wrong # args*" -match glob
+
+test difffiles-10.2 {result style} -constraints {CDiff} -body {
+    DiffUtil::diffFiles -result gurka {} {}
+} -returnCodes 1 -result {bad result style "gurka": must be diff or match}
+
+test difffiles-10.3 {result style} {CDiff} {
+    set l1 {a b c}
+    set l2 {a d c}
+    RunTest $l1 $l2 -result diff
+} [list {2 1 2 1}]
+
+test difffiles-10.4 {result style} {CDiff} {
+    set l1 {a b c}
+    set l2 {a d c}
+    RunTest $l1 $l2 -result match
+} [list {1 3} {1 3}]
+
+test difffiles-10.5 {result style} {CDiff} {
+    set l1 {a b c d   f g h i j k l}
+    set l2 {  b c d e f g x y   k l}
+    RunTest $l1 $l2 -result match
+} [list {2 3 4 5 6 10 11} {1 2 3 5 6 9 10}]

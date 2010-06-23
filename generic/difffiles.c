@@ -325,18 +325,21 @@ DiffFilesObjCmd(
     int objc,			/* Number of arguments. */
     Tcl_Obj *CONST objv[])	/* Argument objects. */
 {
-    int index, t, result = TCL_OK;
+    int index, resultStyle, t, result = TCL_OK;
     Tcl_Obj *resPtr, *file1Ptr, *file2Ptr;
     DiffOptions_T opts;
     static CONST char *options[] = {
 	"-b", "-w", "-i", "-nocase", "-align", "-range",
         "-noempty", "-nodigit", "-regsub", "-regsubleft",
-	"-regsubright", (char *) NULL
+	"-regsubright", "-result", (char *) NULL
     };
     enum options {
 	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_RANGE,
         OPT_NOEMPTY, OPT_NODIGIT, OPT_REGSUB, OPT_REGSUBLEFT,
-	OPT_REGSUBRIGHT
+	OPT_REGSUBRIGHT, OPT_RESULT
+    };
+    static CONST char *resultOptions[] = {
+	"diff", "match", (char *) NULL
     };
 
     if (objc < 3) {
@@ -428,6 +431,20 @@ DiffFilesObjCmd(
                 goto cleanup;
             }
             break;
+	  case OPT_RESULT:
+	      t++;
+	      if (t >= objc - 2) {
+		  Tcl_WrongNumArgs(interp, 1, objv, "?opts? file1 file2");
+		  result = TCL_ERROR;
+		  goto cleanup;
+	      }
+	      if (Tcl_GetIndexFromObj(interp, objv[t], resultOptions,
+			      "result style", 0, &resultStyle) != TCL_OK) {
+		  result = TCL_ERROR;
+		  goto cleanup;
+	      }
+	      opts.resultStyle = resultStyle;
+	      break;
 	}
     }
     NormaliseOpts(&opts);

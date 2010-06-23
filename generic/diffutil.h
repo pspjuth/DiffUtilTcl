@@ -15,6 +15,11 @@ typedef unsigned long Hash_T;
 /* A type to hold line numbers */
 typedef unsigned long Line_T;
 
+/* A type for selecting result style of diff functions */
+typedef enum {
+    Result_Diff, Result_Match
+} Result_T;
+
 /* Hold all options for diffing in a common struct */
 #define STATIC_ALIGN 10
 typedef struct {
@@ -29,6 +34,8 @@ typedef struct {
     /* Regsub */
     Tcl_Obj *regsubLeftPtr;
     Tcl_Obj *regsubRightPtr;
+    /* Result Style */
+    Result_T resultStyle;
     /* Alignment */
     int alignLength;
     Line_T *align;
@@ -36,7 +43,7 @@ typedef struct {
 } DiffOptions_T;
 
 /* Helper to get a filled in DiffOptions_T */
-#define InitDiffOptions_T(opts) {opts.ignore = 0; opts.noempty = 0; opts.wordparse = 0; opts.rFrom1 = 1; opts.rTo1 = 0; opts.rFrom2 = 1; opts.rTo2 = 0; opts.regsubLeftPtr = NULL; opts.regsubRightPtr = NULL; opts.alignLength = 0; opts.align = opts.staticAlign;}
+#define InitDiffOptions_T(opts) {opts.ignore = 0; opts.noempty = 0; opts.wordparse = 0; opts.rFrom1 = 1; opts.rTo1 = 0; opts.rFrom2 = 1; opts.rTo2 = 0; opts.regsubLeftPtr = NULL; opts.regsubRightPtr = NULL; opts.resultStyle = Result_Diff; opts.alignLength = 0; opts.align = opts.staticAlign;}
  
 /* Flags in DiffOptions_T's ignore field */
 

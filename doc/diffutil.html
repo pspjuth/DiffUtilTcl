@@ -98,7 +98,7 @@
 <! -- CVS: $Id$ DiffUtil.n
    -->
 <body><div class="doctools">
-<h1 class="title">DiffUtil(n) 0.3 diffutil &quot;Comparision Utilities&quot;</h1>
+<h1 class="title">DiffUtil(n) 0.3.1 diffutil &quot;Comparision Utilities&quot;</h1>
 <div id="name" class="section"><h2><a name="name">Name</a></h2>
 <p>DiffUtil - Compare Stuff</p>
 </div>
@@ -117,7 +117,7 @@
 <div class="synopsis">
 <ul class="requirements">
 <li>package require <b class="pkgname">Tcl 8.4</b></li>
-<li>package require <b class="pkgname">DiffUtil <span class="opt">?0.3?</span></b></li>
+<li>package require <b class="pkgname">DiffUtil <span class="opt">?0.3.1?</span></b></li>
 </ul>
 <ul class="syntax">
 <li><a href="#1"><b class="cmd">::DiffUtil::diffFiles</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">file1</i> <i class="arg">file2</i></a></li>
@@ -138,9 +138,7 @@ author's personal site: http://www.cs.dartmouth.edu/~doug/</p>
 <dl class="definitions">
 <dt><a name="1"><b class="cmd">::DiffUtil::diffFiles</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">file1</i> <i class="arg">file2</i></a></dt>
 <dd><p>Compare two files line by line.
-Returns a list of differences, each in a four element list.
-{LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
-The first line in a file is number 1.</p>
+The return value depends on the <i class="arg">-result</i> option, see below.</p>
 <dl class="options">
 <dt><b class="option">-nocase</b></dt>
 <dd><p>Ignore case.</p></dd>
@@ -154,7 +152,7 @@ space, except at beginning of line where it is completely ignored.</p></dd>
 <dt><b class="option">-noempty</b></dt>
 <dd><p>Ignore empty lines in initial compare step. I.e. empty lines are considered
 not equal at first. Multiple equal lines gives longer runtimes and by avoiding
-the very common empty line, runtimes are improved. With <span class="opt">?-b?</span> or <span class="opt">?-w?</span>,
+the very common empty line, runtimes are improved. With <i class="arg">-b</i> or <i class="arg">-w</i>,
 all-space lines are considered empty.
 Empty lines that obviously matches are noted as equal in a post processing
 step, but empty lines within change blocks will be reported as changes.</p></dd>
@@ -170,17 +168,29 @@ equal and matching, regardless of their contents.</p></dd>
 <dd><p>Apply a search/replace regular expression before comparing. The list consists
 of an even number of elements. Each pair is a regular expression and a
 substitution, as used in <b class="cmd">regsub -all</b>. Multiple pairs are allowed
-and multiple <span class="opt">?-regsub?</span> are allowed. All patterns will be applied in order
+and multiple <i class="arg">-regsub</i> are allowed. All patterns will be applied in order
 on each line.</p></dd>
 <dt><b class="option">-regsubleft</b> <i class="arg">list</i></dt>
-<dd><p>Like <span class="opt">?-regsub?</span> but only applied to the first file.</p></dd>
+<dd><p>Like <i class="arg">-regsub</i> but only applied to the first file.</p></dd>
 <dt><b class="option">-regsubright</b> <i class="arg">list</i></dt>
-<dd><p>Like <span class="opt">?-regsub?</span> but only applied to the second file.</p></dd>
+<dd><p>Like <i class="arg">-regsub</i> but only applied to the second file.</p></dd>
+<dt><b class="option">-result</b> <i class="arg">style</i></dt>
+<dd><p>Select result style. The default is <i class="arg">diff</i>.</p>
+<dl class="definitions">
+<dt><b class="const">diff</b></dt>
+<dd><p>Returns a list of differences, each in a four element list.
+{LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
+The first line in a file is number 1.</p></dd>
+<dt><b class="const">match</b></dt>
+<dd><p>The return value is a list of two lists of equal length. The first
+sublist is of line numbers in <i class="arg">file1</i>, and the second sublist is
+of line numbers in <i class="arg">file2</i>.  Each corresponding pair of line numbers
+corresponds to equal lines in the files.</p></dd>
+</dl></dd>
 </dl></dd>
 <dt><a name="2"><b class="cmd">::DiffUtil::diffLists</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">list1</i> <i class="arg">list2</i></a></dt>
 <dd><p>Compare two lists element by element.
-Returns a list of differences, each in a four element list.
-{ElementIndex1 NumberOfElements1 ElementIndex2 NumberOfElements2}</p>
+The return value depends on the <i class="arg">-result</i> option, see below.</p>
 <dl class="options">
 <dt><b class="option">-nocase</b></dt>
 <dd><p>Ignore case.</p></dd>
@@ -193,12 +203,24 @@ Returns a list of differences, each in a four element list.
 <dt><b class="option">-noempty</b></dt>
 <dd><p>Ignore empty elements in initial compare step. I.e. empty elements are considered
 not equal at first. Multiple equal elements give longer runtimes and by avoiding
-the very common empty element, runtimes are improved. With <span class="opt">?-b?</span> or <span class="opt">?-w?</span>,
+the very common empty element, runtimes are improved. With <i class="arg">-b</i> or <i class="arg">-w</i>,
 all-space elements are considered empty.
 Empty elements that obviously matches are noted as equal in a post processing
 step, but empty elements within change blocks will be reported as changes.</p></dd>
 <dt><b class="option">-nodigit</b></dt>
 <dd><p>Consider any sequence of digits equal.</p></dd>
+<dt><b class="option">-result</b> <i class="arg">style</i></dt>
+<dd><p>Select result style. The default is <i class="arg">diff</i>.</p>
+<dl class="definitions">
+<dt><b class="const">diff</b></dt>
+<dd><p>Returns a list of differences, each in a four element list.
+{ElementIndex1 NumberOfElements1 ElementIndex2 NumberOfElements2}</p></dd>
+<dt><b class="const">match</b></dt>
+<dd><p>The return value is a list of two lists of equal length. The first
+sublist is of indices in <i class="arg">list1</i>, and the second sublist is
+of indices in <i class="arg">list2</i>.  Each corresponding pair of indices
+corresponds to equal elements in the sequences.</p></dd>
+</dl></dd>
 </dl></dd>
 </dl>
 </div>

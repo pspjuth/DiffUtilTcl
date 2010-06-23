@@ -70,8 +70,9 @@ typedef struct CandidateAlloc_T {
 } CandidateAlloc_T;
 
 /* A dynamic list of lines */
+#define LineListStaticAlloc_C 25
 typedef struct LineList_T {
-    Line_T staticList[25];
+    Line_T staticList[LineListStaticAlloc_C];
     Line_T *Elems;
     unsigned long alloced, n;
 } LineList_T;
@@ -84,7 +85,7 @@ static void
 InitLineList(LineList_T *listPtr)
 {
     listPtr->Elems = listPtr->staticList;
-    listPtr->alloced = 25;
+    listPtr->alloced = LineListStaticAlloc_C;
     listPtr->n = 0;
 }
 
@@ -96,7 +97,8 @@ AddToLineList(LineList_T *listPtr, Line_T Value)
 	if (listPtr->Elems == listPtr->staticList) {
 	    listPtr->Elems = (Line_T *)
 		    ckalloc(sizeof(Line_T) * listPtr->alloced * 2);
-	    memcpy(listPtr->Elems, listPtr->staticList, 25 * sizeof(Line_T));
+	    memcpy(listPtr->Elems, listPtr->staticList,
+		    LineListStaticAlloc_C * sizeof(Line_T));
 	    listPtr->alloced *= 2;
 	} else {
 	    ckrealloc((void *) listPtr->Elems,
@@ -115,7 +117,7 @@ FreeLineList(LineList_T *listPtr)
 	ckfree((void *) listPtr->Elems);
 	listPtr->Elems = listPtr->staticList;
     }
-    listPtr->alloced = 25;
+    listPtr->alloced = LineListStaticAlloc_C;
     listPtr->n = 0;
 }
 
@@ -1128,8 +1130,8 @@ AppendChunk(Tcl_Interp *interp, Tcl_Obj *listPtr, DiffOptions_T *optsPtr,
  * generate a list of insert/delete/change operations.
  */
 
-Tcl_Obj *
-BuildResultFromJ(Tcl_Interp *interp, DiffOptions_T *optsPtr,
+static Tcl_Obj *
+BuildResultFromJDiffStyle(Tcl_Interp *interp, DiffOptions_T *optsPtr,
 	Line_T m, Line_T n, Line_T *J)
 {
     Tcl_Obj *resPtr;
@@ -1170,6 +1172,53 @@ BuildResultFromJ(Tcl_Interp *interp, DiffOptions_T *optsPtr,
 		startBlock1, n1, startBlock2, n2);
     }
     return resPtr;
+}
+
+static Tcl_Obj *
+BuildResultFromJMatchStyle(Tcl_Interp *interp, DiffOptions_T *optsPtr,
+	Line_T m, Line_T n, Line_T *J)
+{
+    Tcl_Obj *resPtr, *leftPtr, *rightPtr;
+    Line_T current1, current2;
+
+    resPtr = Tcl_NewListObj(0, NULL);
+    leftPtr = Tcl_NewListObj(0, NULL);
+    rightPtr = Tcl_NewListObj(0, NULL);
+
+    Tcl_ListObjAppendElement(interp, resPtr, leftPtr);
+    Tcl_ListObjAppendElement(interp, resPtr, rightPtr);
+
+    current1 = current2 = 0;
+
+    while (current1 < m || current2 < n) {
+	/* Scan list 1 until next supposed match */
+	while (current1 < m) {
+	    current1++;
+	    if (J[current1] != 0) break;
+	}
+	/* Scan list 2 until next supposed match */
+	while (current2 < n) {
+	    current2++;
+	    if (J[current1] == current2) break;
+	}
+	if (J[current1] != current2) continue;
+
+	Tcl_ListObjAppendElement(interp, leftPtr,
+		Tcl_NewLongObj(current1 + (optsPtr->rFrom1 - 1)));
+	Tcl_ListObjAppendElement(interp, rightPtr,
+		Tcl_NewLongObj(current2 + (optsPtr->rFrom2 - 1)));
+    }
+    return resPtr;
+}
+
+Tcl_Obj *
+BuildResultFromJ(Tcl_Interp *interp, DiffOptions_T *optsPtr,
+	Line_T m, Line_T n, Line_T *J)
+{
+    if (optsPtr->resultStyle == Result_Diff) {
+	return BuildResultFromJDiffStyle(interp, optsPtr, m, n, J);
+    }
+    return BuildResultFromJMatchStyle(interp, optsPtr, m, n, J);
 }
 
 /* Fill in the range option from a Tcl Value */

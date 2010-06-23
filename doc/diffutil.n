@@ -3,14 +3,14 @@
 '\" Copyright (c) 2010, Peter Spjuth
 '\"
 .so man.macros
-.TH "DiffUtil" n 0.3 diffutil "Comparision Utilities"
+.TH "DiffUtil" n 0.3.1 diffutil "Comparision Utilities"
 .BS
 .SH NAME
 DiffUtil \- Compare Stuff
 .SH SYNOPSIS
 package require \fBTcl  8.4\fR
 .sp
-package require \fBDiffUtil  ?0.3?\fR
+package require \fBDiffUtil  ?0.3.1?\fR
 .sp
 \fB::DiffUtil::diffFiles\fR ?\fIoptions\fR? \fIfile1\fR \fIfile2\fR
 .sp
@@ -30,9 +30,7 @@ author's personal site: http://www.cs.dartmouth.edu/~doug/
 .TP
 \fB::DiffUtil::diffFiles\fR ?\fIoptions\fR? \fIfile1\fR \fIfile2\fR
 Compare two files line by line.
-Returns a list of differences, each in a four element list.
-{LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
-The first line in a file is number 1.
+The return value depends on the \fI-result\fR option, see below.
 .RS
 .TP
 \fB-nocase\fR
@@ -51,7 +49,7 @@ Ignore all spaces.
 \fB-noempty\fR
 Ignore empty lines in initial compare step. I.e. empty lines are considered
 not equal at first. Multiple equal lines gives longer runtimes and by avoiding
-the very common empty line, runtimes are improved. With ?-b? or ?-w?,
+the very common empty line, runtimes are improved. With \fI-b\fR or \fI-w\fR,
 all-space lines are considered empty.
 Empty lines that obviously matches are noted as equal in a post processing
 step, but empty lines within change blocks will be reported as changes.
@@ -71,20 +69,35 @@ Diff only a range of the files. The list is {first1 last1 first2 last2}
 Apply a search/replace regular expression before comparing. The list consists
 of an even number of elements. Each pair is a regular expression and a
 substitution, as used in \fBregsub -all\fR. Multiple pairs are allowed
-and multiple ?-regsub? are allowed. All patterns will be applied in order
+and multiple \fI-regsub\fR are allowed. All patterns will be applied in order
 on each line.
 .TP
 \fB-regsubleft\fR \fIlist\fR
-Like ?-regsub? but only applied to the first file.
+Like \fI-regsub\fR but only applied to the first file.
 .TP
 \fB-regsubright\fR \fIlist\fR
-Like ?-regsub? but only applied to the second file.
+Like \fI-regsub\fR but only applied to the second file.
+.TP
+\fB-result\fR \fIstyle\fR
+Select result style. The default is \fIdiff\fR.
+.RS
+.TP
+\fBdiff\fR
+Returns a list of differences, each in a four element list.
+{LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
+The first line in a file is number 1.
+.TP
+\fBmatch\fR
+The return value is a list of two lists of equal length. The first
+sublist is of line numbers in \fIfile1\fR, and the second sublist is
+of line numbers in \fIfile2\fR.  Each corresponding pair of line numbers
+corresponds to equal lines in the files.
+.RE
 .RE
 .TP
 \fB::DiffUtil::diffLists\fR ?\fIoptions\fR? \fIlist1\fR \fIlist2\fR
 Compare two lists element by element.
-Returns a list of differences, each in a four element list.
-{ElementIndex1 NumberOfElements1 ElementIndex2 NumberOfElements2}
+The return value depends on the \fI-result\fR option, see below.
 .RS
 .TP
 \fB-nocase\fR
@@ -102,13 +115,28 @@ Ignore all spaces.
 \fB-noempty\fR
 Ignore empty elements in initial compare step. I.e. empty elements are considered
 not equal at first. Multiple equal elements give longer runtimes and by avoiding
-the very common empty element, runtimes are improved. With ?-b? or ?-w?,
+the very common empty element, runtimes are improved. With \fI-b\fR or \fI-w\fR,
 all-space elements are considered empty.
 Empty elements that obviously matches are noted as equal in a post processing
 step, but empty elements within change blocks will be reported as changes.
 .TP
 \fB-nodigit\fR
 Consider any sequence of digits equal.
+.TP
+\fB-result\fR \fIstyle\fR
+Select result style. The default is \fIdiff\fR.
+.RS
+.TP
+\fBdiff\fR
+Returns a list of differences, each in a four element list.
+{ElementIndex1 NumberOfElements1 ElementIndex2 NumberOfElements2}
+.TP
+\fBmatch\fR
+The return value is a list of two lists of equal length. The first
+sublist is of indices in \fIlist1\fR, and the second sublist is
+of indices in \fIlist2\fR.  Each corresponding pair of indices
+corresponds to equal elements in the sequences.
+.RE
 .RE
 .PP
 .SH EXAMPLES
