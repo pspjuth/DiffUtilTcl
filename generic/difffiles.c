@@ -14,6 +14,14 @@
 #include <sys/stat.h>
 #include "diffutil.h"
 
+typedef struct {
+    Tcl_Obj *encodingPtr;
+    Tcl_Obj *translationPtr;
+} FileOptions_T;
+
+/* Helper to get a filled in FileOptions_T */
+#define InitFileOptions_T(opts) {opts.encodingPtr = NULL; opts.translationPtr = NULL;}
+
 /*
  * Read two files, hash them and prepare the datastructures needed in LCS.
  */
@@ -21,6 +29,7 @@ static int
 ReadAndHashFiles(Tcl_Interp *interp,
 	         Tcl_Obj *name1Ptr, Tcl_Obj *name2Ptr,
                  DiffOptions_T *optsPtr,
+                 FileOptions_T *fileOptsPtr,
                  Line_T *mPtr, Line_T *nPtr,
                  P_T **PPtr, E_T **EPtr)
 {
@@ -68,6 +77,22 @@ ReadAndHashFiles(Tcl_Interp *interp,
     if (ch == NULL) {
         result = TCL_ERROR;
         goto cleanup;
+    }
+    if (fileOptsPtr->encodingPtr != NULL) {
+	char *valueName = Tcl_GetString(fileOptsPtr->encodingPtr);
+	if (Tcl_SetChannelOption(interp, ch, "-encoding", valueName)
+		!= TCL_OK) {
+	    result = TCL_ERROR;
+	    goto cleanup;
+	}
+    }
+    if (fileOptsPtr->translationPtr != NULL) {
+	char *valueName = Tcl_GetString(fileOptsPtr->translationPtr);
+	if (Tcl_SetChannelOption(interp, ch, "-translation", valueName)
+		!= TCL_OK) {
+	    result = TCL_ERROR;
+	    goto cleanup;
+	}
     }
 
     /* Skip the first lines if there is a range set. */
@@ -124,6 +149,22 @@ ReadAndHashFiles(Tcl_Interp *interp,
     if (ch == NULL) {
         result = TCL_ERROR;
         goto cleanup;
+    }
+    if (fileOptsPtr->encodingPtr != NULL) {
+	char *valueName = Tcl_GetString(fileOptsPtr->encodingPtr);
+	if (Tcl_SetChannelOption(interp, ch, "-encoding", valueName)
+		!= TCL_OK) {
+	    result = TCL_ERROR;
+	    goto cleanup;
+	}
+    }
+    if (fileOptsPtr->translationPtr != NULL) {
+	char *valueName = Tcl_GetString(fileOptsPtr->translationPtr);
+	if (Tcl_SetChannelOption(interp, ch, "-translation", valueName)
+		!= TCL_OK) {
+	    result = TCL_ERROR;
+	    goto cleanup;
+	}
     }
 
     /* Skip the first lines if there is a range set. */
@@ -206,6 +247,7 @@ CompareFiles(
 	Tcl_Obj *name1Ptr,
 	Tcl_Obj *name2Ptr,
 	DiffOptions_T *optsPtr,
+	FileOptions_T *fileOptsPtr,
 	Tcl_Obj **resPtr)
 {
     E_T *E;
@@ -217,8 +259,8 @@ CompareFiles(
     Line_T startBlock1, startBlock2;
 
     /*printf("Doing ReadAndHash\n"); */
-    if (ReadAndHashFiles(interp, name1Ptr, name2Ptr, optsPtr, &m, &n, &P, &E)
-        != TCL_OK) {
+    if (ReadAndHashFiles(interp, name1Ptr, name2Ptr, optsPtr, fileOptsPtr,
+		    &m, &n, &P, &E) != TCL_OK) {
         return TCL_ERROR;
     }
 
@@ -253,6 +295,16 @@ CompareFiles(
 
     ch1 = Tcl_FSOpenFileChannel(interp, name1Ptr, "r", 0);
     ch2 = Tcl_FSOpenFileChannel(interp, name2Ptr, "r", 0);
+    if (fileOptsPtr->encodingPtr != NULL) {
+	char *valueName = Tcl_GetString(fileOptsPtr->encodingPtr);
+	Tcl_SetChannelOption(interp, ch1, "-encoding", valueName);
+	Tcl_SetChannelOption(interp, ch2, "-encoding", valueName);
+    }
+    if (fileOptsPtr->translationPtr != NULL) {
+	char *valueName = Tcl_GetString(fileOptsPtr->translationPtr);
+	Tcl_SetChannelOption(interp, ch1, "-translation", valueName);
+	Tcl_SetChannelOption(interp, ch2, "-translation", valueName);
+    }
 
     /* Skip start if there is a range */
     if (optsPtr->rFrom1 > 1) {
@@ -328,15 +380,16 @@ DiffFilesObjCmd(
     int index, resultStyle, t, result = TCL_OK;
     Tcl_Obj *resPtr, *file1Ptr, *file2Ptr;
     DiffOptions_T opts;
+    FileOptions_T fileOpts;
     static CONST char *options[] = {
-	"-b", "-w", "-i", "-nocase", "-align", "-range",
+	"-b", "-w", "-i", "-nocase", "-align", "-encoding", "-range",
         "-noempty", "-nodigit", "-regsub", "-regsubleft",
-	"-regsubright", "-result", (char *) NULL
+	"-regsubright", "-result", "-translation", (char *) NULL
     };
     enum options {
-	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_RANGE,
+	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_ENCODING, OPT_RANGE,
         OPT_NOEMPTY, OPT_NODIGIT, OPT_REGSUB, OPT_REGSUBLEFT,
-	OPT_REGSUBRIGHT, OPT_RESULT
+	OPT_REGSUBRIGHT, OPT_RESULT, OPT_TRANSLATION
     };
     static CONST char *resultOptions[] = {
 	"diff", "match", (char *) NULL
@@ -348,6 +401,7 @@ DiffFilesObjCmd(
     }
 
     InitDiffOptions_T(opts);
+    InitFileOptions_T(fileOpts);
 
     for (t = 1; t < objc - 2; t++) {
 	if (Tcl_GetIndexFromObj(interp, objv[t], options, "option", 0,
@@ -445,13 +499,34 @@ DiffFilesObjCmd(
 	      }
 	      opts.resultStyle = resultStyle;
 	      break;
+	  case OPT_ENCODING:
+	      t++;
+	      if (t >= objc - 2) {
+		  Tcl_WrongNumArgs(interp, 1, objv, "?opts? file1 file2");
+		  result = TCL_ERROR;
+		  goto cleanup;
+	      }
+	      fileOpts.encodingPtr = objv[t];
+	      Tcl_IncrRefCount(objv[t]);
+	      break;
+	  case OPT_TRANSLATION:
+	      t++;
+	      if (t >= objc - 2) {
+		  Tcl_WrongNumArgs(interp, 1, objv, "?opts? file1 file2");
+		  result = TCL_ERROR;
+		  goto cleanup;
+	      }
+	      fileOpts.translationPtr = objv[t];
+	      Tcl_IncrRefCount(objv[t]);
+	      break;
 	}
     }
     NormaliseOpts(&opts);
     file1Ptr = objv[objc-2];
     file2Ptr = objv[objc-1];
 
-    if (CompareFiles(interp, file1Ptr, file2Ptr, &opts, &resPtr) != TCL_OK) {
+    if (CompareFiles(interp, file1Ptr, file2Ptr, &opts, &fileOpts, &resPtr)
+	    != TCL_OK) {
         result = TCL_ERROR;
         goto cleanup;
     }
@@ -463,6 +538,12 @@ DiffFilesObjCmd(
     }
     if (opts.regsubRightPtr != NULL) {
 	Tcl_DecrRefCount(opts.regsubRightPtr);
+    }
+    if (fileOpts.encodingPtr != NULL) {
+	Tcl_DecrRefCount(fileOpts.encodingPtr);
+    }
+    if (fileOpts.translationPtr != NULL) {
+	Tcl_DecrRefCount(fileOpts.translationPtr);
     }
     if (opts.alignLength > STATIC_ALIGN) {
         ckfree((char *) opts.align);

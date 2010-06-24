@@ -86,6 +86,11 @@ of line numbers in [arg file2].  Each corresponding pair of line numbers
 corresponds to equal lines in the files.
 [list_end]
 
+[opt_def -encoding [arg encoding]]
+Apply encoding when reading files. This works as for [cmd fconfigure].
+[opt_def -translation [arg value]]
+Apply translation when reading files. This works as for [cmd fconfigure].
+
 [list_end]
 
 [call [cmd "::DiffUtil::diffLists"] \

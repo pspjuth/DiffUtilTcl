@@ -1,3 +1,6 @@
+2010-06-24  Peter Spjuth  <peter.spjuth@gmail.com>
+	Support -encoding and -translation in diffFiles.
+
 2010-06-23  Peter Spjuth  <peter.spjuth@gmail.com>
 	Bumped revision to 0.3.1
 	Added -result option to diffFiles and diffLists.

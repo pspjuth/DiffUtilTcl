@@ -93,6 +93,12 @@ sublist is of line numbers in \fIfile1\fR, and the second sublist is
 of line numbers in \fIfile2\fR.  Each corresponding pair of line numbers
 corresponds to equal lines in the files.
 .RE
+.TP
+\fB-encoding\fR \fIencoding\fR
+Apply encoding when reading files. This works as for \fBfconfigure\fR.
+.TP
+\fB-translation\fR \fIvalue\fR
+Apply translation when reading files. This works as for \fBfconfigure\fR.
 .RE
 .TP
 \fB::DiffUtil::diffLists\fR ?\fIoptions\fR? \fIlist1\fR \fIlist2\fR
