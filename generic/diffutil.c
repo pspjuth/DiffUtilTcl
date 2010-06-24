@@ -379,6 +379,7 @@ Diffutil_Init(Tcl_Interp *interp)
 	return TCL_ERROR;
     }
 
+    TCOC("DiffUtil::compareFiles", CompareFilesObjCmd);
     TCOC("DiffUtil::diffFiles", DiffFilesObjCmd);
     TCOC("DiffUtil::diffLists", DiffListsObjCmd);
     TCOC("DiffUtil::diffStrings", DiffStringsObjCmd);
