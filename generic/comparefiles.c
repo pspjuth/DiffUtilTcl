@@ -2,7 +2,7 @@
  *
  * This file implements the function for check files for equality
  *
- * Copyright (c) 2004, 2010, Peter Spjuth
+ * Copyright (c) 2010, Peter Spjuth
  *
  ***********************************************************************/
 
@@ -14,14 +14,6 @@
 #include <sys/stat.h>
 #include "diffutil.h"
 
-typedef struct {
-    Tcl_Obj *encodingPtr;
-    Tcl_Obj *translationPtr;
-} FileOptions_T;
-
-/* Helper to get a filled in FileOptions_T */
-#define InitFileOptions_T(opts) {opts.encodingPtr = NULL; opts.translationPtr = NULL;}
-
 int
 CompareFilesObjCmd(
     ClientData dummy,    	/* Not used. */
@@ -32,7 +24,8 @@ CompareFilesObjCmd(
     int index, t, result = TCL_OK;
     Tcl_Obj *file1Ptr, *file2Ptr;
     int ignoreKey = 0, noCase = 0, binary = 0, equal = 0;
-    FileOptions_T fileOpts;
+    Tcl_Obj *encodingPtr = NULL;
+    Tcl_Obj *translationPtr = NULL;
     Tcl_StatBuf buf1, buf2;
     Tcl_Channel ch1 = NULL, ch2 = NULL;
     Tcl_Obj *line1Ptr, *line2Ptr;
@@ -48,15 +41,13 @@ CompareFilesObjCmd(
     };
     enum options {
 	OPT_NOCASE, OPT_IGNOREKEY, OPT_ENCODING,
-        OPT_NODIGIT, OPT_TRANSLATION
+        OPT_TRANSLATION
     };
 
     if (objc < 3) {
         Tcl_WrongNumArgs(interp, 1, objv, "?opts? file1 file2");
 	return TCL_ERROR;
     }
-
-    InitFileOptions_T(fileOpts);
 
     for (t = 1; t < objc - 2; t++) {
 	if (Tcl_GetIndexFromObj(interp, objv[t], options, "option", 0,
@@ -78,7 +69,7 @@ CompareFilesObjCmd(
 		  result = TCL_ERROR;
 		  goto cleanup;
 	      }
-	      fileOpts.encodingPtr = objv[t];
+	      encodingPtr = objv[t];
 	      Tcl_IncrRefCount(objv[t]);
 	      break;
 	  case OPT_TRANSLATION:
@@ -88,7 +79,7 @@ CompareFilesObjCmd(
 		  result = TCL_ERROR;
 		  goto cleanup;
 	      }
-	      fileOpts.translationPtr = objv[t];
+	      translationPtr = objv[t];
 	      Tcl_IncrRefCount(objv[t]);
 	      break;
 	}
@@ -96,8 +87,8 @@ CompareFilesObjCmd(
     file1Ptr = objv[objc-2];
     file2Ptr = objv[objc-1];
 
-    if (fileOpts.translationPtr != NULL) {
-	char *valueName = Tcl_GetString(fileOpts.translationPtr);
+    if (translationPtr != NULL) {
+	char *valueName = Tcl_GetString(translationPtr);
 	if (strcmp(valueName, "binary") == 0) {
 	    binary = 1;
 	}
@@ -142,8 +133,8 @@ CompareFilesObjCmd(
         result = TCL_ERROR;
         goto cleanup;
     }
-    if (fileOpts.encodingPtr != NULL) {
-	char *valueName = Tcl_GetString(fileOpts.encodingPtr);
+    if (encodingPtr != NULL) {
+	char *valueName = Tcl_GetString(encodingPtr);
 	if (Tcl_SetChannelOption(interp, ch1, "-encoding", valueName)
 		!= TCL_OK) {
 	    result = TCL_ERROR;
@@ -155,8 +146,8 @@ CompareFilesObjCmd(
 	    goto cleanup;
 	}
     }
-    if (fileOpts.translationPtr != NULL) {
-	char *valueName = Tcl_GetString(fileOpts.translationPtr);
+    if (translationPtr != NULL) {
+	char *valueName = Tcl_GetString(translationPtr);
 	if (Tcl_SetChannelOption(interp, ch1, "-translation", valueName)
 		!= TCL_OK) {
 	    result = TCL_ERROR;
@@ -210,7 +201,21 @@ CompareFilesObjCmd(
 	if (ignoreKey) {
 
 	} else {
-
+	    if (length1 != length2) {
+		equal = 0;
+		break;
+	    }
+	    if (binary) {
+		if (strncmp(string1, string2, length1) != 0) {
+		    equal = 0;
+		    break;
+		}
+	    } else {
+		if (Tcl_UtfNcmp(string1, string2, length1) != 0) {
+		    equal = 0;
+		    break;
+		}
+	    }
 	}
     }
 
@@ -228,11 +233,11 @@ CompareFilesObjCmd(
     if (ch2 != NULL) {
 	Tcl_Close(interp, ch2);
     }
-    if (fileOpts.encodingPtr != NULL) {
-	Tcl_DecrRefCount(fileOpts.encodingPtr);
+    if (encodingPtr != NULL) {
+	Tcl_DecrRefCount(encodingPtr);
     }
-    if (fileOpts.translationPtr != NULL) {
-	Tcl_DecrRefCount(fileOpts.translationPtr);
+    if (translationPtr != NULL) {
+	Tcl_DecrRefCount(translationPtr);
     }
 
     return result;

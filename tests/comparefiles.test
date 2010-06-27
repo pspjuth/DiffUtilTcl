@@ -1,0 +1,91 @@
+# Tests for the 'DiffUtil' package. -*- tcl -*-
+#
+# Copyright (c) 2010 by Peter Spjuth. All rights reserved.
+
+package require DiffUtil
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+# There are differences between the C and the Diff result.
+tcltest::testConstraint CDiff \
+        [expr {[info proc DiffUtil::ExecDiffFiles] == ""}]
+tcltest::testConstraint TclDiff \
+        [expr {[info proc DiffUtil::ExecDiffFiles] != ""}]
+
+# All tests are for C only
+if {[info proc DiffUtil::ExecDiffFiles] != ""} return
+#----------------------------------------------------------------------
+
+# A wrapper to simplify calling
+proc RunTest {data1 data2 args} {
+    set ch [open _diff_1 wb]
+    puts -nonewline $ch $data1
+    close $ch
+    set ch [open _diff_2 wb]
+    puts -nonewline $ch $data2
+    close $ch
+
+    set apa [catch {eval DiffUtil::compareFiles $args _diff_1 _diff_2} res]
+    file delete -force _diff_1 _diff_2
+    if {$apa} {
+        return [list $apa $res]
+    }
+    return $res
+}
+
+#----------------------------------------------------------------------
+
+test comparefiles-1.1 {standard cases} {
+    set l1 {abcd}
+    set l2 {abcd}
+    RunTest $l1 $l2
+} 1
+
+test comparefiles-1.2 {standard cases, error} -body {
+    set l1 {a b c d   f g h i j k l}
+    set l2 {  b c d e f g x y   k l}
+    RunTest $l1 $l2 -hubba
+} -result [list 1 {bad option "-hubba"*}] -match glob
+
+test comparefiles-1.3 {standard cases, error} -body {
+    DiffUtil::compareFiles a
+} -returnCodes 1 -result "wrong # args*" -match glob
+
+test comparefiles-1.4 {standard cases} {
+    set l1 {abcd}
+    set l2 {abcde}
+    RunTest $l1 $l2
+} 0
+
+test comparefiles-1.5 {standard cases} {
+    set l1 {abcd}
+    set l2 {abce}
+    RunTest $l1 $l2
+} 0
+
+test comparefiles-2.1 {channel config} {CDiff} {
+    set l1 {a b c}
+    set l2 {a d c}
+    RunTest $l1 $l2 -encoding iso8859-1 -translation lf
+} 0
+
+test comparefiles-2.2 {channel config} -constraints {CDiff} -body {
+    set l1 {a b c}
+    set l2 {a d c}
+    RunTest $l1 $l2 -encoding gurkmeja
+} -result {1 {unknown encoding "gurkmeja"}}
+
+test comparefiles-2.3 {channel config} -constraints {CDiff} -body {
+    set l1 {a b c}
+    set l2 {a d c}
+    RunTest $l1 $l2 -translation gurkmeja
+} -result {1 {bad value for -translation: must be one of auto, binary, cr, lf, crlf, or platform}}
+
+test comparefiles-2.4 {channel config} {CDiff} {
+    set l1 "a \xc2\x82 c"
+    set l2 "a \x82 c"
+    list [RunTest $l1 $l2 -translation binary] [RunTest $l1 $l2 -encoding utf-8]
+} {0 1}
