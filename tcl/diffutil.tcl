@@ -11,7 +11,7 @@
 # $Revision: 1.12 $
 #----------------------------------------------------------------------
 
-package provide DiffUtil 0.3.1
+package provide DiffUtil 0.3.2
 
 namespace eval DiffUtil {
     namespace export diffFiles diffStrings
@@ -45,6 +45,7 @@ proc DiffUtil::LocateTmp {} {
 proc DiffUtil::TmpFile {} {
     variable tmpdir
     variable tmpcnt
+    variable tmpFiles
     LocateTmp
     if {[info exists tmpcnt]} {
         incr tmpcnt
@@ -52,7 +53,18 @@ proc DiffUtil::TmpFile {} {
         set tmpcnt 0
     }
     set name [file join $tmpdir "diffutil[pid]a$tmpcnt"]
+    lappend tmpFiles $name
     return $name
+}
+
+# Clean up temp files
+proc DiffUtil::CleanTmp {} {
+    variable tmpFiles
+    if {![info exists tmpFiles]} return
+    foreach file $tmpFiles {
+        file delete -force $file
+    }
+    set tmpFiles {}
 }
 
 # Locate a diff executable
@@ -72,16 +84,15 @@ proc DiffUtil::LocateDiffExe {{appFile {}}} {
         lappend dirs $thisDir
 
         # Are we in a starkit?
-        if {[string match "*/lib/app-*" $thisDir]} {
-            lappend dirs [file dirname [file dirname [file dirname $thisDir]]]
-            # And for a starpack
-            lappend dirs [file dirname [info nameofexecutable]]
+        if {[info exists ::starkit::topdir]} {
+            lappend dirs $::starkit::topdir
+            lappend dirs [file dirname $::starkit::topdir]
         }
     }
     lappend dirs c:/bin
 
     foreach dir $dirs {
-        set try [file join $dir diff.exe]
+        set try [file normalize [file join $dir diff.exe]]
         if {[file exists $try]} {
             set diffexe $try
             return
@@ -110,17 +121,21 @@ proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
         set file2 $tmpfile2
     }
 
+    set realDiffExe $diffexe
+    if {[file pathtype $diffexe] eq "absolute"} {
+        if {[string match tclvfs* [file system $diffexe]]} {
+            set tmpfile3 [TmpFile]
+            file copy $diffexe $tmpfile3
+            set realDiffExe $tmpfile3
+        }
+    }
+
     # Execute diff
-    set differr [catch {eval exec \$diffexe $diffopts \
+    set differr [catch {eval exec \$realDiffExe $diffopts \
             \$file1 \$file2} diffres]
 
     # Clean up any temporary files
-    if {[info exists tmpfile1]} {
-        file delete -force $tmpfile1
-    }
-    if {[info exists tmpfile2]} {
-        file delete -force $tmpfile2
-    }
+    CleanTmp
 
     # Parse the result
     set result {}
