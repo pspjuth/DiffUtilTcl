@@ -218,25 +218,25 @@ install-binaries: binaries install-lib-binaries install-bin-binaries
 # Rules for building a Starkit VFS of the package
 #========================================================================
 
-#lib.vfs/DiffUtil/loadLib.tcl: tools/loadLib.tcl
-#	@mkdir -p lib.vfs/DiffUtil
-#	cp tools/loadLib.tcl lib.vfs/DiffUtil
+lib.vfs/DiffUtil/loadLib.tcl: tools/loadLib.tcl
+	@mkdir -p lib.vfs/DiffUtil
+	cp tools/loadLib.tcl lib.vfs/DiffUtil
 
-#lib.vfs/DiffUtil/pkgIndex.tcl: pkgIndex.tcl
-#	@mkdir -p lib.vfs/DiffUtil
-#	(echo 'package ifneeded $(PACKAGE_NAME) $(PACKAGE_VERSION) \
-#	    "[list source [file join $$dir loadLib.tcl]]; \
-#	    [list ::DiffUtil::_load $$dir $(PKG_LIB_FILE) $(PACKAGE_VERSION)]"'\
-#	) > lib.vfs/DiffUtil/pkgIndex.tcl
+lib.vfs/DiffUtil/pkgIndex.tcl: pkgIndex.tcl
+	@mkdir -p lib.vfs/DiffUtil
+	(echo 'package ifneeded $(PACKAGE_NAME) $(PACKAGE_VERSION) \
+	    "[list source [file join $$dir loadLib.tcl]]; \
+	    [list ::DiffUtil::_load $$dir $(PKG_LIB_FILE) $(PACKAGE_VERSION)]"'\
+	) > lib.vfs/DiffUtil/pkgIndex.tcl
 
-#lib.vfs/DiffUtil/diffutil.tcl: tcl/diffutil.tcl
-#	@mkdir -p lib.vfs/DiffUtil
-#	cp tcl/diffutil.tcl lib.vfs/DiffUtil
+lib.vfs/DiffUtil/tcl/diffutil.tcl: tcl/diffutil.tcl
+	@mkdir -p lib.vfs/DiffUtil/tcl
+	cp tcl/diffutil.tcl lib.vfs/DiffUtil/tcl
 
-#lib.vfs/DiffUtil/$(PKG_LIB_FILE): $(PKG_LIB_FILE)
-#	cp $(PKG_LIB_FILE) lib.vfs/DiffUtil
+lib.vfs/DiffUtil/Linux-x86_64/$(PKG_LIB_FILE): $(PKG_LIB_FILE)
+	cp $(PKG_LIB_FILE) lib.vfs/DiffUtil/Linux-x86_64
 
-#vfs: binaries lib.vfs/DiffUtil/diffutil.tcl lib.vfs/DiffUtil/pkgIndex.tcl lib.vfs/DiffUtil/loadLib.tcl lib.vfs/DiffUtil/$(PKG_LIB_FILE)
+vfs: binaries lib.vfs/DiffUtil/pkgIndex.tcl lib.vfs/DiffUtil/tcl/diffutil.tcl lib.vfs/DiffUtil/loadLib.tcl lib.vfs/DiffUtil/Linux-x86_64/$(PKG_LIB_FILE)
 
 #========================================================================
 # This rule installs platform-independent files, such as header files.
