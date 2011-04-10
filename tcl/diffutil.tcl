@@ -15,6 +15,8 @@ package provide DiffUtil 0.3.2
 
 namespace eval DiffUtil {
     namespace export diffFiles diffStrings
+    variable version [package provide DiffUtil]
+    variable implementation "tcl"
 }
 
 # Figure out a place to store temporary files.
@@ -70,6 +72,7 @@ proc DiffUtil::CleanTmp {} {
 # Locate a diff executable
 proc DiffUtil::LocateDiffExe {{appFile {}}} {
     variable diffexe
+    variable implementation
 
     # Be able to control diff name for test
     if {[info exists ::env(DIFFUTIL_DIFFNAME)]} {
@@ -80,6 +83,7 @@ proc DiffUtil::LocateDiffExe {{appFile {}}} {
     }
     if {![string equal [auto_execok $diffname] ""]} {
         set diffexe $diffname
+        set implementation "tcl,[file tail $diffexe]"
         return
     }
 
@@ -101,6 +105,7 @@ proc DiffUtil::LocateDiffExe {{appFile {}}} {
         set try [file normalize [file join $dir $diffname.exe]]
         if {[file exists $try]} {
             set diffexe $try
+            set implementation "tcl,[file tail $diffexe]"
             return
         }
     }
@@ -112,6 +117,7 @@ proc DiffUtil::LocateDiffExe {{appFile {}}} {
 # start1/2 is the line number of the first line in each file
 proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
     variable diffexe
+    variable implementation
 
     set noDiff [catch {LocateDiffExe}]
 
@@ -132,6 +138,7 @@ proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
             return -code error "Could not locate any external diff executable."
         }
         # Fall back on LCS from tcllib
+        set implementation "tcl,lcs"
         set ch [open $file1 r]
         set data1 [read $ch]
         close $ch
