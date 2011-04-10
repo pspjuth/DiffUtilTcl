@@ -16,6 +16,8 @@ tcltest::testConstraint CDiff \
         [expr {[info proc DiffUtil::ExecDiffFiles] == ""}]
 tcltest::testConstraint TclDiff \
         [expr {[info proc DiffUtil::ExecDiffFiles] != ""}]
+# Some tests are not expected to work with the LCS fallback
+tcltest::testConstraint NoLcsDiff [expr ![info exists ::env(DIFFUTIL_DIFFNAME)]]
 
 #----------------------------------------------------------------------
 
@@ -34,7 +36,6 @@ proc RunTest {list1 list2 args} {
 
     set apa [catch {eval DiffUtil::diffFiles $args _diff_1 _diff_2} res]
     file delete -force _diff_1 _diff_2
-    array unset ::env DIFFUTIL_DIFFNAME
     if {$apa} {
         return [list $apa $res]
     }
@@ -127,7 +128,7 @@ test difffiles-4.3 {range} -body {
 } -returnCodes 1 -result {bad range*} -match glob
 
 
-test difffiles-5.1 {priority} {
+test difffiles-5.1 {priority} {NoLcsDiff} {
     # The changed block is kept together
     set l1 {a b c d       e}
     set l2 {a b c d f e E e}
@@ -149,7 +150,7 @@ test difffiles-5.3 {priority} {CDiff} {
     RunTest $l1 $l2 -nocase
 } [list {5 0 5 1} {6 0 7 1}]
 
-test difffiles-5.4 {priority} {
+test difffiles-5.4 {priority} {NoLcsDiff} {
     # Same case again but no correct case, single block preferred
     set l1 {a b c d     e}
     set l2 {a b c d f E E}
@@ -163,7 +164,7 @@ test difffiles-5.5 {priority} {
     RunTest $l1 $l2
 } [list {5 0 5 1} {9 0 10 6}]
 
-test difffiles-5.6 {priority} {
+test difffiles-5.6 {priority} {NoLcsDiff} {
     # Here efgh can match in two places, the second is chosen since it
     # keeps things together
     set l1 {a b c d             e f g h i j k l}
@@ -189,13 +190,6 @@ test difffiles-5.7.2 {priority} {TclDiff} { # Same as 5.7, tcl version
     set l2 {a b c d e {}              a b i j k}
     RunTest $l1 $l2
 } [list {9 6 9 0}]
-
-test difffiles-5.7.3 {priority} -constraints {TclDiff} -body { # Same as 5.7, tcl version
-    set l1 {a b c d e {} a b f g h {} a b i j k}
-    set l2 {a b c d e {}              a b i j k}
-    #set ::env(DIFFUTIL_DIFFNAME) _gurka_
-    RunTest $l1 $l2
-} -result [list {9 6 9 0}]
 
 test difffiles-5.8 {priority} {
     # Multiple blocks ending alike where one block is removed

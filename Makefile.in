@@ -273,6 +273,9 @@ bigtest: binaries libraries
 testt: binaries libraries
 	$(TCLSHT) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
 
+testl: binaries libraries
+	DIFFUTIL_DIFFNAME=_gurka_ $(TCLSHT) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
+
 # An experiment to do profiling.
 # To do profiling the package must be statically linked.
 # A tclsh built for profiling and static linking is needed.

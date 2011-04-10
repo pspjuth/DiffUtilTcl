@@ -128,8 +128,67 @@ proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
     }
 
     if {$noDiff} {
-        # FIXA Fallback on tcllib
-        return -code error "Could not locate any external diff executable."
+        if {[catch {package require struct::list}]} {
+            return -code error "Could not locate any external diff executable."
+        }
+        # Fall back on LCS from tcllib
+        set ch [open $file1 r]
+        set data1 [read $ch]
+        close $ch
+        set ch [open $file2 r]
+        set data2 [read $ch]
+        close $ch
+        if {[lsearch -exact $diffopts "-i"] >= 0} {
+            # -nocase
+            set data1 [string tolower $data1]
+            set data2 [string tolower $data2]
+        }
+        if {[lsearch -exact $diffopts "-w"] >= 0} {
+            # No space
+            set data1 [regsub -all {[ \t]+} $data1 ""]
+            set data2 [regsub -all {[ \t]+} $data2 ""]
+        }
+        if {[lsearch -exact $diffopts "-b"] >= 0} {
+            # No space change
+            set data1 [regsub -all {[ \t]+} $data1 " "]
+            set data2 [regsub -all {[ \t]+} $data2 " "]
+        }
+        if {[string index $data1 end] eq "\n"} {
+            set data1 [string range $data1 0 end-1]
+        }
+        if {[string index $data2 end] eq "\n"} {
+            set data2 [string range $data2 0 end-1]
+        }
+        set lines1 [split $data1 \n]
+        set lines2 [split $data2 \n]
+        set lcsData [struct::list::LlongestCommonSubsequence2 $lines1 $lines2 4]
+        set lcsInv [struct::list::LlcsInvert $lcsData \
+                [llength $lines1] [llength $lines2]]
+        set diffs {}
+        foreach chunk $lcsInv {
+            lassign $chunk type indices1 indices2
+            lassign $indices1 from1 to1
+            lassign $indices2 from2 to2
+            # Adjust indices to the 1-based indexing used here
+            incr from1 $start1
+            incr from2 $start2
+            incr to1   $start1
+            incr to2   $start2
+            if {$type eq "deleted"} {
+                lappend diffs [list $from1 [expr {$to1 - $from1 + 1}] $to2 0]
+            } elseif {$type eq "added"} {
+                lappend diffs [list $to1 0 $from2 [expr {$to2 - $from2 + 1}]]
+            } else { # changed
+                lappend diffs [list $from1 [expr {$to1 - $from1 + 1}] \
+                        $from2 [expr {$to2 - $from2 + 1}]]
+            }
+        }
+        #puts "'$lines1'"
+        #puts "'$lines2'"
+        #puts $lcsData
+        #puts $lcsInv
+        #puts $diffs
+        return $diffs
     } else {
         set realDiffExe $diffexe
         if {[file pathtype $diffexe] eq "absolute"} {
