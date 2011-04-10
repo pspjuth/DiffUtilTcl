@@ -70,10 +70,16 @@ proc DiffUtil::CleanTmp {} {
 # Locate a diff executable
 proc DiffUtil::LocateDiffExe {{appFile {}}} {
     variable diffexe
-    if {[info exists diffexe]} return
 
-    if {![string equal [auto_execok diff] ""]} {
-        set diffexe diff
+    # Be able to control diff name for test
+    if {[info exists ::env(DIFFUTIL_DIFFNAME)]} {
+        set diffname $::env(DIFFUTIL_DIFFNAME)
+    } else {
+        if {[info exists diffexe]} return
+        set diffname diff
+    }
+    if {![string equal [auto_execok $diffname] ""]} {
+        set diffexe $diffname
         return
     }
 
@@ -92,7 +98,7 @@ proc DiffUtil::LocateDiffExe {{appFile {}}} {
     lappend dirs c:/bin
 
     foreach dir $dirs {
-        set try [file normalize [file join $dir diff.exe]]
+        set try [file normalize [file join $dir $diffname.exe]]
         if {[file exists $try]} {
             set diffexe $try
             return
@@ -107,7 +113,7 @@ proc DiffUtil::LocateDiffExe {{appFile {}}} {
 proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
     variable diffexe
 
-    LocateDiffExe
+    set noDiff [catch {LocateDiffExe}]
 
     # A special case to diff files in a virtual file system
     if {[lindex [file system $file1] 0] ne "native"} {
@@ -121,18 +127,23 @@ proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
         set file2 $tmpfile2
     }
 
-    set realDiffExe $diffexe
-    if {[file pathtype $diffexe] eq "absolute"} {
-        if {[string match tclvfs* [file system $diffexe]]} {
-            set tmpfile3 [TmpFile]
-            file copy $diffexe $tmpfile3
-            set realDiffExe $tmpfile3
+    if {$noDiff} {
+        # FIXA Fallback on tcllib
+        return -code error "Could not locate any external diff executable."
+    } else {
+        set realDiffExe $diffexe
+        if {[file pathtype $diffexe] eq "absolute"} {
+            if {[string match tclvfs* [file system $diffexe]]} {
+                set tmpfile3 [TmpFile]
+                file copy $diffexe $tmpfile3
+                set realDiffExe $tmpfile3
+            }
         }
-    }
 
-    # Execute diff
-    set differr [catch {eval exec \$realDiffExe $diffopts \
-            \$file1 \$file2} diffres]
+        # Execute diff
+        set differr [catch {eval exec \$realDiffExe $diffopts \
+                \$file1 \$file2} diffres]
+    }
 
     # Clean up any temporary files
     CleanTmp

@@ -34,6 +34,7 @@ proc RunTest {list1 list2 args} {
 
     set apa [catch {eval DiffUtil::diffFiles $args _diff_1 _diff_2} res]
     file delete -force _diff_1 _diff_2
+    array unset ::env DIFFUTIL_DIFFNAME
     if {$apa} {
         return [list $apa $res]
     }
@@ -188,6 +189,13 @@ test difffiles-5.7.2 {priority} {TclDiff} { # Same as 5.7, tcl version
     set l2 {a b c d e {}              a b i j k}
     RunTest $l1 $l2
 } [list {9 6 9 0}]
+
+test difffiles-5.7.3 {priority} -constraints {TclDiff} -body { # Same as 5.7, tcl version
+    set l1 {a b c d e {} a b f g h {} a b i j k}
+    set l2 {a b c d e {}              a b i j k}
+    #set ::env(DIFFUTIL_DIFFNAME) _gurka_
+    RunTest $l1 $l2
+} -result [list {9 6 9 0}]
 
 test difffiles-5.8 {priority} {
     # Multiple blocks ending alike where one block is removed
