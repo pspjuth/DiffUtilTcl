@@ -44,7 +44,7 @@ proc DiffUtil::LocateTmp {} {
 }
 
 # Generate a temporary file name
-proc DiffUtil::TmpFile {} {
+proc DiffUtil::TmpFile {{suffix {}}} {
     variable tmpdir
     variable tmpcnt
     variable tmpFiles
@@ -54,7 +54,7 @@ proc DiffUtil::TmpFile {} {
     } else {
         set tmpcnt 0
     }
-    set name [file join $tmpdir "diffutil[pid]a$tmpcnt"]
+    set name [file join $tmpdir "diffutil[pid]a$tmpcnt$suffix"]
     lappend tmpFiles $name
     return $name
 }
@@ -200,7 +200,7 @@ proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
         set realDiffExe $diffexe
         if {[file pathtype $diffexe] eq "absolute"} {
             if {[string match tclvfs* [file system $diffexe]]} {
-                set tmpfile3 [TmpFile]
+                set tmpfile3 [TmpFile _diff.exe]
                 file copy $diffexe $tmpfile3
                 set realDiffExe $tmpfile3
             }
