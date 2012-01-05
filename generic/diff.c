@@ -1121,8 +1121,40 @@ NewChunk(Tcl_Interp *interp, DiffOptions_T *optsPtr,
 void
 AppendChunk(Tcl_Interp *interp, Tcl_Obj *listPtr, DiffOptions_T *optsPtr,
 	Line_T start1, Line_T n1, Line_T start2, Line_T n2) {
-    Tcl_ListObjAppendElement(interp, listPtr,
-	    NewChunk(interp, optsPtr, start1, n1, start2, n2));
+    int t;
+
+    /* If an alignment happens within a changed chunk, it should be split */
+    for (t = 0; t < optsPtr->alignLength; t += 2) {
+	int lMatch = start1 <= optsPtr->align[t] &&
+		optsPtr->align[t] < (start1 + n1);
+	int rMatch = start2 <= optsPtr->align[t + 1] &&
+		optsPtr->align[t + 1] < (start2 + n2);
+	if (lMatch && rMatch) {
+	    /* This aligned pair is within the chunk */
+	    int preN1 = optsPtr->align[t]     - start1;
+	    int preN2 = optsPtr->align[t + 1] - start2;
+	    if (preN1 > 0 || preN2 > 0) {
+		/* Chunk before the align */
+		Tcl_ListObjAppendElement(interp, listPtr,
+			NewChunk(interp, optsPtr,
+				start1, preN1, start2, preN2));
+	    }
+	    /* Chunk for the aligned rows */
+	    Tcl_ListObjAppendElement(interp, listPtr,
+		    NewChunk(interp, optsPtr,
+			    optsPtr->align[t], 1, optsPtr->align[t + 1], 1));
+	    /* Adjust block to contain the remains */
+	    start1 = optsPtr->align[t]     + 1;
+	    start2 = optsPtr->align[t + 1] + 1;
+	    n1 -= preN1 + 1;
+	    n2 -= preN2 + 1;
+	}
+    }
+    /* Alignment could leave us with an empty chunk */
+    if (n1 > 0 || n2 > 0) {
+	Tcl_ListObjAppendElement(interp, listPtr,
+		NewChunk(interp, optsPtr, start1, n1, start2, n2));
+    }
 }
 
 /*

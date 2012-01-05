@@ -94,6 +94,30 @@ test difffiles-2.6 {alignment, switched order} {
     RunTest $l1 $l2 -align {7 5 2 4}
 } [list {2 0 2 2} {3 4 5 0} {8 0 6 2}]
 
+test difffiles-2.7.1 {alignment, no align} {
+    set l1 {a b c  d }
+    set l2 {e f g  d }
+    RunTest $l1 $l2
+} [list {1 3 1 3}]
+
+test difffiles-2.7.2 {alignment} {
+    set l1 {    a b c d }
+    set l2 {e f g     d }
+    RunTest $l1 $l2 -align {1 3}
+} [list {1 0 1 2} {1 1 3 1} {2 2 4 0}]
+
+test difffiles-2.7.3 {alignment} {
+    set l1 {a   b c d }
+    set l2 {e f g   d }
+    RunTest $l1 $l2 -align {1 1 2 3}
+} [list {1 1 1 1} {2 0 2 1} {2 1 3 1} {3 1 4 0}]
+
+test difffiles-2.7.4 {alignment} {
+    set l1 {a b   c  d }
+    set l2 {  e f g  d }
+    RunTest $l1 $l2 -align {2 1 3 3}
+} [list {1 1 1 0} {2 1 1 1} {3 0 2 1} {3 1 3 1}]
+
 test difffiles-3.1 {ignore space} {
     set l1 {a {b c} d e f {g h}  i}
     set l2 {a {bc}  x e f {g  h} i}
