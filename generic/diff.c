@@ -752,7 +752,8 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
     if (k == 0) {
 	return;
     }
-    stack = (Candidate_T **) ckalloc((k * 3) * sizeof(Candidate_T *));
+    /* k*10 is a guess. I've seen k*4 be needed for tricky cases */
+    stack = (Candidate_T **) ckalloc((k * 10) * sizeof(Candidate_T *));
     sp = 0;
 
     /* Start at the top, put all end points on the stack */
@@ -779,10 +780,10 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
             ScoreCandidate(cand, P);
             sp--;
         }
-        if (sp > (k * 2)) {
+        if (sp > (k * 9)) {
             /* Out of stack, bad */
-            printf("Debug: Out of stack in ScoreCandidates\n");
-            break;
+	    printf("Debug: Out of stack in ScoreCandidates k = %ld\n", k);
+	    break;
         }
     }
 
