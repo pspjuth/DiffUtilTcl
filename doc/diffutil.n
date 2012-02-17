@@ -382,12 +382,12 @@ corresponds to equal elements in the sequences.
 .PP
 .SH EXAMPLES
 .PP
-.nf
+.CS
 
 % DiffUtil::diffFiles $file1 $file2
 {{3 2 3 4}}
 
-.fi
+.CE
 .SH KEYWORDS
 diff, lcs, longest common substring
 .SH COPYRIGHT

@@ -234,9 +234,22 @@ lib.vfs/DiffUtil/tcl/diffutil.tcl: tcl/diffutil.tcl
 	cp tcl/diffutil.tcl lib.vfs/DiffUtil/tcl
 
 lib.vfs/DiffUtil/Linux-x86_64/$(PKG_LIB_FILE): $(PKG_LIB_FILE)
+	@mkdir -p lib.vfs/DiffUtil/Linux-x86_64
 	cp $(PKG_LIB_FILE) lib.vfs/DiffUtil/Linux-x86_64
 
-vfs: binaries lib.vfs/DiffUtil/pkgIndex.tcl lib.vfs/DiffUtil/tcl/diffutil.tcl lib.vfs/DiffUtil/loadLib.tcl lib.vfs/DiffUtil/Linux-x86_64/$(PKG_LIB_FILE)
+lib.vfs/DiffUtil/Linux-x86/$(PKG_LIB_FILE): $(PKG_LIB_FILE)
+	@mkdir -p lib.vfs/DiffUtil/Linux-x86
+	cp $(PKG_LIB_FILE) lib.vfs/DiffUtil/Linux-x86
+
+lib.vfs/DiffUtil/Windows-x86/lib$(PKG_LIB_FILE): $(PKG_LIB_FILE)
+	@mkdir -p lib.vfs/DiffUtil/Windows-x86
+	cp $(PKG_LIB_FILE) lib.vfs/DiffUtil/Windows-x86/lib$(PKG_LIB_FILE)
+
+vfs: binaries lib.vfs/DiffUtil/pkgIndex.tcl lib.vfs/DiffUtil/tcl/diffutil.tcl lib.vfs/DiffUtil/loadLib.tcl 
+
+vfs32: vfs lib.vfs/DiffUtil/Linux-x86/$(PKG_LIB_FILE)
+vfs64: vfs lib.vfs/DiffUtil/Linux-x86_64/$(PKG_LIB_FILE)
+vfswin: lib.vfs/DiffUtil/Windows-x86/lib$(PKG_LIB_FILE)
 
 #========================================================================
 # This rule installs platform-independent files, such as header files.
