@@ -1,3 +1,22 @@
+2012-02-17  Peter Spjuth  <peter.spjuth@gmail.com>
+	Bumped revision to 0.3.4
+
+2012-02-12  Peter Spjuth  <peter.spjuth@gmail.com>
+	Needed larger stack in ScoreCandidate.
+	Support building multi-platform VFS.
+
+2012-01-05  Peter Spjuth  <peter.spjuth@gmail.com>
+	Fixed a bug where alignment was not properly shown in output.
+	Bumped revision to 0.3.3
+
+2011-04-10  Peter Spjuth  <peter.spjuth@gmail.com>
+	Bumped revision to 0.3.2
+	Use diff.exe if included in VFS.
+	Include fallback to pure Tcl LCS implementation.
+
+2011-04-10  Peter Spjuth  <peter.spjuth@gmail.com>
+	Updated to TEA 3.9
+
 2010-06-28  Peter Spjuth  <peter.spjuth@gmail.com>
 	Continued on compareFiles command.
 

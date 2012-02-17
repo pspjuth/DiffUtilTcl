@@ -9,3 +9,4 @@ Then rerun
 autoconf
 configure
 make
+make vfs

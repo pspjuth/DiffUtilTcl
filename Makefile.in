@@ -208,7 +208,7 @@ libraries:
 
 doc: doc/diffutil.html doc/diffutil.n
 doc/diffutil.html doc/diffutil.n : doc/diffutil.man mkdoc.tcl
-	mkdoc.tcl
+	./mkdoc.tcl
 
 install: all install-binaries install-libraries install-doc
 
