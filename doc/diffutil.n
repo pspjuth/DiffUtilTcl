@@ -238,14 +238,14 @@ Database Class:	\\fB\\$3\\fR
 .de UL
 \\$1\l'|0\(ul'\\$2
 ..
-.TH "DiffUtil" n 0.3.4 diffutil "Comparision Utilities"
+.TH "DiffUtil" n 0.3.5 diffutil "Comparision Utilities"
 .BS
 .SH NAME
 DiffUtil \- Compare Stuff
 .SH SYNOPSIS
 package require \fBTcl  8.4\fR
 .sp
-package require \fBDiffUtil  ?0.3.4?\fR
+package require \fBDiffUtil  ?0.3.5?\fR
 .sp
 \fB::DiffUtil::diffFiles\fR ?\fIoptions\fR? \fIfile1\fR \fIfile2\fR
 .sp
