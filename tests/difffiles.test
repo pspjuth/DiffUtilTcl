@@ -375,3 +375,10 @@ test difffiles-11.4 {channel config} {CDiff} {
     set l2 {a \x82 c}
     list [RunTest $l1 $l2 -translation binary] [RunTest $l1 $l2 -encoding utf-8]
 } [list [list {2 1 2 1}] {}]
+
+test difffiles-12.1 {stack space bug} -body {
+    # These files consume lots of candidate stack and crashed an earlier
+    # version of diffUtil.
+    DiffUtil::diffFiles -b tests/candbug1.txt tests/candbug2.txt
+    return 0
+} -result {0}
