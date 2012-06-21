@@ -70,7 +70,7 @@ typedef struct CandidateAlloc_T {
 } CandidateAlloc_T;
 
 /* A dynamic list of lines */
-#define LineListStaticAlloc_C 25
+#define LineListStaticAlloc_C 50
 typedef struct LineList_T {
     Line_T staticList[LineListStaticAlloc_C];
     Line_T *Elems;
@@ -794,17 +794,19 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
 }
 
 /*
- * We have ignored empty lines before which means that there
- * may be empty lines that can be matched.
+ * We have ignored forbidden lines before which means that there
+ * may be more lines that can be matched.
  */
 static void
-PostProcessAllowEmpty(
+PostProcessForbidden(
 	const Line_T m,          /* Size of file 1 */
 	const Line_T n,          /* Size of file 2 */
 	const P_T * const P,     /* P vector */
 	const E_T * const E,     /* E vector */
 	Line_T * const J)        /* J vector */
 {
+    /* lastLine tracks the last matching line, so the line after is the start
+     * of a change block. */
     Line_T lastLine1 = 0, lastLine2 = 0;
     Line_T i, j, firstJ, lastJ;
     LineList_T iList, jList;
@@ -814,22 +816,30 @@ PostProcessAllowEmpty(
 
     for (i = 1; i <= (m + 1); i++) {
 	if (i > m || J[i] != 0) {
+            /* We are at the end or at a matching line, thus a change block
+             * has ended. */
 	    if (iList.n > 0) {
 		/*
-		 * We have empty lines in the left part of this change
-		 * block.
+		 * We have forbidden lines in the left part of this change
+		 * block and thus must look in the right part too.
 		 */
+
+                /* Figure out the range in the right file */
 		firstJ = lastLine2 + 1;
 		lastJ = i > m ? n : J[i];
 		
 		for (j = 1; j <= m; j++) {
-		    if (E[j].serial >= firstJ && E[j].serial <= lastJ &&
-			    E[j].hash == 0) {
-			AddToLineList(&jList, E[j].serial);
+		    if (E[j].serial >= firstJ && E[j].serial <= lastJ) {
+                        /* Line is within range. Is it forbidden? */
+                        if (E[j].forbidden) {
+                            AddToLineList(&jList, E[j].serial);
+                        }
 		    }
 		}
 
 		if (jList.n > 0) {
+                    /* FIXA: This assumes that only empty lines can be
+                     * forbidden */
 		    /*
 		     * We have empty lines in both parts of this change
 		     * block. What to do with it?
@@ -856,7 +866,8 @@ PostProcessAllowEmpty(
 	    FreeLineList(&jList);
 	    continue;
 	}
-	if (P[i].hash == 0) {
+	if (P[i].forbidden) {
+            /* Make a list of all forbidden lines in this change block. */
 	    AddToLineList(&iList, i);
 	    continue;
 	}
@@ -890,11 +901,11 @@ LcsCore(Tcl_Interp *interp,
         DiffOptions_T *optsPtr)
 {
     Candidate_T **K, *c;
-    Line_T i, k, *J;
-    const int allowEmpty = !optsPtr->noempty;
+    Line_T i, j, k, *J;
+    int anyForbidden = 0;
     /* Keep track of all candidates to free them easily */
     CandidateAlloc_T *candidates = NULL;
-
+    
     /*printf("Doing K\n"); */
 
     /* Initialise K candidate vector */
@@ -907,15 +918,34 @@ LcsCore(Tcl_Interp *interp,
     /* Add a fence outside the used range of K */
     K[1] = NewCandidate(&candidates, m + 1, n + 1, 0, NULL, NULL);
 
+    /* Uphold the -noempty rule by forbidding those connections */
+    if (optsPtr->noempty) {
+        for (i = 1; i <= m; i++) {
+            if (P[i].Eindex != 0 && P[i].hash == 0) {
+                P[i].forbidden = 1;
+                j = P[i].Eindex;
+                while (!E[j].forbidden) {
+                    E[j].forbidden = 1;
+                    if (E[j].last) break;
+                    j++;
+                }
+            }
+        }
+    }
+
     /*
      * For each line in file 1, if it matches any line in file 2,
      * merge it into the set of candidates.
      */
 
     for (i = 1; i <= m; i++) {
-        if (P[i].Eindex != 0 && (allowEmpty || P[i].hash != 0)) {
-            /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
-            merge(&candidates, K, &k, i, P, E, P[i].Eindex, optsPtr, m, n);
+        if (P[i].Eindex != 0) {
+            if (P[i].forbidden) {
+                anyForbidden = 1;
+            } else {
+                /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
+                merge(&candidates, K, &k, i, P, E, P[i].Eindex, optsPtr, m, n);
+            }
         }
     }
 
@@ -1039,13 +1069,13 @@ LcsCore(Tcl_Interp *interp,
     FreeCandidates(&candidates);
     ckfree((char *) K);
 
-    if (!allowEmpty) {
+    if (anyForbidden) {
         /*
-         * We have ignored empty lines before which means that there
-         * may be empty lines that can be matched.
+         * We have ignored forbidden lines before which means that there
+         * may be more lines that can be matched.
          */
 
-	PostProcessAllowEmpty(m, n, P, E, J);
+	PostProcessForbidden(m, n, P, E, J);
     }
 
     return J;
@@ -1071,6 +1101,7 @@ BuildEVector(V_T *V, Line_T n)
         E[j].serial   = V[j].serial;
         E[j].hash     = V[j].hash;
         E[j].realhash = V[j].realhash;
+        E[j].forbidden = 0;
 	E[j].count = 0;
 	E[first].count++;
 

@@ -382,3 +382,16 @@ test difffiles-12.1 {stack space bug} -body {
     DiffUtil::diffFiles -b tests/candbug1.txt tests/candbug2.txt
     return 0
 } -result {0}
+
+test difffiles-12.2 {long runtime bug} -body {
+    set l1 {}
+    set l2 {}
+    for {set t 0} {$t < 1000} {incr t} {
+        lappend l1 a b c
+        lappend l2 a b c
+    }
+    puts "Biggie test"
+    set result [RunTest $l1 $l2]
+    puts "Biggie test done"
+    set result
+} -result {}

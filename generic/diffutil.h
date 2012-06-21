@@ -80,6 +80,7 @@ typedef struct {
 		      * of lines in the class. Otherwise zero. */
     Hash_T hash;     /* Keep the hash for reference */
     Hash_T realhash; /* Keep the realhash for reference */
+    int    forbidden; /* True if this element cannot match initially. */
 } E_T;
 
 /*
@@ -93,6 +94,7 @@ typedef struct {
     Line_T Eindex;   /* First element in equivalent class in E vector */
     Hash_T hash;     /* Keep the hash for reference */
     Hash_T realhash; /* Keep the realhash for reference */
+    int    forbidden; /* True if this element cannot match initially. */
 } P_T;
 
 

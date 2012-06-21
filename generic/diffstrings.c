@@ -78,6 +78,7 @@ PrepareStringsLcs(Tcl_Interp *interp,
         }
         m++;
         P[m].Eindex = 0;
+        P[m].forbidden = 0;
         P[m].hash = c;
         P[m].realhash = realc;
         h = c;

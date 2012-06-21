@@ -180,6 +180,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
     m = 1;
     while (1) {
         P[m].Eindex = 0;
+        P[m].forbidden = 0;
         Tcl_SetObjLength(linePtr, 0);
         if (Tcl_GetsObj(ch, linePtr) < 0) {
             m--;
@@ -256,7 +257,7 @@ CompareFiles(
     Tcl_Channel ch1, ch2;
     Tcl_Obj *line1Ptr, *line2Ptr;
     Line_T current1, current2;
-    Line_T startBlock1, startBlock2;
+    /*Line_T startBlock1, startBlock2;*/
 
     /*printf("Doing ReadAndHash\n"); */
     if (ReadAndHashFiles(interp, name1Ptr, name2Ptr, optsPtr, fileOptsPtr,
@@ -326,7 +327,7 @@ CompareFiles(
 	}
     }
 
-    startBlock1 = startBlock2 = 1;
+    /*startBlock1 = startBlock2 = 1;*/
     current1 = current2 = 0;
 
     while (current1 < m || current2 < n) {

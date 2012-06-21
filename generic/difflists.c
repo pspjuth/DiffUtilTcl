@@ -75,6 +75,7 @@ HashLists(Tcl_Interp *interp,
 
     for (t = 1; t <= m; t++) {
         P[t].Eindex = 0;
+        P[t].forbidden = 0;
         Hash(elem1Ptrs[t-1], optsPtr, 1, &h, &realh);
         P[t].hash = h;
         P[t].realhash = realh;
@@ -123,7 +124,7 @@ CompareLists(
     int length1, length2;
     Tcl_Obj **elem1Ptrs, **elem2Ptrs;
     Line_T current1, current2;
-    Line_T startBlock1, startBlock2;
+    /*Line_T startBlock1, startBlock2;*/
 
     if (HashLists(interp, list1Ptr, list2Ptr, optsPtr, &m, &n, &P, &E)
         != TCL_OK) {
@@ -154,7 +155,7 @@ CompareLists(
     Tcl_ListObjGetElements(interp, list1Ptr, &length1, &elem1Ptrs);
     Tcl_ListObjGetElements(interp, list2Ptr, &length2, &elem2Ptrs);
 
-    startBlock1 = startBlock2 = 1;
+    /*startBlock1 = startBlock2 = 1;*/
     current1 = current2 = 0;
 
     while (current1 < m || current2 < n) {

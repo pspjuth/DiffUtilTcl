@@ -1,3 +1,7 @@
+2012-06-21  Peter Spjuth  <peter.spjuth@gmail.com>
+	Restructured code to use a "forbidden" mechanism to implement
+	-noempty flag.
+
 2012-06-12  Peter Spjuth  <peter.spjuth@gmail.com>
 	Bumped revision to 0.3.5
 
