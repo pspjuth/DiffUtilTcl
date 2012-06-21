@@ -259,6 +259,7 @@ test difffiles-6.5 {noempty} -constraints {CDiff} -body {
 
 test difffiles-6.6 {noempty} -constraints {CDiff} -body {
     # Within a change group, empty are left unmatched
+    # in the current implementation
     set l1 {a b c d e {} f g}
     set l2 {a b c d q {} x g}
     RunTest $l1 $l2 -noempty
@@ -390,7 +391,7 @@ test difffiles-12.2 {long runtime bug} -body {
         lappend l1 a b c
         lappend l2 a b c
     }
-    puts "Biggie test"
+    puts "Biggie test"; flush stdout
     set result [RunTest $l1 $l2]
     puts "Biggie test done"
     set result

@@ -316,10 +316,13 @@ shell: binaries libraries
 gdb:
 	$(TCLSH_ENV) gdb $(TCLSH_PROG) $(SCRIPT)
 
+gdbt:
+	$(PKG_ENV) $(TCLSH_ENV) gdb --args $(TCLSH_PROG) `echo $(srcdir)/tests/all.tcl` $(TESTFLAGS)
+
 VALGRINDARGS=--tool=memcheck --num-callers=8 --leak-resolution=high --leak-check=yes --show-reachable=yes -v
 
 valgrind: binaries libraries
-	$(TCLSH_ENV) valgrind $(VALGRINDARGS) $(TCLSH_PROG) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
+	$(PKG_ENV) $(TCLSH_ENV) valgrind $(VALGRINDARGS) $(TCLSH_PROG) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
 
 valgrindshell: binaries libraries
 	$(TCLSH_ENV) valgrind $(VALGRINDARGS) $(TCLSH_PROG) $(SCRIPT)

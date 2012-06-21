@@ -70,10 +70,14 @@ typedef struct CandidateAlloc_T {
 } CandidateAlloc_T;
 
 /* A dynamic list of lines */
-#define LineListStaticAlloc_C 50
+#define LineListStaticAlloc_C 25
+typedef struct LineInfo_T {
+    Line_T line;
+    Hash_T hash;
+} LineInfo_T;
 typedef struct LineList_T {
-    Line_T staticList[LineListStaticAlloc_C];
-    Line_T *Elems;
+    LineInfo_T staticList[LineListStaticAlloc_C];
+    LineInfo_T *Elems;
     unsigned long alloced, n;
 } LineList_T;
 
@@ -90,24 +94,47 @@ InitLineList(LineList_T *listPtr)
 }
 
 static void
-AddToLineList(LineList_T *listPtr, Line_T Value)
+AddToLineList(LineList_T *listPtr, Line_T Value, Hash_T hash)
 {
     if (listPtr->n >= listPtr->alloced) {
 	/* Full, need to realloc */
 	if (listPtr->Elems == listPtr->staticList) {
-	    listPtr->Elems = (Line_T *)
-		    ckalloc(sizeof(Line_T) * listPtr->alloced * 2);
+	    listPtr->Elems = (LineInfo_T *)
+		    ckalloc(sizeof(LineInfo_T) * listPtr->alloced * 2);
 	    memcpy(listPtr->Elems, listPtr->staticList,
-		    LineListStaticAlloc_C * sizeof(Line_T));
+		    LineListStaticAlloc_C * sizeof(LineInfo_T));
 	    listPtr->alloced *= 2;
 	} else {
-	    ckrealloc((void *) listPtr->Elems,
-		    sizeof(Line_T) * listPtr->alloced * 2);
+            listPtr->Elems = (LineInfo_T *)
+                    ckrealloc((void *) listPtr->Elems,
+                              sizeof(LineInfo_T) * listPtr->alloced * 2);
 	    listPtr->alloced *= 2;
 	}
     }
-    listPtr->Elems[listPtr->n] = Value;
+    listPtr->Elems[listPtr->n].line = Value;
+    listPtr->Elems[listPtr->n].hash = hash;
     listPtr->n++;
+}
+
+/*
+ * A compare function to qsort a LineList.
+ */
+int
+CompareLine(const void *a1, const void *a2) {
+    LineInfo_T *v1 = (LineInfo_T *) a1;
+    LineInfo_T *v2 = (LineInfo_T *) a2;
+    if (v1->line < v2->line)
+        return -1;
+    else if (v1->line > v2->line)
+        return 1;
+    else
+        return 0;
+}
+
+static void
+SortLineList(LineList_T *listPtr)
+{
+    qsort(listPtr->Elems, listPtr->n, sizeof(LineInfo_T), CompareLine);
 }
 
 static void
@@ -826,13 +853,13 @@ PostProcessForbidden(
 
                 /* Figure out the range in the right file */
 		firstJ = lastLine2 + 1;
-		lastJ = i > m ? n : J[i];
+		lastJ = i > m ? n : J[i] - 1;
 		
 		for (j = 1; j <= m; j++) {
 		    if (E[j].serial >= firstJ && E[j].serial <= lastJ) {
                         /* Line is within range. Is it forbidden? */
                         if (E[j].forbidden) {
-                            AddToLineList(&jList, E[j].serial);
+                            AddToLineList(&jList, E[j].serial, E[j].hash);
                         }
 		    }
 		}
@@ -844,16 +871,20 @@ PostProcessForbidden(
 		     * We have empty lines in both parts of this change
 		     * block. What to do with it?
 		     */
-		    Line_T leftCount = i - lastLine1 - 1;
-		    Line_T rightCount = lastJ - lastLine2 - 1;
+		    Line_T leftCount  = (i - 1) - (lastLine1 + 1) + 1;
+		    Line_T rightCount = lastJ   - (lastLine2 + 1) + 1;
 
+                    SortLineList(&jList);
 		    if (iList.n == leftCount || 
 			    jList.n == rightCount) {
 			/* Either side is only empty lines, simple match */
+                        //printf("Handled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n); fflush(stdout);
 			for (j = 0; j < iList.n && j < jList.n; j++) {
-			    J[iList.Elems[j]] = jList.Elems[j];
+			    J[iList.Elems[j].line] = jList.Elems[j].line;
 			}
-		    }
+		    } else {
+                        printf("Unhandled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n); fflush(stdout);
+                    }
 		    /*
 		     * FIXA: maybe simple cases with empty lines in beginning
 		     * or end should be handled.
@@ -868,7 +899,7 @@ PostProcessForbidden(
 	}
 	if (P[i].forbidden) {
             /* Make a list of all forbidden lines in this change block. */
-	    AddToLineList(&iList, i);
+	    AddToLineList(&iList, i, P[i].hash);
 	    continue;
 	}
     }
@@ -880,6 +911,24 @@ PostProcessForbidden(
      * to handle equal lines within change blocks.
      */
 }
+
+/*
+ * Mark a line in the left side (P vector) as forbidden.
+ * Also mark the corresponding equivalence class on the right side (E vector).
+ */
+static void
+ForbidP(Line_T i, P_T *P, E_T *E)
+{
+    Line_T j;
+    P[i].forbidden = 1;
+    j = P[i].Eindex;
+    while (!E[j].forbidden) {
+        E[j].forbidden = 1;
+        if (E[j].last) break;
+        j++;
+    }
+}
+
 
 /*
  * The core part of the LCS algorithm.
@@ -901,7 +950,7 @@ LcsCore(Tcl_Interp *interp,
         DiffOptions_T *optsPtr)
 {
     Candidate_T **K, *c;
-    Line_T i, j, k, *J;
+    Line_T i, k, *J;
     int anyForbidden = 0;
     /* Keep track of all candidates to free them easily */
     CandidateAlloc_T *candidates = NULL;
@@ -922,17 +971,16 @@ LcsCore(Tcl_Interp *interp,
     if (optsPtr->noempty) {
         for (i = 1; i <= m; i++) {
             if (P[i].Eindex != 0 && P[i].hash == 0) {
-                P[i].forbidden = 1;
-                j = P[i].Eindex;
-                while (!E[j].forbidden) {
-                    E[j].forbidden = 1;
-                    if (E[j].last) break;
-                    j++;
-                }
+                ForbidP(i, P, E);
             }
         }
     }
-
+    /* Experiment to forbid large equivalence classes */
+    for (i = 1; i <= m; i++) {
+        if (P[i].Eindex != 0 && E[P[i].Eindex].count > 100) {
+            ForbidP(i, P, E);
+        }
+    }
     /*
      * For each line in file 1, if it matches any line in file 2,
      * merge it into the set of candidates.
@@ -1096,6 +1144,7 @@ BuildEVector(V_T *V, Line_T n)
     E[0].serial = 0;
     E[0].last = 1;
     E[0].count = 0;
+    E[0].forbidden = 1;
     first = 1;
     for (j = 1; j <= n; j++) {
         E[j].serial   = V[j].serial;
