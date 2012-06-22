@@ -396,3 +396,18 @@ test difffiles-13.1 {long runtime bug} -constraints {CDiff} -body {
     #puts "Biggie test done"
     set result
 } -result {}
+
+test difffiles-13.2 {long runtime bug} -constraints {} -body {
+    # Same as 13.1 but smaller, just to run a similar thing in all
+    # implementations
+    set l1 {}
+    set l2 {}
+    for {set t 0} {$t < 100} {incr t} {
+        lappend l1 a b c d e f g h i j k l m n o p q r s t 
+        lappend l2 a b c d e f g h i j k l m n o p q r s t 
+    }
+    #puts "Biggie test"
+    set result [RunTest $l1 $l2 -pivot 900]
+    #puts "Biggie test done"
+    set result
+} -result {}

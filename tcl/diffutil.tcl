@@ -297,6 +297,7 @@ proc DiffUtil::diffFiles {args} {
     set opts(-align) {}
     set opts(-range) {}
     set opts(-noempty)  0  ;# Allowed but ignored
+    set opts(-pivot)  100  ;# Allowed but ignored
     set opts(-regsubREL) {}
     set opts(-regsubSubL) {}
     set opts(-regsubRER) {}
@@ -347,6 +348,7 @@ proc DiffUtil::diffFiles {args} {
             -regsub -
             -regsubleft -
             -regsubright -
+            -pivot -
             -range { set value $arg }
             -noempty { set opts($arg) 1 }
             -nodigit {
