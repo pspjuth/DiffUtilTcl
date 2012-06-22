@@ -384,12 +384,12 @@ DiffFilesObjCmd(
     FileOptions_T fileOpts;
     static CONST char *options[] = {
 	"-b", "-w", "-i", "-nocase", "-align", "-encoding", "-range",
-        "-noempty", "-nodigit", "-regsub", "-regsubleft",
+        "-noempty", "-nodigit", "-pivot", "-regsub", "-regsubleft",
 	"-regsubright", "-result", "-translation", (char *) NULL
     };
     enum options {
 	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_ENCODING, OPT_RANGE,
-        OPT_NOEMPTY, OPT_NODIGIT, OPT_REGSUB, OPT_REGSUBLEFT,
+        OPT_NOEMPTY, OPT_NODIGIT, OPT_PIVOT, OPT_REGSUB, OPT_REGSUBLEFT,
 	OPT_REGSUBRIGHT, OPT_RESULT, OPT_TRANSLATION
     };
     static CONST char *resultOptions[] = {
@@ -426,6 +426,23 @@ DiffFilesObjCmd(
 	    break;
 	  case OPT_NOEMPTY:
             opts.noempty = 1;
+            break;
+          case OPT_PIVOT:
+            t++;
+            if (t >= objc - 2) {
+                Tcl_WrongNumArgs(interp, 1, objv, "?opts? file1 file2");
+                result = TCL_ERROR;
+                goto cleanup;
+            }
+            if (Tcl_GetIntFromObj(interp, objv[t], &opts.pivot) != TCL_OK) {
+                result = TCL_ERROR;
+                goto cleanup;
+            }
+            if (opts.pivot < 1) {
+                Tcl_SetResult(interp, "Pivot must be at least 1", TCL_STATIC);
+                result = TCL_ERROR;
+                goto cleanup;
+            }
             break;
           case OPT_REGSUB:
           case OPT_REGSUBLEFT:

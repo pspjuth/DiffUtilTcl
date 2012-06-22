@@ -153,9 +153,12 @@ space, except at beginning of line where it is completely ignored.</p></dd>
 <dd><p>Ignore empty lines in initial compare step. I.e. empty lines are considered
 not equal at first. Multiple equal lines gives longer runtimes and by avoiding
 the very common empty line, runtimes are improved. With <i class="arg">-b</i> or <i class="arg">-w</i>,
-all-space lines are considered empty.
-Empty lines that obviously matches are noted as equal in a post processing
-step, but empty lines within change blocks will be reported as changes.</p></dd>
+all-space lines are considered empty.</p></dd>
+<dt><b class="option">-pivot</b> <i class="arg">value</i></dt>
+<dd><p>Ignore common lines in initial compare step. Multiple equal lines gives longer
+runtime and by avoiding them runtime is improved.  The pivot <i class="arg">value</i>
+says how many equal lines there must be in <i class="arg">file2</i> before those lines are
+disregarded. The default is 100.</p></dd>
 <dt><b class="option">-nodigit</b></dt>
 <dd><p>Consider any sequence of digits equal.</p></dd>
 <dt><b class="option">-align</b> <i class="arg">list</i></dt>

@@ -258,12 +258,11 @@ test difffiles-6.5 {noempty} -constraints {CDiff} -body {
 } -result [list {11 1 11 1}]
 
 test difffiles-6.6 {noempty} -constraints {CDiff} -body {
-    # Within a change group, empty are left unmatched
-    # in the current implementation
+    # Handle empty within a change group
     set l1 {a b c d e {} f g}
     set l2 {a b c d q {} x g}
     RunTest $l1 $l2 -noempty
-} -result [list {5 3 5 3}]
+} -result [list {5 1 5 1} {7 1 7 1}]
 
 test difffiles-7.1 {ignore digit} -body {
     set l1 {a b123c x b02c   b13c d}
@@ -384,15 +383,16 @@ test difffiles-12.1 {stack space bug} -body {
     return 0
 } -result {0}
 
-test difffiles-12.2 {long runtime bug} -body {
+test difffiles-13.1 {long runtime bug} -constraints {CDiff} -body {
+    # This case took very long time in an earlier version
     set l1 {}
     set l2 {}
     for {set t 0} {$t < 1000} {incr t} {
-        lappend l1 a b c
-        lappend l2 a b c
+        lappend l1 a b c d e f g h i j k l m n o p q r s t 
+        lappend l2 a b c d e f g h i j k l m n o p q r s t 
     }
-    puts "Biggie test"; flush stdout
-    set result [RunTest $l1 $l2]
-    puts "Biggie test done"
+    #puts "Biggie test"
+    set result [RunTest $l1 $l2 -pivot 900]
+    #puts "Biggie test done"
     set result
 } -result {}

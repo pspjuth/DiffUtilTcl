@@ -286,8 +286,12 @@ Ignore empty lines in initial compare step. I.e. empty lines are considered
 not equal at first. Multiple equal lines gives longer runtimes and by avoiding
 the very common empty line, runtimes are improved. With \fI-b\fR or \fI-w\fR,
 all-space lines are considered empty.
-Empty lines that obviously matches are noted as equal in a post processing
-step, but empty lines within change blocks will be reported as changes.
+.TP
+\fB-pivot\fR \fIvalue\fR
+Ignore common lines in initial compare step. Multiple equal lines gives longer
+runtime and by avoiding them runtime is improved.  The pivot \fIvalue\fR
+says how many equal lines there must be in \fIfile2\fR before those lines are
+disregarded. The default is 100.
 .TP
 \fB-nodigit\fR
 Consider any sequence of digits equal.

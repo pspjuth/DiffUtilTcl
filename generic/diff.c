@@ -26,6 +26,8 @@ typedef enum {
     IN_NONE, IN_SPACE, IN_NUMBER
 } In_T;
 
+#define max(a,b) ((a) > (b) ? (a) : (b))
+
 /* A type to implement the Candidates in the LCS algorithm */
 typedef struct Candidate_T {
     /* Line numbers in files */
@@ -779,9 +781,14 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
     if (k == 0) {
 	return;
     }
+    /* Calculate initial stack size needed */
+    sp = 0;
+    for (cand = K[k]; cand != NULL; cand = cand->peer) {
+        sp++;
+    }
     /* k*20 is a guess. I've seen k*13 be needed for tricky cases */
-    int cStackSize = 20;
-    stack = (Candidate_T **) ckalloc((k * cStackSize) * sizeof(Candidate_T *));
+    int cStackSize = max(sp*2, k*20);
+    stack = (Candidate_T **) ckalloc(cStackSize * sizeof(Candidate_T *));
     sp = 0;
 
     /* Start at the top, put all end points on the stack */
@@ -801,19 +808,19 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
             if (prev->score == 0) {
                 stack[sp++] = prev;
                 ready = 0;
+                if (sp >= cStackSize) {
+                    /* Out of stack, get more */
+                    /*printf("Debug: Out of stack in ScoreCandidates k = %ld\n", k);*/
+                    cStackSize *= 2;
+                    stack = (Candidate_T **) ckrealloc((char *) stack,
+                             cStackSize * sizeof(Candidate_T *));
+                }
             }
         }
         if (ready) {
             /* All previous have a score, we can score this one */
             ScoreCandidate(cand, P);
             sp--;
-        }
-        if (sp > (k * (cStackSize - 1))) {
-            /* Out of stack, get more */
-            /*printf("Debug: Out of stack in ScoreCandidates k = %ld\n", k);*/
-            cStackSize *= 2;
-            stack = (Candidate_T **) ckrealloc((char *) stack,
-                    (k * cStackSize) * sizeof(Candidate_T *));
         }
     }
 
@@ -865,30 +872,27 @@ PostProcessForbidden(
 		}
 
 		if (jList.n > 0) {
-                    /* FIXA: This assumes that only empty lines can be
-                     * forbidden */
 		    /*
-		     * We have empty lines in both parts of this change
+		     * We have forbidden lines in both parts of this change
 		     * block. What to do with it?
 		     */
-		    Line_T leftCount  = (i - 1) - (lastLine1 + 1) + 1;
-		    Line_T rightCount = lastJ   - (lastLine2 + 1) + 1;
+		    /* Line_T leftCount  = (i - 1) - (lastLine1 + 1) + 1; */
+		    /* Line_T rightCount = lastJ   - (lastLine2 + 1) + 1; */
 
                     SortLineList(&jList);
-		    if (iList.n == leftCount || 
-			    jList.n == rightCount) {
-			/* Either side is only empty lines, simple match */
-                        //printf("Handled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n); fflush(stdout);
-			for (j = 0; j < iList.n && j < jList.n; j++) {
-			    J[iList.Elems[j].line] = jList.Elems[j].line;
-			}
-		    } else {
-                        printf("Unhandled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n); fflush(stdout);
+
+                    /*
+                     * FIXA: Better algorithm here...
+                     * Just do a raw matching of any forbidden lines regardless
+                     * of hash.
+                     * The postprocessing that double checks matched lines in
+                     * case of hash collisions will detect a mismatch and
+                     * produce a reasonable, if non-optimal, result.
+                     */ 
+                    for (j = 0; j < iList.n && j < jList.n; j++) {
+                        J[iList.Elems[j].line] = jList.Elems[j].line;
                     }
-		    /*
-		     * FIXA: maybe simple cases with empty lines in beginning
-		     * or end should be handled.
-		     */
+                    //printf("Handled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n);
 		}
 	    }
 	    lastLine1 = i;
@@ -967,20 +971,19 @@ LcsCore(Tcl_Interp *interp,
     /* Add a fence outside the used range of K */
     K[1] = NewCandidate(&candidates, m + 1, n + 1, 0, NULL, NULL);
 
-    /* Uphold the -noempty rule by forbidding those connections */
-    if (optsPtr->noempty) {
-        for (i = 1; i <= m; i++) {
-            if (P[i].Eindex != 0 && P[i].hash == 0) {
+    for (i = 1; i <= m; i++) {
+        if (P[i].Eindex != 0) {
+            if (optsPtr->noempty && P[i].hash == 0) {
+                /* Uphold the -noempty rule by forbidding those connections */
+                ForbidP(i, P, E);
+            }
+            if (E[P[i].Eindex].count > optsPtr->pivot) {
+                /* Experiment to forbid large equivalence classes */
                 ForbidP(i, P, E);
             }
         }
     }
-    /* Experiment to forbid large equivalence classes */
-    for (i = 1; i <= m; i++) {
-        if (P[i].Eindex != 0 && E[P[i].Eindex].count > 100) {
-            ForbidP(i, P, E);
-        }
-    }
+
     /*
      * For each line in file 1, if it matches any line in file 2,
      * merge it into the set of candidates.

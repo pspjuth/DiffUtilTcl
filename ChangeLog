@@ -1,7 +1,12 @@
+2012-06-22  Peter Spjuth  <peter.spjuth@gmail.com>
+	Added -pivot (default 100) to forbid large equivalence classes.
+
 2012-06-21  Peter Spjuth  <peter.spjuth@gmail.com>
 	Restructured code to use a "forbidden" mechanism to implement
 	-noempty flag.
 	Include hash info in linelist used by forbidden mechanism.
+	Another correction of Candidate stack allocation.
+	Use a rough but reasonable post processing with forbidden.
 
 2012-06-12  Peter Spjuth  <peter.spjuth@gmail.com>
 	Bumped revision to 0.3.5

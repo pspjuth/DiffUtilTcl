@@ -27,6 +27,8 @@ typedef struct {
     int ignore;
     /* Let empty lines be considered different in the LCS algorithm. */
     int noempty;
+    /* How many equal elements does it take before it is disregarded? */
+    int pivot;
     /* Show full words in changes */
     int wordparse;
     /* Range */
@@ -43,7 +45,7 @@ typedef struct {
 } DiffOptions_T;
 
 /* Helper to get a filled in DiffOptions_T */
-#define InitDiffOptions_T(opts) {opts.ignore = 0; opts.noempty = 0; opts.wordparse = 0; opts.rFrom1 = 1; opts.rTo1 = 0; opts.rFrom2 = 1; opts.rTo2 = 0; opts.regsubLeftPtr = NULL; opts.regsubRightPtr = NULL; opts.resultStyle = Result_Diff; opts.alignLength = 0; opts.align = opts.staticAlign;}
+#define InitDiffOptions_T(opts) {opts.ignore = 0; opts.noempty = 0; opts.pivot = 100; opts.wordparse = 0; opts.rFrom1 = 1; opts.rTo1 = 0; opts.rFrom2 = 1; opts.rTo2 = 0; opts.regsubLeftPtr = NULL; opts.regsubRightPtr = NULL; opts.resultStyle = Result_Diff; opts.alignLength = 0; opts.align = opts.staticAlign;}
  
 /* Flags in DiffOptions_T's ignore field */
 

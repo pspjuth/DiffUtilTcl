@@ -316,7 +316,7 @@ shell: binaries libraries
 gdb:
 	$(TCLSH_ENV) gdb $(TCLSH_PROG) $(SCRIPT)
 
-gdbt:
+gdbt: binaries libraries
 	$(PKG_ENV) $(TCLSH_ENV) gdb --args $(TCLSH_PROG) `echo $(srcdir)/tests/all.tcl` $(TESTFLAGS)
 
 VALGRINDARGS=--tool=memcheck --num-callers=8 --leak-resolution=high --leak-check=yes --show-reachable=yes -v
