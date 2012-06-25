@@ -11,7 +11,7 @@ make clean
 make
 make vfs32
 
-./configure --enable-64-bit
+./configure --enable-64bit
 make clean
 make
 make vfs64
