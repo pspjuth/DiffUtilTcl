@@ -164,7 +164,7 @@ PROJECT = diffutil
 #PROJECT_REQUIRES_TK=1
 !include "rules.vc"
 
-DOTVERSION      = 0.3.5
+DOTVERSION      = 0.3.6
 VERSION         = $(DOTVERSION:.=)
 STUBPREFIX      = $(PROJECT)stub
 

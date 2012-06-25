@@ -1,12 +1,13 @@
 The following files contain current revision and needs to be changed
 when bumping revisions:
-configure.in
-doc/diffutil.man
-tcl/diffutil.tcl
-win/makefile.vc
+configure.in     (AC_INIT)
+doc/diffutil.man (two places)
+tcl/diffutil.tcl (package provide)
+win/makefile.vc  (DOTVERSION)
 
 Then rerun
 autoconf
 configure
+make clean
 make
 make vfs
