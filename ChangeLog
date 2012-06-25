@@ -1,4 +1,7 @@
 2012-06-26  Peter Spjuth  <peter.spjuth@gmail.com>
+	Bug-fix in postprocessing of forbidden lines.
+
+2012-06-26  Peter Spjuth  <peter.spjuth@gmail.com>
 	Bumped revision to 0.3.6
 
 2012-06-22  Peter Spjuth  <peter.spjuth@gmail.com>

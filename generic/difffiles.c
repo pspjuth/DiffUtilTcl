@@ -352,6 +352,7 @@ CompareFiles(
 	if (CompareObjects(line1Ptr, line2Ptr, optsPtr) != 0) {
 	    /* Unmark since they don't match */
 	    J[current1] = 0;
+            /*printf("Unmarking unmatched %ld vs %ld\n", current1, current2);*/
 	}
     }
 

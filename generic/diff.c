@@ -862,7 +862,7 @@ PostProcessForbidden(
 		firstJ = lastLine2 + 1;
 		lastJ = i > m ? n : J[i] - 1;
 		
-		for (j = 1; j <= m; j++) {
+		for (j = 1; j <= n; j++) {
 		    if (E[j].serial >= firstJ && E[j].serial <= lastJ) {
                         /* Line is within range. Is it forbidden? */
                         if (E[j].forbidden) {
@@ -892,7 +892,7 @@ PostProcessForbidden(
                     for (j = 0; j < iList.n && j < jList.n; j++) {
                         J[iList.Elems[j].line] = jList.Elems[j].line;
                     }
-                    //printf("Handled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n);
+                    /*printf("Handled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n);*/
 		}
 	    }
 	    lastLine1 = i;

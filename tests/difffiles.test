@@ -411,3 +411,9 @@ test difffiles-13.2 {long runtime bug} -constraints {} -body {
     #puts "Biggie test done"
     set result
 } -result {}
+
+test difffiles-14.1 {pivot bug} -body {
+    # These files caused an error in post-processing of forbidden lines
+    set x [DiffUtil::diffFiles -pivot 100 tests/pivot1.txt tests/pivot2.txt]
+    llength $x
+} -result {160}
