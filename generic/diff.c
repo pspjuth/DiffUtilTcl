@@ -837,7 +837,8 @@ PostProcessForbidden(
 	const Line_T n,          /* Size of file 2 */
 	const P_T * const P,     /* P vector */
 	const E_T * const E,     /* E vector */
-	Line_T * const J)        /* J vector */
+	Line_T * const J,        /* J vector */
+        DiffOptions_T *optsPtr)
 {
     /* lastLine tracks the last matching line, so the line after is the start
      * of a change block. */
@@ -871,7 +872,7 @@ PostProcessForbidden(
 		    }
 		}
 
-		if (jList.n > 0) {
+                if (jList.n > 0) {
 		    /*
 		     * We have forbidden lines in both parts of this change
 		     * block. What to do with it?
@@ -883,14 +884,18 @@ PostProcessForbidden(
 
                     /*
                      * FIXA: Better algorithm here...
-                     * Just do a raw matching of any forbidden lines regardless
-                     * of hash.
-                     * The postprocessing that double checks matched lines in
-                     * case of hash collisions will detect a mismatch and
-                     * produce a reasonable, if non-optimal, result.
+                     * Just do a raw sequential matching of forbidden lines.
+                     * This produces a reasonable, if non-optimal, result.
                      */ 
                     for (j = 0; j < iList.n && j < jList.n; j++) {
-                        J[iList.Elems[j].line] = jList.Elems[j].line;
+                        Line_T line1 = iList.Elems[j].line;
+                        Line_T line2 = jList.Elems[j].line;
+                        Hash_T hash1 = iList.Elems[j].hash;
+                        Hash_T hash2 = jList.Elems[j].hash;
+                        if (hash1 == hash2 &&
+                            !CheckAlign(optsPtr, line1, line2)) {
+                            J[line1] = line2;
+                        }
                     }
                     /*printf("Handled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n);*/
 		}
@@ -1126,7 +1131,7 @@ LcsCore(Tcl_Interp *interp,
          * may be more lines that can be matched.
          */
 
-	PostProcessForbidden(m, n, P, E, J);
+	PostProcessForbidden(m, n, P, E, J, optsPtr);
     }
 
     return J;
