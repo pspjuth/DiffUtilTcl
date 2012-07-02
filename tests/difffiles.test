@@ -407,10 +407,7 @@ test difffiles-13.2 {long runtime bug} -constraints {} -body {
         lappend l1 a b c d e f g h i j k l m n o p q r s t 
         lappend l2 a b c d e f g h i j k l m n o p q r s t 
     }
-    #puts "Biggie test"
     set result [RunTest $l1 $l2 -pivot 900]
-    #puts "Biggie test done"
-    set result
 } -result {}
 
 test difffiles-14.1 {pivot bug} -constraints CDiff -body {
@@ -424,12 +421,9 @@ test difffiles-15.1a {forbidden stressing} -constraints {NoLcsDiff} -body {
     # This is the result of diff and C without pivot
     set l1 {}
     set l2 {}
-    for {set t 0} {$t < 1} {incr t} {
-        lappend l1 a0 b c a1 b    c a2 b    c a3 b    c a4 b    c
-        lappend l2 a0   c    b a1 c    b a2 c    b a3 c    b a4 c b
-    }
+    lappend l1   a0 b c a1 b    c a2 b    c a3 b    c a4 b    c
+    lappend l2   a0   c    b a1 c    b a2 c    b a3 c    b a4 c b
     set result [RunTest $l1 $l2 -pivot 6]
-    set result
 } -result {{2 1 2 0} {4 1 3 0} {6 0 4 1} {7 1 6 0} {9 0 7 1} {10 1 9 0} {12 0 10 1} {13 1 12 0} {15 0 13 1} {16 0 15 1}}
 
 test difffiles-15.1b {forbidden stressing} -constraints {LcsDiff} -body {
@@ -437,12 +431,9 @@ test difffiles-15.1b {forbidden stressing} -constraints {LcsDiff} -body {
     # This is the result of tcllib's LCS
     set l1 {}
     set l2 {}
-    for {set t 0} {$t < 1} {incr t} {
-        lappend l1 a0 b c   a1 b c   a2 b c   a3 b c   a4 b c
-        lappend l2 a0   c b a1   c b a2   c b a3   c b a4   c b
-    }
+    lappend l1   a0 b c   a1 b c   a2 b c   a3 b c   a4 b c
+    lappend l2   a0   c b a1   c b a2   c b a3   c b a4   c b
     set result [RunTest $l1 $l2 -pivot 6]
-    set result
 } -result {{2 1 2 0} {4 0 3 1} {5 1 5 0} {7 0 6 1} {8 1 8 0} {10 0 9 1} {11 1 11 0} {13 0 12 1} {14 1 14 0} {16 0 15 1}}
 
 test difffiles-15.1c {forbidden stressing} -constraints {CDiff} -body {
@@ -450,12 +441,9 @@ test difffiles-15.1c {forbidden stressing} -constraints {CDiff} -body {
     # This is the result of C with pivot low enough
     set l1 {}
     set l2 {}
-    for {set t 0} {$t < 1} {incr t} {
-        lappend l1 a0 b c   a1 b c   a2 b c   a3 b c   a4 b c
-        lappend l2 a0   c b a1   c b a2   c b a3   c b a4   c b
-    }
+    lappend l1   a0 b c   a1 b c   a2 b c   a3 b c   a4 b c
+    lappend l2   a0   c b a1   c b a2   c b a3   c b a4   c b
     set result [RunTest $l1 $l2 -pivot 4]
-    set result
     # TODO: This is currently a bad result
 } -result {{2 2 2 2} {5 2 5 2} {8 2 8 2} {11 2 11 2} {14 2 14 2}}
 
@@ -463,10 +451,8 @@ test difffiles-15.2 {forbidden and align} -constraints {CDiff} -body {
     # Forbidden matching must not break align-constraint
     set l1 {}
     set l2 {}
-    for {set t 0} {$t < 1} {incr t} {
-        lappend l1 a0     q b w a1 b b b a2 c c b a3 c c a4 c b
-        lappend l2 a0 r b t     a1 b b b a2 c c b a3 c c a4 c b
-    }
+    lappend l1   a0     q b w a1 b b b a2 c c b a3 c c a4 c b
+    lappend l2   a0 r b t     a1 b b b a2 c c b a3 c c a4 c b
     set result1 [RunTest $l1 $l2 -pivot 4]
     set result2 [RunTest $l1 $l2 -pivot 4 -align {2 4}]
     list $result1 $result2
@@ -476,11 +462,8 @@ test difffiles-15.3 {forbidden} -constraints {CDiff} -body {
     # Try to stress the postprocessing of forbidden matches
     set l1 {}
     set l2 {}
-    for {set t 0} {$t < 1} {incr t} {
-        lappend l1 a0 b b c  a1 b c c a2 b b c a3 b c c a4 b c
-        lappend l2 a0 c b b  a1 c c b a2 c c b a3 c b b a4 c b
-    }
+    lappend l1   a0 b b c  a1 b c c a2 b b c a3 b c c a4 b c a5   b a6 b c
+    lappend l2   a0 c b b  a1 c c b a2 c c b a3 c b b a4 c b a5 c b a6   c
     set result [RunTest $l1 $l2 -pivot 4]
-    set result
     # TODO: This is currently a bad result
-} -result {{2 1 2 1} {4 1 4 1} {6 1 6 1} {8 1 8 1} {10 3 10 3} {14 3 14 3} {18 2 18 2}}
+} -result {{2 1 2 1} {4 1 4 1} {6 1 6 1} {8 1 8 1} {10 3 10 3} {14 3 14 3} {18 2 18 2} {21 0 21 1} {23 1 24 0}}

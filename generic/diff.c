@@ -864,7 +864,37 @@ PostProcessForbiddenBlock(
     LineList_T *jList,       /* List of lines in right side (sorted) */
     DiffOptions_T *optsPtr)
 {
-    Line_T j;
+    Line_T i, j;
+
+    /*
+     * Case: a single line to the left.
+     * Scan right side for a match.
+     */
+    if (iList->n == 1) {
+        for (j = 0; j < jList->n; j++) {
+            Line_T line1 = iList->Elems[0].line;
+            Line_T line2 = jList->Elems[j].line;
+            if (IsLineMatch(&iList->Elems[0], &jList->Elems[j], optsPtr)) {
+                J[line1] = line2;
+                return;
+            }
+        }
+    }
+
+    /*
+     * Case: a single line to the right.
+     * Scan left side for a match.
+     */
+    if (jList->n == 1) {
+        for (i = 0; i < iList->n; i++) {
+            Line_T line1 = iList->Elems[i].line;
+            Line_T line2 = jList->Elems[0].line;
+            if (IsLineMatch(&iList->Elems[i], &jList->Elems[0], optsPtr)) {
+                J[line1] = line2;
+                return;
+            }
+        }
+    }
 
     /*
      * Just do a raw sequential matching of forbidden lines.
