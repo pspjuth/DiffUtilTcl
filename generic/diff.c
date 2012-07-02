@@ -828,17 +828,69 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
 }
 
 /*
+ * Helper to process forbidden lines.
+ * Checks if two Lines are possible to match.
+ */
+static int
+IsLineMatch(
+    LineInfo_T *Elem1,
+    LineInfo_T *Elem2,
+    DiffOptions_T *optsPtr)
+
+{
+    Line_T line1 = Elem1->line;
+    Line_T line2 = Elem2->line;
+    Hash_T hash1 = Elem1->hash;
+    Hash_T hash2 = Elem2->hash;
+    if (hash1 == hash2 &&
+        !CheckAlign(optsPtr, line1, line2)) {
+        return 1;
+    }
+    return 0;
+}
+
+/*
+ * Inner step of PostProcessForbidden.
+ * A change block with forbidden lines in both sides has been found.
+ * Look for matches that can be marked in the J vector.
+ * FIXA: Better algorithm here...
+ */
+static void
+PostProcessForbiddenBlock(
+    Line_T * const J,        /* J vector */
+    Line_T firstI,           /* First line in left change block */
+    Line_T firstJ,           /* First line in right change block */
+    LineList_T *iList,       /* List of lines in left side (sorted) */
+    LineList_T *jList,       /* List of lines in right side (sorted) */
+    DiffOptions_T *optsPtr)
+{
+    Line_T j;
+
+    /*
+     * Just do a raw sequential matching of forbidden lines.
+     * This produces a reasonable, if non-optimal, result.
+     */ 
+    for (j = 0; j < iList->n && j < jList->n; j++) {
+        Line_T line1 = iList->Elems[j].line;
+        Line_T line2 = jList->Elems[j].line;
+        if (IsLineMatch(&iList->Elems[j], &jList->Elems[j], optsPtr)) {
+            J[line1] = line2;
+        }
+    }
+}
+        
+/*
  * We have ignored forbidden lines before which means that there
  * may be more lines that can be matched.
  */
 static void
 PostProcessForbidden(
-	const Line_T m,          /* Size of file 1 */
-	const Line_T n,          /* Size of file 2 */
-	const P_T * const P,     /* P vector */
-	const E_T * const E,     /* E vector */
-	Line_T * const J,        /* J vector */
-        DiffOptions_T *optsPtr)
+    const Line_T m,          /* Size of file 1 */
+    const Line_T n,          /* Size of file 2 */
+    const P_T * const P,     /* P vector */
+    const E_T * const E,     /* E vector */
+    Line_T * const J,        /* J vector */
+    DiffOptions_T *optsPtr)
 {
     /* lastLine tracks the last matching line, so the line after is the start
      * of a change block. */
@@ -875,28 +927,15 @@ PostProcessForbidden(
                 if (jList.n > 0) {
 		    /*
 		     * We have forbidden lines in both parts of this change
-		     * block. What to do with it?
+		     * block. Sort J list and deal with it.
 		     */
 		    /* Line_T leftCount  = (i - 1) - (lastLine1 + 1) + 1; */
 		    /* Line_T rightCount = lastJ   - (lastLine2 + 1) + 1; */
 
                     SortLineList(&jList);
+                    PostProcessForbiddenBlock(J, lastLine1 + 1, firstJ,
+                                              &iList, &jList, optsPtr);
 
-                    /*
-                     * FIXA: Better algorithm here...
-                     * Just do a raw sequential matching of forbidden lines.
-                     * This produces a reasonable, if non-optimal, result.
-                     */ 
-                    for (j = 0; j < iList.n && j < jList.n; j++) {
-                        Line_T line1 = iList.Elems[j].line;
-                        Line_T line2 = jList.Elems[j].line;
-                        Hash_T hash1 = iList.Elems[j].hash;
-                        Hash_T hash2 = jList.Elems[j].hash;
-                        if (hash1 == hash2 &&
-                            !CheckAlign(optsPtr, line1, line2)) {
-                            J[line1] = line2;
-                        }
-                    }
                     /*printf("Handled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n);*/
 		}
 	    }

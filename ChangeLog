@@ -1,3 +1,6 @@
+2012-07-02  Peter Spjuth  <peter.spjuth@gmail.com>
+	Handle alignment withing postprocessing of forbidden matches.
+
 2012-06-26  Peter Spjuth  <peter.spjuth@gmail.com>
 	Bug-fix in postprocessing of forbidden lines.
 
