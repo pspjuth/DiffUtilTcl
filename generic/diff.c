@@ -204,7 +204,7 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
 	for (i = 0; i < objc; i +=2) {
 	    /* Silently ignore errors from regsub */
 	    if (DiffOptsRegsub(NULL, objPtr, objv[i], objv[i+1], &resultPtr,
-			    optsPtr) == TCL_OK) {
+                               optsPtr) == TCL_OK) {
 		Tcl_DecrRefCount(objPtr);
 		objPtr = resultPtr;
 	    }
@@ -859,7 +859,9 @@ static void
 PostProcessForbiddenBlock(
     Line_T * const J,        /* J vector */
     Line_T firstI,           /* First line in left change block */
+    Line_T lastI,            /* First line in left change block */
     Line_T firstJ,           /* First line in right change block */
+    Line_T lastJ,            /* First line in right change block */
     LineList_T *iList,       /* List of lines in left side (sorted) */
     LineList_T *jList,       /* List of lines in right side (sorted) */
     DiffOptions_T *optsPtr)
@@ -879,6 +881,7 @@ PostProcessForbiddenBlock(
                 return;
             }
         }
+        return;
     }
 
     /*
@@ -894,6 +897,7 @@ PostProcessForbiddenBlock(
                 return;
             }
         }
+        return;
     }
 
     /*
@@ -959,11 +963,10 @@ PostProcessForbidden(
 		     * We have forbidden lines in both parts of this change
 		     * block. Sort J list and deal with it.
 		     */
-		    /* Line_T leftCount  = (i - 1) - (lastLine1 + 1) + 1; */
-		    /* Line_T rightCount = lastJ   - (lastLine2 + 1) + 1; */
 
                     SortLineList(&jList);
-                    PostProcessForbiddenBlock(J, lastLine1 + 1, firstJ,
+                    PostProcessForbiddenBlock(J, lastLine1 + 1, i - 1,
+                                              firstJ, lastJ,
                                               &iList, &jList, optsPtr);
 
                     /*printf("Handled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n);*/
@@ -1866,3 +1869,11 @@ DiffOptsRegsub(
     }
     return result;
 }
+
+/*
+ * Local Variables:
+ * mode: c
+ * c-basic-offset: 4
+ * indent-tabs-mode: nil
+ * End:
+ */
