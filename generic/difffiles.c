@@ -23,6 +23,42 @@ typedef struct {
 #define InitFileOptions_T(opts) {opts.encodingPtr = NULL; opts.translationPtr = NULL;}
 
 /*
+ * Open a file for reading and configure the channel.
+ */
+static Tcl_Channel
+OpenReadChannel(Tcl_Interp *interp,
+                Tcl_Obj *namePtr,
+                FileOptions_T *fileOptsPtr)
+{
+    Tcl_Channel ch;
+    ch = Tcl_FSOpenFileChannel(interp, namePtr, "r", 0);
+    if (ch == NULL) {
+        return NULL;
+    }
+    if (fileOptsPtr->translationPtr != NULL) {
+	char *valueName = Tcl_GetString(fileOptsPtr->translationPtr);
+	if (Tcl_SetChannelOption(interp, ch, "-translation", valueName)
+		!= TCL_OK) {
+            Tcl_Close(interp, ch);
+            return NULL;
+	}
+    }
+    /*
+     * Apply encoding after translation since -translation binary resets
+     * encoding. If a user sets both this is likely what they want.
+     */
+    if (fileOptsPtr->encodingPtr != NULL) {
+	char *valueName = Tcl_GetString(fileOptsPtr->encodingPtr);
+	if (Tcl_SetChannelOption(interp, ch, "-encoding", valueName)
+		!= TCL_OK) {
+            Tcl_Close(interp, ch);
+            return NULL;
+	}
+    }
+    return ch;
+}
+
+/*
  * Read two files, hash them and prepare the datastructures needed in LCS.
  */
 static int
@@ -73,26 +109,10 @@ ReadAndHashFiles(Tcl_Interp *interp,
      * the V vector.
      */
 
-    ch = Tcl_FSOpenFileChannel(interp, name2Ptr, "r", 0);
+    ch = OpenReadChannel(interp, name2Ptr, fileOptsPtr);
     if (ch == NULL) {
         result = TCL_ERROR;
         goto cleanup;
-    }
-    if (fileOptsPtr->encodingPtr != NULL) {
-	char *valueName = Tcl_GetString(fileOptsPtr->encodingPtr);
-	if (Tcl_SetChannelOption(interp, ch, "-encoding", valueName)
-		!= TCL_OK) {
-	    result = TCL_ERROR;
-	    goto cleanup;
-	}
-    }
-    if (fileOptsPtr->translationPtr != NULL) {
-	char *valueName = Tcl_GetString(fileOptsPtr->translationPtr);
-	if (Tcl_SetChannelOption(interp, ch, "-translation", valueName)
-		!= TCL_OK) {
-	    result = TCL_ERROR;
-	    goto cleanup;
-	}
     }
 
     /* Skip the first lines if there is a range set. */
@@ -145,26 +165,10 @@ ReadAndHashFiles(Tcl_Interp *interp,
     P = (P_T *) ckalloc(allocedP * sizeof(P_T));
 
     /* Read file and calculate hashes for each line */
-    ch = Tcl_FSOpenFileChannel(interp, name1Ptr, "r", 0);
+    ch = OpenReadChannel(interp, name1Ptr, fileOptsPtr);
     if (ch == NULL) {
         result = TCL_ERROR;
         goto cleanup;
-    }
-    if (fileOptsPtr->encodingPtr != NULL) {
-	char *valueName = Tcl_GetString(fileOptsPtr->encodingPtr);
-	if (Tcl_SetChannelOption(interp, ch, "-encoding", valueName)
-		!= TCL_OK) {
-	    result = TCL_ERROR;
-	    goto cleanup;
-	}
-    }
-    if (fileOptsPtr->translationPtr != NULL) {
-	char *valueName = Tcl_GetString(fileOptsPtr->translationPtr);
-	if (Tcl_SetChannelOption(interp, ch, "-translation", valueName)
-		!= TCL_OK) {
-	    result = TCL_ERROR;
-	    goto cleanup;
-	}
     }
 
     /* Skip the first lines if there is a range set. */
