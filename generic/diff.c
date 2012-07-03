@@ -121,7 +121,7 @@ AddToLineList(LineList_T *listPtr, Line_T Value, Hash_T hash)
 /*
  * A compare function to qsort a LineList.
  */
-int
+static int
 CompareLine(const void *a1, const void *a2) {
     LineInfo_T *v1 = (LineInfo_T *) a1;
     LineInfo_T *v2 = (LineInfo_T *) a2;
@@ -137,6 +137,12 @@ static void
 SortLineList(LineList_T *listPtr)
 {
     qsort(listPtr->Elems, listPtr->n, sizeof(LineInfo_T), CompareLine);
+}
+
+static void
+ClearLineList(LineList_T *listPtr)
+{
+    listPtr->n = 0;
 }
 
 static void
@@ -974,8 +980,8 @@ PostProcessForbidden(
 	    }
 	    lastLine1 = i;
 	    lastLine2 = J[i];
-	    FreeLineList(&iList);
-	    FreeLineList(&jList);
+	    ClearLineList(&iList);
+	    ClearLineList(&jList);
 	    continue;
 	}
 	if (P[i].forbidden) {
@@ -1015,27 +1021,28 @@ ForbidP(Line_T i, P_T *P, E_T *E)
  * The core part of the LCS algorithm.
  * It is independent of data since it only works on hashes.
  *
+ * This is the inner part of it, which do not meddle with forbidden lines.
+ * It respects them, but do not add or clean up any forbidden lines.
+ * 
  * Returns the J vector as a ckalloc:ed array.
- * J is a [0,m] vector, i.e. it has one element per line in "file 1".
- * If J[i] is non-zero, line i in "file 1" matches line J[i] in "file 2".
- *
- * m - number of elements in first sequence
- * n - number of elements in second sequence
- * P - The P vector [0,m] corresponds to lines in "file 1"
- * E - The E vector [0,n] corresponds to lines in "file 2"
  */
 Line_T *
-LcsCore(Tcl_Interp *interp,
-        Line_T m, Line_T n,
-	P_T *P, E_T *E,
-        DiffOptions_T *optsPtr)
+LcsCoreInner(
+    Tcl_Interp *interp,
+    Line_T m, /* number of elements in first sequence */
+    Line_T n, /* number of elements in second sequence */
+    P_T *P,   /* The P vector [0,m] corresponds to lines in "file 1" */
+    E_T *E,   /* The E vector [0,n] corresponds to lines in "file 2" */
+    DiffOptions_T *optsPtr,
+    int *anyForbidden) /* Out parameter, was any forbidden lines skipped? */
 {
     Candidate_T **K, *c;
     Line_T i, k, *J;
-    int anyForbidden = 0;
     /* Keep track of all candidates to free them easily */
     CandidateAlloc_T *candidates = NULL;
     
+    *anyForbidden = 0;
+
     /*printf("Doing K\n"); */
 
     /* Initialise K candidate vector */
@@ -1048,19 +1055,6 @@ LcsCore(Tcl_Interp *interp,
     /* Add a fence outside the used range of K */
     K[1] = NewCandidate(&candidates, m + 1, n + 1, 0, NULL, NULL);
 
-    for (i = 1; i <= m; i++) {
-        if (P[i].Eindex != 0) {
-            if (optsPtr->noempty && P[i].hash == 0) {
-                /* Uphold the -noempty rule by forbidding those connections */
-                ForbidP(i, P, E);
-            }
-            if (E[P[i].Eindex].count > optsPtr->pivot) {
-                /* Experiment to forbid large equivalence classes */
-                ForbidP(i, P, E);
-            }
-        }
-    }
-
     /*
      * For each line in file 1, if it matches any line in file 2,
      * merge it into the set of candidates.
@@ -1069,7 +1063,7 @@ LcsCore(Tcl_Interp *interp,
     for (i = 1; i <= m; i++) {
         if (P[i].Eindex != 0) {
             if (P[i].forbidden) {
-                anyForbidden = 1;
+                *anyForbidden = 1;
             } else {
                 /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
                 merge(&candidates, K, &k, i, P, E, P[i].Eindex, optsPtr, m, n);
@@ -1197,6 +1191,47 @@ LcsCore(Tcl_Interp *interp,
     FreeCandidates(&candidates);
     ckfree((char *) K);
 
+    return J;
+}
+
+/*
+ * The core part of the LCS algorithm.
+ * It is independent of data since it only works on hashes.
+ *
+ * Returns the J vector as a ckalloc:ed array.
+ * J is a [0,m] vector, i.e. it has one element per line in "file 1".
+ * If J[i] is non-zero, line i in "file 1" matches line J[i] in "file 2".
+ *
+ * m - number of elements in first sequence
+ * n - number of elements in second sequence
+ * P - The P vector [0,m] corresponds to lines in "file 1"
+ * E - The E vector [0,n] corresponds to lines in "file 2"
+ */
+Line_T *
+LcsCore(
+    Tcl_Interp *interp,
+    Line_T m, Line_T n,
+    P_T *P, E_T *E,
+    DiffOptions_T *optsPtr)
+{
+    Line_T i, *J;
+    int anyForbidden;
+    
+    for (i = 1; i <= m; i++) {
+        if (P[i].Eindex != 0) {
+            if (optsPtr->noempty && P[i].hash == 0) {
+                /* Uphold the -noempty rule by forbidding those connections */
+                ForbidP(i, P, E);
+            }
+            if (E[P[i].Eindex].count > optsPtr->pivot) {
+                /* Experiment to forbid large equivalence classes */
+                ForbidP(i, P, E);
+            }
+        }
+    }
+
+    J = LcsCoreInner(interp, m, n, P, E, optsPtr, &anyForbidden);
+
     if (anyForbidden) {
         /*
          * We have ignored forbidden lines before which means that there
@@ -1205,7 +1240,6 @@ LcsCore(Tcl_Interp *interp,
 
 	PostProcessForbidden(m, n, P, E, J, optsPtr);
     }
-
     return J;
 }
 
