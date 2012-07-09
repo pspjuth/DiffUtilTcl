@@ -101,19 +101,22 @@ typedef struct {
 
 
 extern void      AppendChunk(Tcl_Interp *interp, Tcl_Obj *listPtr,
-			DiffOptions_T *optsPtr,	Line_T start1, Line_T n1,
+			DiffOptions_T const *optsPtr,
+                        Line_T start1, Line_T n1,
 			Line_T start2, Line_T n2);
-extern E_T *     BuildEVector(V_T *V, Line_T n);
-extern Tcl_Obj * BuildResultFromJ(Tcl_Interp *interp, DiffOptions_T *optsPtr,
-			Line_T m, Line_T n, Line_T *J);
+extern E_T *     BuildEVector(V_T const *V, Line_T n);
+extern Tcl_Obj * BuildResultFromJ(Tcl_Interp *interp,
+                        DiffOptions_T const *optsPtr,
+			Line_T m, Line_T n, Line_T const *J);
 extern int       CompareObjects(Tcl_Obj *obj1Ptr, Tcl_Obj *obj2Ptr,
-			DiffOptions_T *optsPtr);
+			DiffOptions_T const *optsPtr);
 extern int       CompareV(const void *a1, const void *a2);
-extern void      Hash(Tcl_Obj *objPtr, DiffOptions_T *optsPtr, int left,
-			Hash_T *result, Hash_T *real);
+extern void      Hash(Tcl_Obj *objPtr,
+                        DiffOptions_T const *optsPtr, int left,
+                        Hash_T *result, Hash_T *real);
 extern Line_T *  LcsCore(Tcl_Interp *interp, Line_T m, Line_T n, P_T *P,
-			E_T *E, DiffOptions_T *optsPtr);
-extern Tcl_Obj * NewChunk(Tcl_Interp *interp, DiffOptions_T *optsPtr,
+			E_T *E, DiffOptions_T const *optsPtr);
+extern Tcl_Obj * NewChunk(Tcl_Interp *interp, DiffOptions_T const *optsPtr,
 			Line_T start1, Line_T n1, Line_T start2, Line_T n2);
 extern void      NormaliseOpts(DiffOptions_T *optsPtr);
 extern int       SetOptsRange(Tcl_Interp *interp, Tcl_Obj *rangePtr, int first,

@@ -2,7 +2,7 @@
  *
  * This file implements the central LCS function for comparing things.
  *
- * Copyright (c) 2004, 2010, Peter Spjuth
+ * Copyright (c) 2004, 2010-2012, Peter Spjuth
  *
  ***********************************************************************
  * References:
@@ -84,8 +84,9 @@ typedef struct LineList_T {
 } LineList_T;
 
 static int       DiffOptsRegsub(Tcl_Interp *interp, Tcl_Obj *obj1Ptr,
-			Tcl_Obj *rePtr, Tcl_Obj *sub1Ptr,
-			Tcl_Obj **resultPtrPtr, DiffOptions_T *optsPtr);
+                        Tcl_Obj *rePtr, Tcl_Obj *sub1Ptr,
+                        Tcl_Obj **resultPtrPtr,
+                        DiffOptions_T const *optsPtr);
 
 static void
 InitLineList(LineList_T *listPtr)
@@ -96,22 +97,22 @@ InitLineList(LineList_T *listPtr)
 }
 
 static void
-AddToLineList(LineList_T *listPtr, Line_T Value, Hash_T hash)
+AddToLineList(LineList_T *listPtr, Line_T Value,  Hash_T hash)
 {
     if (listPtr->n >= listPtr->alloced) {
-	/* Full, need to realloc */
-	if (listPtr->Elems == listPtr->staticList) {
-	    listPtr->Elems = (LineInfo_T *)
-		    ckalloc(sizeof(LineInfo_T) * listPtr->alloced * 2);
-	    memcpy(listPtr->Elems, listPtr->staticList,
-		    LineListStaticAlloc_C * sizeof(LineInfo_T));
-	    listPtr->alloced *= 2;
-	} else {
+        /* Full, need to realloc */
+        if (listPtr->Elems == listPtr->staticList) {
+            listPtr->Elems = (LineInfo_T *)
+                    ckalloc(sizeof(LineInfo_T) * listPtr->alloced * 2);
+            memcpy(listPtr->Elems, listPtr->staticList,
+                    LineListStaticAlloc_C * sizeof(LineInfo_T));
+            listPtr->alloced *= 2;
+        } else {
             listPtr->Elems = (LineInfo_T *)
                     ckrealloc((void *) listPtr->Elems,
                               sizeof(LineInfo_T) * listPtr->alloced * 2);
-	    listPtr->alloced *= 2;
-	}
+            listPtr->alloced *= 2;
+        }
     }
     listPtr->Elems[listPtr->n].line = Value;
     listPtr->Elems[listPtr->n].hash = hash;
@@ -122,9 +123,10 @@ AddToLineList(LineList_T *listPtr, Line_T Value, Hash_T hash)
  * A compare function to qsort a LineList.
  */
 static int
-CompareLine(const void *a1, const void *a2) {
-    LineInfo_T *v1 = (LineInfo_T *) a1;
-    LineInfo_T *v2 = (LineInfo_T *) a2;
+CompareLine(const void *a1, const void *a2)
+{
+    const LineInfo_T *v1 = (LineInfo_T *) a1;
+    const LineInfo_T *v2 = (LineInfo_T *) a2;
     if (v1->line < v2->line)
         return -1;
     else if (v1->line > v2->line)
@@ -149,8 +151,8 @@ static void
 FreeLineList(LineList_T *listPtr)
 {
     if (listPtr->Elems != listPtr->staticList) {
-	ckfree((void *) listPtr->Elems);
-	listPtr->Elems = listPtr->staticList;
+        ckfree((void *) listPtr->Elems);
+        listPtr->Elems = listPtr->staticList;
     }
     listPtr->alloced = LineListStaticAlloc_C;
     listPtr->n = 0;
@@ -162,16 +164,16 @@ FreeLineList(LineList_T *listPtr)
  * This assumes the align list is sorted, as done by NormaliseOpts.
  */
 static int
-CheckAlign(DiffOptions_T *optsPtr, Line_T i, Line_T j)
+CheckAlign(const DiffOptions_T *optsPtr, Line_T i, Line_T j)
 {
     int t;
 
     for (t = 0; t < optsPtr->alignLength; t += 2) {
-	/* If both are below, it is ok since the list is sorted */
+        /* If both are below, it is ok since the list is sorted */
         if (i <  optsPtr->align[t] && j <  optsPtr->align[t + 1]) return 0;
-	/* If aligned, it must be ok */
+        /* If aligned, it must be ok */
         if (i == optsPtr->align[t] && j == optsPtr->align[t + 1]) return 0;
-	/* Fail if just one is below the align level */
+        /* Fail if just one is below the align level */
         if (i <= optsPtr->align[t] || j <= optsPtr->align[t + 1]) return 1;
     }
     return 0;
@@ -188,40 +190,40 @@ CheckAlign(DiffOptions_T *optsPtr, Line_T i, Line_T j)
  * Get a string from a Tcl object and compute the hash value for it.
  */
 void
-Hash(Tcl_Obj *objPtr,         /* Input Object */
-     DiffOptions_T *optsPtr,  /* Options      */
-     int left,                /* Which side the string belongs to. */
-     Hash_T *result,          /* Hash value   */
-     Hash_T *real)            /* Hash value when ignoring ignore */
+Hash(Tcl_Obj *objPtr,              /* Input Object */
+     const DiffOptions_T *optsPtr, /* Options      */
+     int left,                     /* Which side the string belongs to. */
+     Hash_T *result,               /* Hash value   */
+     Hash_T *real)                 /* Hash value when ignoring ignore */
 {
     Hash_T hash;
     int i, length;
     char *string, *str;
     Tcl_UniChar c;
     Tcl_Obj *regsubPtr = left ?
-	    optsPtr->regsubLeftPtr : optsPtr->regsubRightPtr;
+            optsPtr->regsubLeftPtr : optsPtr->regsubRightPtr;
 
     Tcl_IncrRefCount(objPtr);
     if (regsubPtr != NULL) {
-	int objc;
-	Tcl_Obj **objv;
-	Tcl_Obj *resultPtr = NULL;
-	Tcl_ListObjGetElements(NULL, regsubPtr, &objc, &objv);
-	for (i = 0; i < objc; i +=2) {
-	    /* Silently ignore errors from regsub */
-	    if (DiffOptsRegsub(NULL, objPtr, objv[i], objv[i+1], &resultPtr,
+        int objc;
+        Tcl_Obj **objv;
+        Tcl_Obj *resultPtr = NULL;
+        Tcl_ListObjGetElements(NULL, regsubPtr, &objc, &objv);
+        for (i = 0; i < objc; i +=2) {
+            /* Silently ignore errors from regsub */
+            if (DiffOptsRegsub(NULL, objPtr, objv[i], objv[i+1], &resultPtr,
                                optsPtr) == TCL_OK) {
-		Tcl_DecrRefCount(objPtr);
-		objPtr = resultPtr;
-	    }
-	}
+                Tcl_DecrRefCount(objPtr);
+                objPtr = resultPtr;
+            }
+        }
     }
     string = Tcl_GetStringFromObj(objPtr, &length);
 
     /* Use the fast way when no ignore flag is used. */
     hash = 0;
     for (i = 0; i < length; i++) {
-	HASH_ADD(hash, (unsigned char) string[i]);
+        HASH_ADD(hash, (unsigned char) string[i]);
     }
     *real = hash;
     if (optsPtr->ignore != 0) {
@@ -245,7 +247,7 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
                 /* Any consecutive whitespace is regarded as a single space */
                 if (ignoreSpace && in == IN_SPACE) continue;
                 if (ignoreSpace)
-		    c = ' ';
+                    c = ' ';
                 in = IN_SPACE;
             } else if (ignoreNum && Tcl_UniCharIsDigit(c)) {
                 if (in == IN_NUMBER) continue;
@@ -258,7 +260,7 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
                     c = Tcl_UniCharToLower(c);
                 }
             }
-	    HASH_ADD(hash, c);
+            HASH_ADD(hash, c);
         }
     }
     *result = hash;
@@ -274,7 +276,7 @@ Hash(Tcl_Obj *objPtr,         /* Input Object */
 int
 CompareObjects(Tcl_Obj *obj1Ptr,
                Tcl_Obj *obj2Ptr,
-               DiffOptions_T *optsPtr)
+               const DiffOptions_T *optsPtr)
 {
     int c1, c2, i1, i2, length1, length2, start;
     int i, result = 0;
@@ -287,48 +289,48 @@ CompareObjects(Tcl_Obj *obj1Ptr,
     Tcl_IncrRefCount(obj1Ptr);
     Tcl_IncrRefCount(obj2Ptr);
     if (optsPtr->regsubLeftPtr != NULL) {
-	int objc;
-	Tcl_Obj **objv;
-	Tcl_Obj *resultPtr = NULL;
+        int objc;
+        Tcl_Obj **objv;
+        Tcl_Obj *resultPtr = NULL;
 
-	Tcl_ListObjGetElements(NULL, optsPtr->regsubLeftPtr, &objc, &objv);
+        Tcl_ListObjGetElements(NULL, optsPtr->regsubLeftPtr, &objc, &objv);
 
-	for (i = 0; i < objc; i += 2) {
-	    /* Silently ignore errors from regsub */
-	    if (DiffOptsRegsub(NULL, obj1Ptr, objv[i], objv[i+1], &resultPtr,
-			    optsPtr) == TCL_OK) {
-		Tcl_DecrRefCount(obj1Ptr);
-		obj1Ptr = resultPtr;
-	    }
-	}
+        for (i = 0; i < objc; i += 2) {
+            /* Silently ignore errors from regsub */
+            if (DiffOptsRegsub(NULL, obj1Ptr, objv[i], objv[i+1], &resultPtr,
+                            optsPtr) == TCL_OK) {
+                Tcl_DecrRefCount(obj1Ptr);
+                obj1Ptr = resultPtr;
+            }
+        }
     }
     if (optsPtr->regsubRightPtr != NULL) {
-	int objc;
-	Tcl_Obj **objv;
-	Tcl_Obj *resultPtr = NULL;
+        int objc;
+        Tcl_Obj **objv;
+        Tcl_Obj *resultPtr = NULL;
 
-	Tcl_ListObjGetElements(NULL, optsPtr->regsubRightPtr, &objc, &objv);
+        Tcl_ListObjGetElements(NULL, optsPtr->regsubRightPtr, &objc, &objv);
 
-	for (i = 0; i < objc; i += 2) {
-	    /* Silently ignore errors from regsub */
-	    if (DiffOptsRegsub(NULL, obj2Ptr, objv[i], objv[i+1], &resultPtr,
-			    optsPtr) == TCL_OK) {
-		Tcl_DecrRefCount(obj2Ptr);
-		obj2Ptr = resultPtr;
-	    }
-	}
+        for (i = 0; i < objc; i += 2) {
+            /* Silently ignore errors from regsub */
+            if (DiffOptsRegsub(NULL, obj2Ptr, objv[i], objv[i+1], &resultPtr,
+                            optsPtr) == TCL_OK) {
+                Tcl_DecrRefCount(obj2Ptr);
+                obj2Ptr = resultPtr;
+            }
+        }
     }
     string1 = Tcl_GetStringFromObj(obj1Ptr, &length1);
     string2 = Tcl_GetStringFromObj(obj2Ptr, &length2);
 
     /* Use the fast way when no ignore flag is used. */
     if (optsPtr->ignore == 0) {
-	if (length1 != length2) {
-	    result = 1;
-	} else {
-	    result = Tcl_UtfNcmp(string1, string2, length1);
-	}
-	goto cleanup;
+        if (length1 != length2) {
+            result = 1;
+        } else {
+            result = Tcl_UtfNcmp(string1, string2, length1);
+        }
+        goto cleanup;
     }
 
     i1 = i2 = 0;
@@ -399,9 +401,10 @@ CompareObjects(Tcl_Obj *obj1Ptr,
  * Sorts first on hash, then on serial number.
  */
 int
-CompareV(const void *a1, const void *a2) {
-    V_T *v1 = (V_T *) a1;
-    V_T *v2 = (V_T *) a2;
+CompareV(const void *a1, const void *a2)
+{
+    V_T const *v1 = (V_T *) a1;
+    V_T const *v2 = (V_T *) a2;
     if (v1->hash < v2->hash)
         return -1;
     else if (v1->hash > v2->hash)
@@ -416,9 +419,11 @@ CompareV(const void *a1, const void *a2) {
 
 /* Create a new candidate */
 static Candidate_T *
-NewCandidate(CandidateAlloc_T **first,
-	     Line_T a, Line_T b, Hash_T realhash,
-             Candidate_T *prev, Candidate_T *peer) {
+NewCandidate(
+    CandidateAlloc_T **first,
+    Line_T a, Line_T b, Hash_T realhash,
+    Candidate_T *prev, Candidate_T *peer)
+{
     Candidate_T *cand;
     CandidateAlloc_T *candalloc;
 
@@ -485,17 +490,17 @@ FreeCandidates(CandidateAlloc_T **first) {
  * This implements the merge function from the LCS algorithm
  */
 static void
-merge(CandidateAlloc_T **firstCandidate,
-      Candidate_T **K,
-      Line_T *k,      /* Index to last used element in K */
-      Line_T i,       /* Current index in file 1 */
-      P_T *P,         /* P vector */
-      E_T *E,         /* E vector */
-      Line_T p,       /* Index in E of the file 2 class equivalent to line i */
-      DiffOptions_T *optsPtr,
-      Line_T m,       /* Size of file 1 */
-      Line_T n        /* Size of file 2 */
-	)
+merge(
+    CandidateAlloc_T **firstCandidate,
+    Candidate_T **K,
+    Line_T *k,      /* Index to last used element in K */
+    Line_T i,       /* Current index in file 1 */
+    const P_T *P,   /* P vector */
+    const E_T *E,   /* E vector */
+    Line_T p,       /* Index in E of the file 2 class equivalent to line i */
+    const DiffOptions_T *optsPtr,
+    Line_T m,       /* Size of file 1 */
+    Line_T n)       /* Size of file 2 */
 {
     Candidate_T *c, *newc, *peer, *tmp;
     Line_T r, ck, j, b1 = 0, b2 = 0;
@@ -513,8 +518,8 @@ merge(CandidateAlloc_T **firstCandidate,
 
     c = K[0];
     ck = 0; /* ck is where c is supposed to be stored. Following the
-	     * H/M algorithm ck will be equal to r.
-	     */
+             * H/M algorithm ck will be equal to r.
+             */
     r = 0;  /* r is the start of the search range */
 
     /*
@@ -533,9 +538,9 @@ merge(CandidateAlloc_T **firstCandidate,
 
         /*printf("p = %ld  j = %ld  r = %ld  s= %ld  k = %ld\n", p, j, r, s, *k);*/
         /*
-	 * Binary search in K from r to k.
-	 * K is ordered on its line2, and we want the place where j would fit.
-	 */
+         * Binary search in K from r to k.
+         * K is ordered on its line2, and we want the place where j would fit.
+         */
         first = r;
         last = *k;
         while (first <= last) {
@@ -559,10 +564,10 @@ merge(CandidateAlloc_T **firstCandidate,
             }
         }
 
-	/*
-	 * By now b1 is the line for K[s] and b2 is the line for K[s+1].
-	 * We know that, if possible, b1 <= j < b2.
-	 */
+        /*
+         * By now b1 is the line for K[s] and b2 is the line for K[s+1].
+         * We know that, if possible, b1 <= j < b2.
+         */
 
         /*printf("j = %ld  s = %ld  b1 = %ld  b2 = %ld\n", j, s, b1, b2);*/
         if (b1 < j && j < b2) {
@@ -575,7 +580,7 @@ merge(CandidateAlloc_T **firstCandidate,
                     if (peer->peer->line1 != peer->line1) break;
                 }
                 newc = NewCandidate(firstCandidate, i, j, E[p].realhash,
-			c->prev, peer->peer);
+                        c->prev, peer->peer);
                 peer->peer = newc;
             } else {
                 peer = K[s+1];
@@ -586,7 +591,7 @@ merge(CandidateAlloc_T **firstCandidate,
                     peer = NULL;
                 }
                 newc = NewCandidate(firstCandidate, i, j, E[p].realhash, K[s],
-			peer);
+                        peer);
 #ifdef CANDIDATE_DEBUG
                 newc->wasK = s + 1;
 #endif
@@ -596,14 +601,14 @@ merge(CandidateAlloc_T **firstCandidate,
 #ifdef ALLOW_SAME_COLUMN /*NonHM*/
 #ifdef SAME_COL_OPT
                 /*
-		 * In the H/M algorithm, another k-candidate is not allowed
-		 * in the same column as a previous.  This is since further
-		 * k-candidates cannot give a longer sequence.  We want some
-		 * more matches so we keep k as lower boundary in this column.
-		 *
+                 * In the H/M algorithm, another k-candidate is not allowed
+                 * in the same column as a previous.  This is since further
+                 * k-candidates cannot give a longer sequence.  We want some
+                 * more matches so we keep k as lower boundary in this column.
+                 *
                  * If c is "optimally" placed, we can skip a lot by narrowing
                  * the search space for the next iteration by not allowing
-		 * any more k-candidates in this column (Thus following H/M).
+                 * any more k-candidates in this column (Thus following H/M).
                  * c is optimal if it's next to its previous candidate,
                  * but not if it has a peer in the same column.
                  * And not if the previous line is empty.
@@ -639,11 +644,11 @@ merge(CandidateAlloc_T **firstCandidate,
             if (ck == s /*&& c->line1 == i*/) {
                 /*
                  * If there already is a candidate for this level, i.e. if
-		 * there is a s-candidate below us and K[s] is about to be
-		 * updated, create this candidate as a peer but do not update K.
+                 * there is a s-candidate below us and K[s] is about to be
+                 * updated, create this candidate as a peer but do not update K.
                  */
                 newc = NewCandidate(firstCandidate, i, j, E[p].realhash,
-			c->prev, c->peer);
+                        c->prev, c->peer);
                 c->peer = newc;
             } else {
 #ifdef SAME_ROW_OPT2
@@ -677,7 +682,7 @@ merge(CandidateAlloc_T **firstCandidate,
                             tmp = tmp->peer;
                         }
                         newc = NewCandidate(firstCandidate, i, j, E[p].realhash,
-				tmp, K[s]);
+                                tmp, K[s]);
 #ifdef CANDIDATE_DEBUG
                         newc->wasK = s;
 #endif
@@ -708,7 +713,7 @@ merge(CandidateAlloc_T **firstCandidate,
 #define inline
 #endif
 static inline void
-ScoreCandidate(Candidate_T *c, P_T *P)
+ScoreCandidate(Candidate_T *c, const P_T *P)
 {
     Candidate_T *prev, *bestc;
     long score, bestscore;
@@ -761,7 +766,7 @@ ScoreCandidate(Candidate_T *c, P_T *P)
  * entire chain below it.
  */
 static void
-ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
+ScoreCandidates(Line_T k, Candidate_T **K, const P_T *P)
 {
     Line_T sp;
     Candidate_T *cand, *prev;
@@ -785,7 +790,7 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
 
     /* A candidate stack */
     if (k == 0) {
-	return;
+        return;
     }
     /* Calculate initial stack size needed */
     sp = 0;
@@ -839,9 +844,9 @@ ScoreCandidates(Line_T k, Candidate_T **K, P_T *P)
  */
 static int
 IsLineMatch(
-    LineInfo_T *Elem1,
-    LineInfo_T *Elem2,
-    DiffOptions_T *optsPtr)
+    const LineInfo_T *Elem1,
+    const LineInfo_T *Elem2,
+    const DiffOptions_T *optsPtr)
 
 {
     Line_T line1 = Elem1->line;
@@ -868,9 +873,9 @@ PostProcessForbiddenBlock(
     Line_T lastI,            /* First line in left change block */
     Line_T firstJ,           /* First line in right change block */
     Line_T lastJ,            /* First line in right change block */
-    LineList_T *iList,       /* List of lines in left side (sorted) */
-    LineList_T *jList,       /* List of lines in right side (sorted) */
-    DiffOptions_T *optsPtr)
+    const LineList_T *iList, /* List of lines in left side (sorted) */
+    const LineList_T *jList, /* List of lines in right side (sorted) */
+    const DiffOptions_T *optsPtr)
 {
     Line_T i, j;
 
@@ -930,7 +935,7 @@ PostProcessForbidden(
     const P_T * const P,     /* P vector */
     const E_T * const E,     /* E vector */
     Line_T * const J,        /* J vector */
-    DiffOptions_T *optsPtr)
+    const DiffOptions_T *optsPtr)
 {
     /* lastLine tracks the last matching line, so the line after is the start
      * of a change block. */
@@ -942,33 +947,33 @@ PostProcessForbidden(
     InitLineList(&jList);
 
     for (i = 1; i <= (m + 1); i++) {
-	if (i > m || J[i] != 0) {
+        if (i > m || J[i] != 0) {
             /* We are at the end or at a matching line, thus a change block
              * has ended. */
-	    if (iList.n > 0) {
-		/*
-		 * We have forbidden lines in the left part of this change
-		 * block and thus must look in the right part too.
-		 */
+            if (iList.n > 0) {
+                /*
+                 * We have forbidden lines in the left part of this change
+                 * block and thus must look in the right part too.
+                 */
 
                 /* Figure out the range in the right file */
-		firstJ = lastLine2 + 1;
-		lastJ = i > m ? n : J[i] - 1;
-		
-		for (j = 1; j <= n; j++) {
-		    if (E[j].serial >= firstJ && E[j].serial <= lastJ) {
+                firstJ = lastLine2 + 1;
+                lastJ = i > m ? n : J[i] - 1;
+                
+                for (j = 1; j <= n; j++) {
+                    if (E[j].serial >= firstJ && E[j].serial <= lastJ) {
                         /* Line is within range. Is it forbidden? */
                         if (E[j].forbidden) {
                             AddToLineList(&jList, E[j].serial, E[j].hash);
                         }
-		    }
-		}
+                    }
+                }
 
                 if (jList.n > 0) {
-		    /*
-		     * We have forbidden lines in both parts of this change
-		     * block. Sort J list and deal with it.
-		     */
+                    /*
+                     * We have forbidden lines in both parts of this change
+                     * block. Sort J list and deal with it.
+                     */
 
                     SortLineList(&jList);
                     PostProcessForbiddenBlock(J, lastLine1 + 1, i - 1,
@@ -976,19 +981,19 @@ PostProcessForbidden(
                                               &iList, &jList, optsPtr);
 
                     /*printf("Handled forbidden. L %ld-%ld (%ld) R %ld-%ld (%ld)\n", lastLine1 + 1, i-1, iList.n, lastLine2 + 1, lastJ, jList.n);*/
-		}
-	    }
-	    lastLine1 = i;
-	    lastLine2 = J[i];
-	    ClearLineList(&iList);
-	    ClearLineList(&jList);
-	    continue;
-	}
-	if (P[i].forbidden) {
+                }
+            }
+            lastLine1 = i;
+            lastLine2 = J[i];
+            ClearLineList(&iList);
+            ClearLineList(&jList);
+            continue;
+        }
+        if (P[i].forbidden) {
             /* Make a list of all forbidden lines in this change block. */
-	    AddToLineList(&iList, i, P[i].hash);
-	    continue;
-	}
+            AddToLineList(&iList, i, P[i].hash);
+            continue;
+        }
     }
     
     FreeLineList(&iList);
@@ -1029,11 +1034,11 @@ ForbidP(Line_T i, P_T *P, E_T *E)
 Line_T *
 LcsCoreInner(
     Tcl_Interp *interp,
-    Line_T m, /* number of elements in first sequence */
-    Line_T n, /* number of elements in second sequence */
-    P_T *P,   /* The P vector [0,m] corresponds to lines in "file 1" */
-    E_T *E,   /* The E vector [0,n] corresponds to lines in "file 2" */
-    DiffOptions_T *optsPtr,
+    Line_T m,      /* number of elements in first sequence */
+    Line_T n,      /* number of elements in second sequence */
+    const P_T *P,  /* The P vector [0,m] corresponds to lines in "file 1" */
+    const E_T *E,  /* The E vector [0,n] corresponds to lines in "file 2" */
+    const DiffOptions_T *optsPtr,
     int *anyForbidden) /* Out parameter, was any forbidden lines skipped? */
 {
     Candidate_T **K, *c;
@@ -1179,10 +1184,10 @@ LcsCoreInner(
      */
 
     while (c != NULL) {
-	/* Sanity check */
+        /* Sanity check */
         if (c->line1 < 0 || c->line1 > m) {
-	    Tcl_Panic("Bad line number when constructing J vector");
-	}
+            Tcl_Panic("Bad line number when constructing J vector");
+        }
         J[c->line1] = c->line2;
         c = c->prev;
     }
@@ -1212,7 +1217,7 @@ LcsCore(
     Tcl_Interp *interp,
     Line_T m, Line_T n,
     P_T *P, E_T *E,
-    DiffOptions_T *optsPtr)
+    const DiffOptions_T *optsPtr)
 {
     Line_T i, *J;
     int anyForbidden;
@@ -1238,7 +1243,7 @@ LcsCore(
          * may be more lines that can be matched.
          */
 
-	PostProcessForbidden(m, n, P, E, J, optsPtr);
+        PostProcessForbidden(m, n, P, E, J, optsPtr);
     }
     return J;
 }
@@ -1249,7 +1254,7 @@ LcsCore(
  * Returns the ckalloc:ed E vector.
  */
 E_T *
-BuildEVector(V_T *V, Line_T n)
+BuildEVector(const V_T *V, Line_T n)
 {
     Line_T j, first;
     E_T *E;
@@ -1265,15 +1270,15 @@ BuildEVector(V_T *V, Line_T n)
         E[j].hash     = V[j].hash;
         E[j].realhash = V[j].realhash;
         E[j].forbidden = 0;
-	E[j].count = 0;
-	E[first].count++;
+        E[j].count = 0;
+        E[first].count++;
 
         if (j == n) {
             E[j].last = 1;
         } else {
             if (V[j].hash != V[j+1].hash) {
                 E[j].last = 1;
-		first = j + 1;
+                first = j + 1;
             } else {
                 E[j].last = 0;
             }
@@ -1284,27 +1289,28 @@ BuildEVector(V_T *V, Line_T n)
 
 /* Binary search for hash in V */
 Line_T
-BSearchVVector(V_T *V, Line_T n, Hash_T h)
+BSearchVVector(const V_T *V, Line_T n, Hash_T h)
 {
     Line_T first = 1;
     Line_T last = n;
     Line_T j = 1;
     while (first <= last) {
-	j = (first + last) / 2;
-	if (V[j].hash == h) break;
-	if (V[j].hash < h) {
-	    first = j + 1;
-	} else {
-	    last = j - 1;
-	}
+        j = (first + last) / 2;
+        if (V[j].hash == h) break;
+        if (V[j].hash < h) {
+            first = j + 1;
+        } else {
+            last = j - 1;
+        }
     }
     return j;
 }
 
 /* Allocate the type of chunk that is the result of the diff functions */
 Tcl_Obj *
-NewChunk(Tcl_Interp *interp, DiffOptions_T *optsPtr,
-         Line_T start1, Line_T n1, Line_T start2, Line_T n2) {
+NewChunk(Tcl_Interp *interp, const DiffOptions_T *optsPtr,
+         Line_T start1, Line_T n1, Line_T start2, Line_T n2)
+{
     Tcl_Obj *subPtr = Tcl_NewListObj(0, NULL);
     start1 += (optsPtr->rFrom1 - 1);
     start2 += (optsPtr->rFrom2 - 1);
@@ -1317,41 +1323,45 @@ NewChunk(Tcl_Interp *interp, DiffOptions_T *optsPtr,
 
 /* Add a chunk to a result list */
 void
-AppendChunk(Tcl_Interp *interp, Tcl_Obj *listPtr, DiffOptions_T *optsPtr,
-	Line_T start1, Line_T n1, Line_T start2, Line_T n2) {
+AppendChunk(
+    Tcl_Interp *interp, Tcl_Obj *listPtr,
+    const DiffOptions_T *optsPtr,
+    Line_T start1, Line_T n1,
+    Line_T start2, Line_T n2)
+{
     int t;
 
     /* If an alignment happens within a changed chunk, it should be split */
     for (t = 0; t < optsPtr->alignLength; t += 2) {
-	int lMatch = start1 <= optsPtr->align[t] &&
-		optsPtr->align[t] < (start1 + n1);
-	int rMatch = start2 <= optsPtr->align[t + 1] &&
-		optsPtr->align[t + 1] < (start2 + n2);
-	if (lMatch && rMatch) {
-	    /* This aligned pair is within the chunk */
-	    int preN1 = optsPtr->align[t]     - start1;
-	    int preN2 = optsPtr->align[t + 1] - start2;
-	    if (preN1 > 0 || preN2 > 0) {
-		/* Chunk before the align */
-		Tcl_ListObjAppendElement(interp, listPtr,
-			NewChunk(interp, optsPtr,
-				start1, preN1, start2, preN2));
-	    }
-	    /* Chunk for the aligned rows */
-	    Tcl_ListObjAppendElement(interp, listPtr,
-		    NewChunk(interp, optsPtr,
-			    optsPtr->align[t], 1, optsPtr->align[t + 1], 1));
-	    /* Adjust block to contain the remains */
-	    start1 = optsPtr->align[t]     + 1;
-	    start2 = optsPtr->align[t + 1] + 1;
-	    n1 -= preN1 + 1;
-	    n2 -= preN2 + 1;
-	}
+        int lMatch = start1 <= optsPtr->align[t] &&
+                optsPtr->align[t] < (start1 + n1);
+        int rMatch = start2 <= optsPtr->align[t + 1] &&
+                optsPtr->align[t + 1] < (start2 + n2);
+        if (lMatch && rMatch) {
+            /* This aligned pair is within the chunk */
+            int preN1 = optsPtr->align[t]     - start1;
+            int preN2 = optsPtr->align[t + 1] - start2;
+            if (preN1 > 0 || preN2 > 0) {
+                /* Chunk before the align */
+                Tcl_ListObjAppendElement(interp, listPtr,
+                        NewChunk(interp, optsPtr,
+                                start1, preN1, start2, preN2));
+            }
+            /* Chunk for the aligned rows */
+            Tcl_ListObjAppendElement(interp, listPtr,
+                    NewChunk(interp, optsPtr,
+                            optsPtr->align[t], 1, optsPtr->align[t + 1], 1));
+            /* Adjust block to contain the remains */
+            start1 = optsPtr->align[t]     + 1;
+            start2 = optsPtr->align[t + 1] + 1;
+            n1 -= preN1 + 1;
+            n2 -= preN2 + 1;
+        }
     }
     /* Alignment could leave us with an empty chunk */
     if (n1 > 0 || n2 > 0) {
-	Tcl_ListObjAppendElement(interp, listPtr,
-		NewChunk(interp, optsPtr, start1, n1, start2, n2));
+        Tcl_ListObjAppendElement(interp, listPtr,
+                NewChunk(interp, optsPtr, start1, n1, start2, n2));
     }
 }
 
@@ -1361,8 +1371,9 @@ AppendChunk(Tcl_Interp *interp, Tcl_Obj *listPtr, DiffOptions_T *optsPtr,
  */
 
 static Tcl_Obj *
-BuildResultFromJDiffStyle(Tcl_Interp *interp, DiffOptions_T *optsPtr,
-	Line_T m, Line_T n, Line_T *J)
+BuildResultFromJDiffStyle(
+    Tcl_Interp *interp, const DiffOptions_T *optsPtr,
+    Line_T m, Line_T n, const Line_T *J)
 {
     Tcl_Obj *resPtr;
     Line_T current1, current2, n1, n2;
@@ -1373,40 +1384,41 @@ BuildResultFromJDiffStyle(Tcl_Interp *interp, DiffOptions_T *optsPtr,
     current1 = current2 = 0;
 
     while (current1 < m || current2 < n) {
-	/* Scan list 1 until next supposed match */
-	while (current1 < m) {
-	    current1++;
-	    if (J[current1] != 0) break;
-	}
-	/* Scan list 2 until next supposed match */
-	while (current2 < n) {
-	    current2++;
-	    if (J[current1] == current2) break;
-	}
-	if (J[current1] != current2) continue;
+        /* Scan list 1 until next supposed match */
+        while (current1 < m) {
+            current1++;
+            if (J[current1] != 0) break;
+        }
+        /* Scan list 2 until next supposed match */
+        while (current2 < n) {
+            current2++;
+            if (J[current1] == current2) break;
+        }
+        if (J[current1] != current2) continue;
 
-	n1 = current1 - startBlock1;
-	n2 = current2 - startBlock2;
-	if (n1 > 0 || n2 > 0) {
-	    AppendChunk(interp, resPtr, optsPtr,
-		    startBlock1, n1, startBlock2, n2);
-	}
-	startBlock1 = current1 + 1;
-	startBlock2 = current2 + 1;
+        n1 = current1 - startBlock1;
+        n2 = current2 - startBlock2;
+        if (n1 > 0 || n2 > 0) {
+            AppendChunk(interp, resPtr, optsPtr,
+                    startBlock1, n1, startBlock2, n2);
+        }
+        startBlock1 = current1 + 1;
+        startBlock2 = current2 + 1;
     }
     /* Scrape up the last */
     n1 = m - startBlock1 + 1;
     n2 = n - startBlock2 + 1;
     if (n1 > 0 || n2 > 0) {
-	AppendChunk(interp, resPtr, optsPtr,
-		startBlock1, n1, startBlock2, n2);
+        AppendChunk(interp, resPtr, optsPtr,
+                startBlock1, n1, startBlock2, n2);
     }
     return resPtr;
 }
 
 static Tcl_Obj *
-BuildResultFromJMatchStyle(Tcl_Interp *interp, DiffOptions_T *optsPtr,
-	Line_T m, Line_T n, Line_T *J)
+BuildResultFromJMatchStyle(
+    Tcl_Interp *interp, const DiffOptions_T *optsPtr,
+    Line_T m, Line_T n, const Line_T *J)
 {
     Tcl_Obj *resPtr, *leftPtr, *rightPtr;
     Line_T current1, current2;
@@ -1421,40 +1433,42 @@ BuildResultFromJMatchStyle(Tcl_Interp *interp, DiffOptions_T *optsPtr,
     current1 = current2 = 0;
 
     while (current1 < m || current2 < n) {
-	/* Scan list 1 until next supposed match */
-	while (current1 < m) {
-	    current1++;
-	    if (J[current1] != 0) break;
-	}
-	/* Scan list 2 until next supposed match */
-	while (current2 < n) {
-	    current2++;
-	    if (J[current1] == current2) break;
-	}
-	if (J[current1] != current2) continue;
+        /* Scan list 1 until next supposed match */
+        while (current1 < m) {
+            current1++;
+            if (J[current1] != 0) break;
+        }
+        /* Scan list 2 until next supposed match */
+        while (current2 < n) {
+            current2++;
+            if (J[current1] == current2) break;
+        }
+        if (J[current1] != current2) continue;
 
-	Tcl_ListObjAppendElement(interp, leftPtr,
-		Tcl_NewLongObj(current1 + (optsPtr->rFrom1 - 1)));
-	Tcl_ListObjAppendElement(interp, rightPtr,
-		Tcl_NewLongObj(current2 + (optsPtr->rFrom2 - 1)));
+        Tcl_ListObjAppendElement(interp, leftPtr,
+                Tcl_NewLongObj(current1 + (optsPtr->rFrom1 - 1)));
+        Tcl_ListObjAppendElement(interp, rightPtr,
+                Tcl_NewLongObj(current2 + (optsPtr->rFrom2 - 1)));
     }
     return resPtr;
 }
 
 Tcl_Obj *
-BuildResultFromJ(Tcl_Interp *interp, DiffOptions_T *optsPtr,
-	Line_T m, Line_T n, Line_T *J)
+BuildResultFromJ(
+    Tcl_Interp *interp, const DiffOptions_T *optsPtr,
+    Line_T m, Line_T n, const Line_T *J)
 {
     if (optsPtr->resultStyle == Result_Diff) {
-	return BuildResultFromJDiffStyle(interp, optsPtr, m, n, J);
+        return BuildResultFromJDiffStyle(interp, optsPtr, m, n, J);
     }
     return BuildResultFromJMatchStyle(interp, optsPtr, m, n, J);
 }
 
 /* Fill in the range option from a Tcl Value */
 int
-SetOptsRange(Tcl_Interp *interp, Tcl_Obj *rangePtr, int first,
-             DiffOptions_T *optsPtr)
+SetOptsRange(
+    Tcl_Interp *interp, Tcl_Obj *rangePtr, int first,
+    DiffOptions_T *optsPtr)
 {
     int listLen, i;
     long values[4];
@@ -1545,7 +1559,7 @@ SetOptsAlign(Tcl_Interp *interp,
                 if (optsPtr->align[i] > optsPtr->align[i + 2] ||
                     (optsPtr->align[i] == optsPtr->align[i + 2] &&
                      optsPtr->align[i+1] > optsPtr->align[i + 2])) {
-		    /* Swap */
+                    /* Swap */
                     tmp                   = optsPtr->align[i];
                     optsPtr->align[i]     = optsPtr->align[i + 2];
                     optsPtr->align[i + 2] = tmp;
@@ -1615,12 +1629,12 @@ NormaliseOpts(DiffOptions_T *optsPtr)
  */
 static int
 DiffOptsRegsub(
-    Tcl_Interp *interp,		/* Current interpreter. */
-    Tcl_Obj *obj1Ptr,           /* Input object. */
-    Tcl_Obj *rePtr,             /* Regexp object. */
-    Tcl_Obj *sub1Ptr,           /* Substitution. */
-    Tcl_Obj **resultPtrPtr,     /* Store result, if successful. */ 
-    DiffOptions_T *optsPtr)     /* Options. */ 
+    Tcl_Interp *interp,           /* Current interpreter. */
+    Tcl_Obj *obj1Ptr,             /* Input object. */
+    Tcl_Obj *rePtr,               /* Regexp object. */
+    Tcl_Obj *sub1Ptr,             /* Substitution. */
+    Tcl_Obj **resultPtrPtr,       /* Store result, if successful. */ 
+    const DiffOptions_T *optsPtr) /* Options. */ 
 {
     int idx, result, cflags, all, wlen, wsublen, numMatches, offset;
     int start, end, subStart, subEnd, match;
@@ -1634,82 +1648,82 @@ DiffOptsRegsub(
     offset = 0;
     resultPtr = NULL;
     if (optsPtr->ignore & IGNORE_CASE) {
-	cflags |= TCL_REG_NOCASE;
+        cflags |= TCL_REG_NOCASE;
     }
 
     if ((strpbrk(Tcl_GetString(sub1Ptr), "&\\") == NULL)
-	    && (strpbrk(Tcl_GetString(rePtr), "*+?{}()[].\\|^$") == NULL)) {
-	/*
-	 * This is a simple one pair string map situation. We make use of a
-	 * slightly modified version of the one pair STR_MAP code.
-	 */
+            && (strpbrk(Tcl_GetString(rePtr), "*+?{}()[].\\|^$") == NULL)) {
+        /*
+         * This is a simple one pair string map situation. We make use of a
+         * slightly modified version of the one pair STR_MAP code.
+         */
 
-	int slen, nocase;
-	int (*strCmpFn)(const Tcl_UniChar*,const Tcl_UniChar*,unsigned long);
-	Tcl_UniChar *p, wsrclc;
+        int slen, nocase;
+        int (*strCmpFn)(const Tcl_UniChar*,const Tcl_UniChar*,unsigned long);
+        Tcl_UniChar *p, wsrclc;
 
-	numMatches = 0;
-	nocase = (cflags & TCL_REG_NOCASE);
-	strCmpFn = nocase ? Tcl_UniCharNcasecmp : Tcl_UniCharNcmp;
+        numMatches = 0;
+        nocase = (cflags & TCL_REG_NOCASE);
+        strCmpFn = nocase ? Tcl_UniCharNcasecmp : Tcl_UniCharNcmp;
 
-	wsrc = Tcl_GetUnicodeFromObj(rePtr, &slen);
-	wstring = Tcl_GetUnicodeFromObj(obj1Ptr, &wlen);
-	wsubspec = Tcl_GetUnicodeFromObj(sub1Ptr, &wsublen);
-	wend = wstring + wlen - (slen ? slen - 1 : 0);
-	result = TCL_OK;
+        wsrc = Tcl_GetUnicodeFromObj(rePtr, &slen);
+        wstring = Tcl_GetUnicodeFromObj(obj1Ptr, &wlen);
+        wsubspec = Tcl_GetUnicodeFromObj(sub1Ptr, &wsublen);
+        wend = wstring + wlen - (slen ? slen - 1 : 0);
+        result = TCL_OK;
 
-	if (slen == 0) {
-	    /*
-	     * regsub behavior for "" matches between each character. 'string
-	     * map' skips the "" case.
-	     */
+        if (slen == 0) {
+            /*
+             * regsub behavior for "" matches between each character. 'string
+             * map' skips the "" case.
+             */
 
-	    if (wstring < wend) {
-		resultPtr = Tcl_NewUnicodeObj(wstring, 0);
-		Tcl_IncrRefCount(resultPtr);
-		for (; wstring < wend; wstring++) {
-		    Tcl_AppendUnicodeToObj(resultPtr, wsubspec, wsublen);
-		    Tcl_AppendUnicodeToObj(resultPtr, wstring, 1);
-		    numMatches++;
-		}
-		wlen = 0;
-	    }
-	} else {
-	    wsrclc = Tcl_UniCharToLower(*wsrc);
-	    for (p = wfirstChar = wstring; wstring < wend; wstring++) {
-		if ((*wstring == *wsrc ||
-			(nocase && Tcl_UniCharToLower(*wstring)==wsrclc)) &&
-			(slen==1 || (strCmpFn(wstring, wsrc,
-				(unsigned long) slen) == 0))) {
-		    if (numMatches == 0) {
-			resultPtr = Tcl_NewUnicodeObj(wstring, 0);
-			Tcl_IncrRefCount(resultPtr);
-		    }
-		    if (p != wstring) {
-			Tcl_AppendUnicodeToObj(resultPtr, p, wstring - p);
-			p = wstring + slen;
-		    } else {
-			p += slen;
-		    }
-		    wstring = p - 1;
+            if (wstring < wend) {
+                resultPtr = Tcl_NewUnicodeObj(wstring, 0);
+                Tcl_IncrRefCount(resultPtr);
+                for (; wstring < wend; wstring++) {
+                    Tcl_AppendUnicodeToObj(resultPtr, wsubspec, wsublen);
+                    Tcl_AppendUnicodeToObj(resultPtr, wstring, 1);
+                    numMatches++;
+                }
+                wlen = 0;
+            }
+        } else {
+            wsrclc = Tcl_UniCharToLower(*wsrc);
+            for (p = wfirstChar = wstring; wstring < wend; wstring++) {
+                if ((*wstring == *wsrc ||
+                        (nocase && Tcl_UniCharToLower(*wstring)==wsrclc)) &&
+                        (slen==1 || (strCmpFn(wstring, wsrc,
+                                (unsigned long) slen) == 0))) {
+                    if (numMatches == 0) {
+                        resultPtr = Tcl_NewUnicodeObj(wstring, 0);
+                        Tcl_IncrRefCount(resultPtr);
+                    }
+                    if (p != wstring) {
+                        Tcl_AppendUnicodeToObj(resultPtr, p, wstring - p);
+                        p = wstring + slen;
+                    } else {
+                        p += slen;
+                    }
+                    wstring = p - 1;
 
-		    Tcl_AppendUnicodeToObj(resultPtr, wsubspec, wsublen);
-		    numMatches++;
-		}
-	    }
-	    if (numMatches) {
-		wlen    = wfirstChar + wlen - p;
-		wstring = p;
-	    }
-	}
-	objPtr = NULL;
-	subPtr = NULL;
-	goto regsubDone;
+                    Tcl_AppendUnicodeToObj(resultPtr, wsubspec, wsublen);
+                    numMatches++;
+                }
+            }
+            if (numMatches) {
+                wlen    = wfirstChar + wlen - p;
+                wstring = p;
+            }
+        }
+        objPtr = NULL;
+        subPtr = NULL;
+        goto regsubDone;
     }
 
     regExpr = Tcl_GetRegExpFromObj(interp, rePtr, cflags);
     if (regExpr == NULL) {
-	return TCL_ERROR;
+        return TCL_ERROR;
     }
 
     /*
@@ -1719,15 +1733,15 @@ DiffOptsRegsub(
      */
 
     if (obj1Ptr == rePtr) {
-	objPtr = Tcl_DuplicateObj(obj1Ptr);
+        objPtr = Tcl_DuplicateObj(obj1Ptr);
     } else {
-	objPtr = obj1Ptr;
+        objPtr = obj1Ptr;
     }
     wstring = Tcl_GetUnicodeFromObj(objPtr, &wlen);
     if (sub1Ptr == rePtr) {
-	subPtr = Tcl_DuplicateObj(sub1Ptr);
+        subPtr = Tcl_DuplicateObj(sub1Ptr);
     } else {
-	subPtr = sub1Ptr;
+        subPtr = sub1Ptr;
     }
     wsubspec = Tcl_GetUnicodeFromObj(subPtr, &wsublen);
 
@@ -1746,129 +1760,129 @@ DiffOptsRegsub(
     numMatches = 0;
     for ( ; offset <= wlen; ) {
 
-	/*
-	 * The flags argument is set if string is part of a larger string, so
-	 * that "^" won't match.
-	 */
+        /*
+         * The flags argument is set if string is part of a larger string, so
+         * that "^" won't match.
+         */
 
-	match = Tcl_RegExpExecObj(interp, regExpr, objPtr, offset,
-		10 /* matches */, ((offset > 0 &&
-		(wstring[offset-1] != (Tcl_UniChar)'\n'))
-		? TCL_REG_NOTBOL : 0));
+        match = Tcl_RegExpExecObj(interp, regExpr, objPtr, offset,
+                10 /* matches */, ((offset > 0 &&
+                (wstring[offset-1] != (Tcl_UniChar)'\n'))
+                ? TCL_REG_NOTBOL : 0));
 
-	if (match < 0) {
-	    result = TCL_ERROR;
-	    goto done;
-	}
-	if (match == 0) {
-	    break;
-	}
-	if (numMatches == 0) {
-	    resultPtr = Tcl_NewUnicodeObj(wstring, 0);
-	    Tcl_IncrRefCount(resultPtr);
-	    if (offset > 0) {
-		/*
-		 * Copy the initial portion of the string in if an offset was
-		 * specified.
-		 */
+        if (match < 0) {
+            result = TCL_ERROR;
+            goto done;
+        }
+        if (match == 0) {
+            break;
+        }
+        if (numMatches == 0) {
+            resultPtr = Tcl_NewUnicodeObj(wstring, 0);
+            Tcl_IncrRefCount(resultPtr);
+            if (offset > 0) {
+                /*
+                 * Copy the initial portion of the string in if an offset was
+                 * specified.
+                 */
 
-		Tcl_AppendUnicodeToObj(resultPtr, wstring, offset);
-	    }
-	}
-	numMatches++;
+                Tcl_AppendUnicodeToObj(resultPtr, wstring, offset);
+            }
+        }
+        numMatches++;
 
-	/*
-	 * Copy the portion of the source string before the match to the
-	 * result variable.
-	 */
+        /*
+         * Copy the portion of the source string before the match to the
+         * result variable.
+         */
 
-	Tcl_RegExpGetInfo(regExpr, &info);
-	start = info.matches[0].start;
-	end = info.matches[0].end;
-	Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, start);
+        Tcl_RegExpGetInfo(regExpr, &info);
+        start = info.matches[0].start;
+        end = info.matches[0].end;
+        Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, start);
 
-	/*
-	 * Append the subSpec argument to the variable, making appropriate
-	 * substitutions. This code is a bit hairy because of the backslash
-	 * conventions and because the code saves up ranges of characters in
-	 * subSpec to reduce the number of calls to Tcl_SetVar.
-	 */
+        /*
+         * Append the subSpec argument to the variable, making appropriate
+         * substitutions. This code is a bit hairy because of the backslash
+         * conventions and because the code saves up ranges of characters in
+         * subSpec to reduce the number of calls to Tcl_SetVar.
+         */
 
-	wsrc = wfirstChar = wsubspec;
-	wend = wsubspec + wsublen;
-	for (ch = *wsrc; wsrc != wend; wsrc++, ch = *wsrc) {
-	    if (ch == '&') {
-		idx = 0;
-	    } else if (ch == '\\') {
-		ch = wsrc[1];
-		if ((ch >= '0') && (ch <= '9')) {
-		    idx = ch - '0';
-		} else if ((ch == '\\') || (ch == '&')) {
-		    *wsrc = ch;
-		    Tcl_AppendUnicodeToObj(resultPtr, wfirstChar,
-			    wsrc - wfirstChar + 1);
-		    *wsrc = '\\';
-		    wfirstChar = wsrc + 2;
-		    wsrc++;
-		    continue;
-		} else {
-		    continue;
-		}
-	    } else {
-		continue;
-	    }
+        wsrc = wfirstChar = wsubspec;
+        wend = wsubspec + wsublen;
+        for (ch = *wsrc; wsrc != wend; wsrc++, ch = *wsrc) {
+            if (ch == '&') {
+                idx = 0;
+            } else if (ch == '\\') {
+                ch = wsrc[1];
+                if ((ch >= '0') && (ch <= '9')) {
+                    idx = ch - '0';
+                } else if ((ch == '\\') || (ch == '&')) {
+                    *wsrc = ch;
+                    Tcl_AppendUnicodeToObj(resultPtr, wfirstChar,
+                            wsrc - wfirstChar + 1);
+                    *wsrc = '\\';
+                    wfirstChar = wsrc + 2;
+                    wsrc++;
+                    continue;
+                } else {
+                    continue;
+                }
+            } else {
+                continue;
+            }
 
-	    if (wfirstChar != wsrc) {
-		Tcl_AppendUnicodeToObj(resultPtr, wfirstChar,
-			wsrc - wfirstChar);
-	    }
+            if (wfirstChar != wsrc) {
+                Tcl_AppendUnicodeToObj(resultPtr, wfirstChar,
+                        wsrc - wfirstChar);
+            }
 
-	    if (idx <= info.nsubs) {
-		subStart = info.matches[idx].start;
-		subEnd = info.matches[idx].end;
-		if ((subStart >= 0) && (subEnd >= 0)) {
-		    Tcl_AppendUnicodeToObj(resultPtr,
-			    wstring + offset + subStart, subEnd - subStart);
-		}
-	    }
+            if (idx <= info.nsubs) {
+                subStart = info.matches[idx].start;
+                subEnd = info.matches[idx].end;
+                if ((subStart >= 0) && (subEnd >= 0)) {
+                    Tcl_AppendUnicodeToObj(resultPtr,
+                            wstring + offset + subStart, subEnd - subStart);
+                }
+            }
 
-	    if (*wsrc == '\\') {
-		wsrc++;
-	    }
-	    wfirstChar = wsrc + 1;
-	}
+            if (*wsrc == '\\') {
+                wsrc++;
+            }
+            wfirstChar = wsrc + 1;
+        }
 
-	if (wfirstChar != wsrc) {
-	    Tcl_AppendUnicodeToObj(resultPtr, wfirstChar, wsrc - wfirstChar);
-	}
+        if (wfirstChar != wsrc) {
+            Tcl_AppendUnicodeToObj(resultPtr, wfirstChar, wsrc - wfirstChar);
+        }
 
-	if (end == 0) {
-	    /*
-	     * Always consume at least one character of the input string in
-	     * order to prevent infinite loops.
-	     */
+        if (end == 0) {
+            /*
+             * Always consume at least one character of the input string in
+             * order to prevent infinite loops.
+             */
 
-	    if (offset < wlen) {
-		Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, 1);
-	    }
-	    offset++;
-	} else {
-	    offset += end;
-	    if (start == end) {
-		/*
-		 * We matched an empty string, which means we must go forward
-		 * one more step so we don't match again at the same spot.
-		 */
+            if (offset < wlen) {
+                Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, 1);
+            }
+            offset++;
+        } else {
+            offset += end;
+            if (start == end) {
+                /*
+                 * We matched an empty string, which means we must go forward
+                 * one more step so we don't match again at the same spot.
+                 */
 
-		if (offset < wlen) {
-		    Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, 1);
-		}
-		offset++;
-	    }
-	}
-	if (!all) {
-	    break;
-	}
+                if (offset < wlen) {
+                    Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, 1);
+                }
+                offset++;
+            }
+        }
+        if (!all) {
+            break;
+        }
     }
 
     /*
@@ -1878,28 +1892,28 @@ DiffOptsRegsub(
 
   regsubDone:
     if (numMatches == 0) {
-	/*
-	 * On zero matches, just ignore the offset, since it shouldn't matter
-	 * to us in this case, and the user may have skewed it.
-	 */
+        /*
+         * On zero matches, just ignore the offset, since it shouldn't matter
+         * to us in this case, and the user may have skewed it.
+         */
 
-	resultPtr = obj1Ptr;
-	Tcl_IncrRefCount(resultPtr);
+        resultPtr = obj1Ptr;
+        Tcl_IncrRefCount(resultPtr);
     } else if (offset < wlen) {
-	Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, wlen - offset);
+        Tcl_AppendUnicodeToObj(resultPtr, wstring + offset, wlen - offset);
     }
     *resultPtrPtr = resultPtr;
     Tcl_IncrRefCount(resultPtr);
 
   done:
     if (objPtr && (obj1Ptr == rePtr)) {
-	Tcl_DecrRefCount(objPtr);
+        Tcl_DecrRefCount(objPtr);
     }
     if (subPtr && (sub1Ptr == rePtr)) {
-	Tcl_DecrRefCount(subPtr);
+        Tcl_DecrRefCount(subPtr);
     }
     if (resultPtr) {
-	Tcl_DecrRefCount(resultPtr);
+        Tcl_DecrRefCount(resultPtr);
     }
     return result;
 }
