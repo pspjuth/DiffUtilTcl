@@ -864,7 +864,6 @@ IsLineMatch(
  * Inner step of PostProcessForbidden.
  * A change block with forbidden lines in both sides has been found.
  * Look for matches that can be marked in the J vector.
- * FIXA: Better algorithm here...
  */
 static void
 PostProcessForbiddenBlock(
@@ -914,6 +913,10 @@ PostProcessForbiddenBlock(
     /*
      * Just do a raw sequential matching of forbidden lines.
      * This produces a reasonable, if non-optimal, result.
+     * FIXA: Better algorithm here...
+     * In principle this matching should be a rerun of LCS on the block, with
+     * forbidden lines allowed. It might be reasonable to reuse the current P
+     * and E vectors and call LcsCoreInner in some way.
      */ 
     for (j = 0; j < iList->n && j < jList->n; j++) {
         Line_T line1 = iList->Elems[j].line;
