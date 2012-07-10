@@ -411,7 +411,7 @@ CompareObjects(Tcl_Obj *obj1Ptr,
  * A compare function to qsort the V vector.
  * Sorts first on hash, then on serial number.
  */
-int
+static int
 CompareV(const void *a1, const void *a2)
 {
     V_T const *v1 = (V_T *) a1;
@@ -426,6 +426,15 @@ CompareV(const void *a1, const void *a2)
         return 1;
     else
         return 0;
+}
+
+/*
+ * Sort the V vector, first on hash, then on serial.
+ */
+void
+SortV(V_T *V, Line_T n, const DiffOptions_T *optsPtr)
+{
+    qsort(&V[1], (unsigned long) n, sizeof(V_T), CompareV);
 }
 
 /* Create a new candidate */
@@ -1268,7 +1277,7 @@ LcsCore(
  * Returns the ckalloc:ed E vector.
  */
 E_T *
-BuildEVector(const V_T *V, Line_T n)
+BuildEVector(const V_T *V, Line_T n, const DiffOptions_T *optsPtr)
 {
     Line_T j, first;
     E_T *E;

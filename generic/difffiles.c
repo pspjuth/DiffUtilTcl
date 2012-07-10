@@ -146,10 +146,10 @@ ReadAndHashFiles(Tcl_Interp *interp,
      * Sort the V vector on hash/serial to allow fast search.
      */
 
-    qsort(&V[1], (unsigned long) n, sizeof(V_T), CompareV);
+    SortV(V, n, optsPtr);
 
     /* Build E vector from V vector */
-    E = BuildEVector(V, n);
+    E = BuildEVector(V, n, optsPtr);
 
     /*
      * Build P vector from file 1

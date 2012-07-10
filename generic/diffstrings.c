@@ -56,10 +56,10 @@ PrepareStringsLcs(Tcl_Interp *interp,
     }
 
     /* Sort V on hash/serial. */
-    qsort(&V[1], (unsigned long) n, sizeof(V_T), CompareV);
+    SortV(V, n, optsPtr);
 
     /* Build E vector */
-    E = BuildEVector(V, n);
+    E = BuildEVector(V, n, optsPtr);
 
     /* Build P vector */
 
