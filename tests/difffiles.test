@@ -152,6 +152,21 @@ test difffiles-4.3 {range} -body {
     DiffUtil::diffFiles -range {-3 5 3 5} a b
 } -returnCodes 1 -result {bad range*} -match glob
 
+test difffiles-4.4 {range} {
+    # Use many empty lines to stress the part in implementation where lines
+    # before range are ignored.
+    set l1 [lrepeat 100 a {} b]
+    set l2 [lrepeat 100 a {} c]
+    RunTest $l1 $l2 -range {22 27 34 39}
+} [list {24 1 36 1} {27 1 39 1}]
+
+test difffiles-4.5 {range} {
+    # Use many empty lines to stress the part in implementation where lines
+    # before range are ignored.
+    set l1 [lrepeat 100 a {} {} b]
+    set l2 [lrepeat 100 a b {} {}]
+    RunTest $l1 $l2 -range {41 48 61 68} -pivot 5
+} [list {42 0 62 1} {44 1 65 0} {46 0 66 1} {48 1 69 0}]
 
 test difffiles-5.1 {priority} {NoLcsDiff} {
     # The changed block is kept together

@@ -188,7 +188,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
         }
 
         /* Binary search for hash in V */
-        j = BSearchVVector(V, n, h);
+        j = BSearchVVector(V, n, h, optsPtr);
         if (V[j].hash == h) {
 	    /* Search back to the first in the class */
             while (!E[j-1].last) j--;

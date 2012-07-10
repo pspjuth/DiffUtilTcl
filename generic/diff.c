@@ -1279,12 +1279,29 @@ LcsCore(
 E_T *
 BuildEVector(const V_T *V, Line_T n, const DiffOptions_T *optsPtr)
 {
-    Line_T j, first;
+    Line_T j, first, cutoffJ = 0;
     E_T *E;
+
+    if (optsPtr->rFrom2 > 1) {
+        /*
+         * All lines ignored due to range should have zero hash and low serial
+         * and thus show up first in the sorted V.
+         * The cutoff point will make sure ignore lines are not in the same
+         * equivalence class as empty lines within the range.
+         * BSearchVVector will always start searching after this point
+         * so the ignored lines will never be found.
+         */
+        cutoffJ = optsPtr->rFrom2 - 1;
+        /* Sanity check, this should not happen */
+        if (V[cutoffJ].hash != 0 || V[cutoffJ].serial != cutoffJ) {
+            printf("Internal error: J %ld  hash %ld  serial %ld\n", cutoffJ,
+                   V[cutoffJ].hash, V[cutoffJ].serial);
+        }
+    }
 
     E = (E_T *) ckalloc((n + 1) * sizeof(E_T));
     E[0].serial = 0;
-    E[0].last = 1;
+    E[0].last = 1; /* This works as a guard when scanning backwards through E */
     E[0].count = 0;
     E[0].forbidden = 1;
     first = 1;
@@ -1299,7 +1316,7 @@ BuildEVector(const V_T *V, Line_T n, const DiffOptions_T *optsPtr)
         if (j == n) {
             E[j].last = 1;
         } else {
-            if (V[j].hash != V[j+1].hash) {
+            if (V[j].hash != V[j+1].hash || j == cutoffJ) {
                 E[j].last = 1;
                 first = j + 1;
             } else {
@@ -1312,11 +1329,11 @@ BuildEVector(const V_T *V, Line_T n, const DiffOptions_T *optsPtr)
 
 /* Binary search for hash in V */
 Line_T
-BSearchVVector(const V_T *V, Line_T n, Hash_T h)
+BSearchVVector(const V_T *V, Line_T n, Hash_T h, const DiffOptions_T *optsPtr)
 {
-    Line_T first = 1;
+    Line_T first = optsPtr->rFrom2; /* No point searching ignored lines */
     Line_T last = n;
-    Line_T j = 1;
+    Line_T j = first;
     while (first <= last) {
         j = (first + last) / 2;
         if (V[j].hash == h) break;

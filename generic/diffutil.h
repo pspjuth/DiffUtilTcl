@@ -105,7 +105,8 @@ extern void      AppendChunk(Tcl_Interp *interp, Tcl_Obj *listPtr,
 			DiffOptions_T const *optsPtr,
                         Line_T start1, Line_T n1,
 			Line_T start2, Line_T n2);
-extern Line_T    BSearchVVector(const V_T *V, Line_T n, Hash_T h);
+extern Line_T    BSearchVVector(const V_T *V, Line_T n, Hash_T h,
+                        const DiffOptions_T *optsPtr);
 extern E_T *     BuildEVector(V_T const *V, Line_T n,
                         const DiffOptions_T *optsPtr);
 extern Tcl_Obj * BuildResultFromJ(Tcl_Interp *interp,

@@ -83,7 +83,7 @@ PrepareStringsLcs(Tcl_Interp *interp,
         h = c;
 
         /* Binary search for hash in V */
-        j = BSearchVVector(V, n, h);
+        j = BSearchVVector(V, n, h, optsPtr);
         if (V[j].hash == h) {
             while (!E[j-1].last) j--;
             P[m].Eindex = j;
