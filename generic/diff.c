@@ -1386,27 +1386,30 @@ BuildResultFromJDiffStyle(
     startBlock1 = startBlock2 = 1;
     current1 = current2 = 0;
 
-    while (current1 < m || current2 < n) {
-        /* Scan list 1 until next supposed match */
-        while (current1 < m) {
-            current1++;
-            if (J[current1] != 0) break;
-        }
-        /* Scan list 2 until next supposed match */
-        while (current2 < n) {
-            current2++;
-            if (J[current1] == current2) break;
-        }
-        if (J[current1] != current2) continue;
+    /* If any side is empty, there is nothing to scan */
+    if (m > 0 && n > 0) {
+        while (current1 < m || current2 < n) {
+            /* Scan list 1 until next supposed match */
+            while (current1 < m) {
+                current1++;
+                if (J[current1] != 0) break;
+            }
+            /* Scan list 2 until next supposed match */
+            while (current2 < n) {
+                current2++;
+                if (J[current1] == current2) break;
+            }
+            if (J[current1] != current2) continue;
 
-        n1 = current1 - startBlock1;
-        n2 = current2 - startBlock2;
-        if (n1 > 0 || n2 > 0) {
-            AppendChunk(interp, resPtr, optsPtr,
-                    startBlock1, n1, startBlock2, n2);
+            n1 = current1 - startBlock1;
+            n2 = current2 - startBlock2;
+            if (n1 > 0 || n2 > 0) {
+                AppendChunk(interp, resPtr, optsPtr,
+                            startBlock1, n1, startBlock2, n2);
+            }
+            startBlock1 = current1 + 1;
+            startBlock2 = current2 + 1;
         }
-        startBlock1 = current1 + 1;
-        startBlock2 = current2 + 1;
     }
     /* Scrape up the last */
     n1 = m - startBlock1 + 1;
@@ -1435,7 +1438,7 @@ BuildResultFromJMatchStyle(
 
     current1 = current2 = 0;
 
-    while (current1 < m || current2 < n) {
+    while (current1 < m && current2 < n) {
         /* Scan list 1 until next supposed match */
         while (current1 < m) {
             current1++;

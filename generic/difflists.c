@@ -133,10 +133,7 @@ CompareLists(
 
     /* Handle the trivial case. */
     if (m == 0 || n == 0) {
-	*resPtr = Tcl_NewListObj(0, NULL);
-	if ((n > 0) || (m > 0)) {
-	    AppendChunk(interp, *resPtr, optsPtr, 1, m, 1, n);
-	}
+        *resPtr = BuildResultFromJ(interp, optsPtr, m, n, NULL);
 	ckfree((char *) E);
 	ckfree((char *) P);
 	return TCL_OK;

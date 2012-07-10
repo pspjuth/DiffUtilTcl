@@ -61,6 +61,42 @@ test difflists-3.3 {ignore space} {CDiff} {
     RunTest $l1 $l2 -w
 } [list {2 1 2 1}]
 
+test difflists-4.1 {trivial cases} {CDiff} {
+    set l1 {}
+    set l2 {a b c}
+    RunTest $l1 $l2
+} [list {0 0 0 3}]
+
+test difflists-4.1b {trivial cases} {CDiff} {
+    set l1 {}
+    set l2 {a b c}
+    RunTest $l1 $l2 -result match
+} [list {} {}]
+
+test difflists-4.2 {trivial cases} {CDiff} {
+    set l1 {a b}
+    set l2 {}
+    RunTest $l1 $l2
+} [list {0 2 0 0}]
+
+test difflists-4.2b {trivial cases} {CDiff} {
+    set l1 {a b}
+    set l2 {}
+    RunTest $l1 $l2 -result match
+} [list {} {}]
+
+test difflists-4.3 {trivial cases} {CDiff} {
+    set l1 {}
+    set l2 {}
+    RunTest $l1 $l2
+} [list ]
+
+test difflists-4.3b {trivial cases} {CDiff} {
+    set l1 {}
+    set l2 {}
+    RunTest $l1 $l2 -result match
+} [list {} {}]
+
 test difflists-5.1 {priority} {CDiff} {
     # The changed block is kept together
     set l1 {a b c d       e}
