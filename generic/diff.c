@@ -168,6 +168,17 @@ CheckAlign(const DiffOptions_T *optsPtr, Line_T i, Line_T j)
 {
     int t;
 
+    /* No match outside range */
+    if (i < optsPtr->rFrom1 || j < optsPtr->rFrom2) {
+        return 1;
+    }
+    if (optsPtr->rTo1 > 0 && i > optsPtr->rTo1) {
+        return 1;
+    }
+    if (optsPtr->rTo2 > 0 && j > optsPtr->rTo2) {
+        return 1;
+    }
+
     for (t = 0; t < optsPtr->alignLength; t += 2) {
         /* If both are below, it is ok since the list is sorted */
         if (i <  optsPtr->align[t] && j <  optsPtr->align[t + 1]) return 0;
@@ -530,7 +541,7 @@ merge(
     while (1) {
         j = E[p].serial; /* j is the current line from file 2 being checked */
         /* Skip this candidate if alignment forbids it */
-        if (optsPtr->alignLength > 0 && CheckAlign(optsPtr, i ,j)) {
+        if (CheckAlign(optsPtr, i ,j)) {
             if (E[p].last) break;
             p++;
             continue;
@@ -1315,8 +1326,8 @@ NewChunk(Tcl_Interp *interp, const DiffOptions_T *optsPtr,
          Line_T start1, Line_T n1, Line_T start2, Line_T n2)
 {
     Tcl_Obj *subPtr = Tcl_NewListObj(0, NULL);
-    start1 += (optsPtr->rFrom1 - 1);
-    start2 += (optsPtr->rFrom2 - 1);
+    start1 += (optsPtr->firstIndex - 1);
+    start2 += (optsPtr->firstIndex - 1);
     Tcl_ListObjAppendElement(interp, subPtr, Tcl_NewLongObj((long) start1));
     Tcl_ListObjAppendElement(interp, subPtr, Tcl_NewLongObj((long) n1));
     Tcl_ListObjAppendElement(interp, subPtr, Tcl_NewLongObj((long) start2));
@@ -1383,8 +1394,16 @@ BuildResultFromJDiffStyle(
     Line_T startBlock1, startBlock2;
 
     resPtr = Tcl_NewListObj(0, NULL);
-    startBlock1 = startBlock2 = 1;
-    current1 = current2 = 0;
+    startBlock1 = optsPtr->rFrom1;
+    startBlock2 = optsPtr->rFrom2;
+    current1 = optsPtr->rFrom1 - 1;
+    current2 = optsPtr->rFrom2 - 1;
+    if (optsPtr->rTo1 > 0 && m > optsPtr->rTo1) {
+        m = optsPtr->rTo1;
+    }
+    if (optsPtr->rTo2 > 0 && n > optsPtr->rTo2) {
+        n = optsPtr->rTo2;
+    }
 
     /* If any side is empty, there is nothing to scan */
     if (m > 0 && n > 0) {
@@ -1416,7 +1435,7 @@ BuildResultFromJDiffStyle(
     n2 = n - startBlock2 + 1;
     if (n1 > 0 || n2 > 0) {
         AppendChunk(interp, resPtr, optsPtr,
-                startBlock1, n1, startBlock2, n2);
+                    startBlock1, n1, startBlock2, n2);
     }
     return resPtr;
 }
@@ -1436,7 +1455,8 @@ BuildResultFromJMatchStyle(
     Tcl_ListObjAppendElement(interp, resPtr, leftPtr);
     Tcl_ListObjAppendElement(interp, resPtr, rightPtr);
 
-    current1 = current2 = 0;
+    current1 = optsPtr->rFrom1 - 1;
+    current2 = optsPtr->rFrom2 - 1;
 
     while (current1 < m && current2 < n) {
         /* Scan list 1 until next supposed match */
@@ -1452,9 +1472,9 @@ BuildResultFromJMatchStyle(
         if (J[current1] != current2) continue;
 
         Tcl_ListObjAppendElement(interp, leftPtr,
-                Tcl_NewLongObj(current1 + (optsPtr->rFrom1 - 1)));
+                Tcl_NewLongObj(current1 + (optsPtr->firstIndex - 1)));
         Tcl_ListObjAppendElement(interp, rightPtr,
-                Tcl_NewLongObj(current2 + (optsPtr->rFrom2 - 1)));
+                Tcl_NewLongObj(current2 + (optsPtr->firstIndex - 1)));
     }
     return resPtr;
 }
@@ -1587,30 +1607,6 @@ NormaliseOpts(DiffOptions_T *optsPtr)
 {
     int i;
     Line_T prev1, prev2;
-
-    /*
-     * If there is both a range and align, move the alignment
-     * to index from 1 withing the range.
-     */
-
-    if (optsPtr->rFrom1 > 1) {
-        for (i = 0; i < optsPtr->alignLength; i += 2) {
-            if (optsPtr->align[i] >= optsPtr->rFrom1) {
-                optsPtr->align[i] -= (optsPtr->rFrom1 - 1);
-            } else {
-                optsPtr->align[i] = 0;
-            }
-        }
-    }
-    if (optsPtr->rFrom2 > 1) {
-        for (i = 1; i < optsPtr->alignLength; i += 2) {
-            if (optsPtr->align[i] >= optsPtr->rFrom2) {
-                optsPtr->align[i] -= (optsPtr->rFrom2 - 1);
-            } else {
-                optsPtr->align[i] = 0;
-            }
-        }
-    }
 
     /*
      * Check for contradictions in align

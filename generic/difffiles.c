@@ -75,7 +75,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
     P_T *P = NULL;
     Tcl_StatBuf buf1, buf2;
     Hash_T h, realh;
-    Line_T line, j, m = 0, n = 0;
+    Line_T j, m, n;
     Line_T allocedV, allocedP, first, last;
     Tcl_Channel ch;
     Tcl_Obj *linePtr;
@@ -115,14 +115,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
         goto cleanup;
     }
 
-    /* Skip the first lines if there is a range set. */
-    line = 1;
-    while (line < optsPtr->rFrom2) {
-	Tcl_SetObjLength(linePtr, 0);
-	if (Tcl_GetsObj(ch, linePtr) < 0) break;
-	line++;
-    }
-
+    /* Once done, n will hold the number of lines. */
     n = 1;
     while (1) {
         V[n].serial = n;
@@ -131,12 +124,16 @@ ReadAndHashFiles(Tcl_Interp *interp,
             n--;
             break;
         }
-
-        Hash(linePtr, optsPtr, 0, &V[n].hash, &V[n].realhash);
-        if (optsPtr->rTo2 > 0 && optsPtr->rTo2 <= line) break;
+        if (n < optsPtr->rFrom2) {
+            /* Ignore the first lines if there is a range set. */
+            V[n].hash = V[n].realhash = 0;
+        } else {
+            Hash(linePtr, optsPtr, 0, &V[n].hash, &V[n].realhash);
+        }
+        /* Stop if we have reached an end range */
+        if (optsPtr->rTo2 > 0 && optsPtr->rTo2 <= n) break;
 
         n++;
-        line++;
 	/* Reallocate if more room is needed */
         if (n >= allocedV) {
             allocedV = allocedV * 3 / 2;
@@ -171,16 +168,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
         goto cleanup;
     }
 
-    /* Skip the first lines if there is a range set. */
-    line = 1;
-    if (optsPtr->rFrom1 > 1) {
-        while (line < optsPtr->rFrom1) {
-            Tcl_SetObjLength(linePtr, 0);
-            if (Tcl_GetsObj(ch, linePtr) < 0) break;
-            line++;
-        }
-    }
-
+    /* Once done, m will hold the number of lines. */
     m = 1;
     while (1) {
         P[m].Eindex = 0;
@@ -190,9 +178,14 @@ ReadAndHashFiles(Tcl_Interp *interp,
             m--;
             break;
         }
-        Hash(linePtr, optsPtr, 1, &h, &realh);
-        P[m].hash = h;
-        P[m].realhash = realh;
+        if (m < optsPtr->rFrom1) {
+            /* Ignore the first lines if there is a range set. */
+            P[m].hash = P[m].realhash = 0;
+        } else {
+            Hash(linePtr, optsPtr, 1, &h, &realh);
+            P[m].hash = h;
+            P[m].realhash = realh;
+        }
 
         /* Binary search for hash in V */
         first = 1;
@@ -215,10 +208,9 @@ ReadAndHashFiles(Tcl_Interp *interp,
         }
 
 	/* Abort if the limited range has been filled */
-        if (optsPtr->rTo1 > 0 && optsPtr->rTo1 <= line) break;
+        if (optsPtr->rTo1 > 0 && optsPtr->rTo1 <= m) break;
 
         m++;
-        line++;
 	/* Realloc if necessary */
         if (m >= allocedP) {
             allocedP = allocedP * 3 / 2;
@@ -329,7 +321,8 @@ CompareFiles(
     }
 
     /*startBlock1 = startBlock2 = 1;*/
-    current1 = current2 = 0;
+    current1 = optsPtr->rFrom1 - 1;
+    current2 = optsPtr->rFrom2 - 1;
 
     while (current1 < m || current2 < n) {
 	/* Scan file 1 until next supposed match */
