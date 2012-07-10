@@ -30,7 +30,6 @@ PrepareStringsLcs(Tcl_Interp *interp,
     P_T *P = NULL;
     Hash_T h;
     Line_T j, m = 0, n = 0;
-    Line_T first, last;
     char *str;
     Tcl_UniChar c, realc;
 
@@ -84,18 +83,7 @@ PrepareStringsLcs(Tcl_Interp *interp,
         h = c;
 
         /* Binary search for hash in V */
-        first = 1;
-        last = n;
-	j = 1;
-        while (first <= last) {
-            j = (first + last) / 2;
-            if (V[j].hash == h) break;
-            if (V[j].hash < h) {
-                first = j + 1;
-            } else {
-                last = j - 1;
-            }
-        }
+        j = BSearchVVector(V, n, h);
         if (V[j].hash == h) {
             while (!E[j-1].last) j--;
             P[m].Eindex = j;

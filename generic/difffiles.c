@@ -76,7 +76,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
     Tcl_StatBuf buf1, buf2;
     Hash_T h, realh;
     Line_T j, m, n;
-    Line_T allocedV, allocedP, first, last;
+    Line_T allocedV, allocedP;
     Tcl_Channel ch;
     Tcl_Obj *linePtr;
 
@@ -180,7 +180,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
         }
         if (m < optsPtr->rFrom1) {
             /* Ignore the first lines if there is a range set. */
-            P[m].hash = P[m].realhash = 0;
+            P[m].hash = P[m].realhash = h = 0;
         } else {
             Hash(linePtr, optsPtr, 1, &h, &realh);
             P[m].hash = h;
@@ -188,18 +188,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
         }
 
         /* Binary search for hash in V */
-        first = 1;
-        last = n;
-	j = 1;
-        while (first <= last) {
-            j = (first + last) / 2;
-            if (V[j].hash == h) break;
-            if (V[j].hash < h) {
-                first = j + 1;
-            } else {
-                last = j - 1;
-            }
-        }
+        j = BSearchVVector(V, n, h);
         if (V[j].hash == h) {
 	    /* Search back to the first in the class */
             while (!E[j-1].last) j--;

@@ -30,7 +30,6 @@ HashLists(Tcl_Interp *interp,
     Hash_T h, realh;
     Line_T j, m = 0, n = 0;
     int length1, length2, t;
-    Line_T first, last;
     Tcl_Obj **elem1Ptrs, **elem2Ptrs;
 
     if (Tcl_ListObjGetElements(interp, list1Ptr, &length1, &elem1Ptrs) != TCL_OK) {
@@ -81,18 +80,7 @@ HashLists(Tcl_Interp *interp,
         P[t].realhash = realh;
 
         /* Binary search for hash in V */
-        first = 1;
-        last = n;
-	j = 1;
-        while (first <= last) {
-            j = (first + last) / 2;
-            if (V[j].hash == h) break;
-            if (V[j].hash < h) {
-                first = j + 1;
-            } else {
-                last = j - 1;
-            }
-        }
+        j = BSearchVVector(V, n, h);
         if (V[j].hash == h) {
 	    /* Search back to the first in the class */
             while (!E[j-1].last) j--;
