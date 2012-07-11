@@ -87,6 +87,9 @@ static int       DiffOptsRegsub(Tcl_Interp *interp, Tcl_Obj *obj1Ptr,
                         Tcl_Obj *rePtr, Tcl_Obj *sub1Ptr,
                         Tcl_Obj **resultPtrPtr,
                         DiffOptions_T const *optsPtr);
+static Line_T*   LcsCoreInner(Tcl_Interp *interp, Line_T m, Line_T n,
+                        const P_T *P, const E_T *E,
+                        const DiffOptions_T *optsPtr, int, int *anyForbidden);
 
 static void
 InitLineList(LineList_T *listPtr)
@@ -887,7 +890,12 @@ IsLineMatch(
  */
 static void
 PostProcessForbiddenBlock(
-    Line_T * const J,        /* J vector */
+    Tcl_Interp *interp,
+    Line_T m,
+    Line_T n,
+    const P_T *P,
+    const E_T *E,
+    Line_T * const J,        /* J vector to edit */
     Line_T firstI,           /* First line in left change block */
     Line_T lastI,            /* First line in left change block */
     Line_T firstJ,           /* First line in right change block */
@@ -931,12 +939,33 @@ PostProcessForbiddenBlock(
     }
 
     /*
+     * In principle this matching should be a rerun of LCS on the block, with
+     * forbidden lines allowed.
+     * If the group is larger than the pivot, we do not want to recurse to LCS
+     * since that would just repeat the timing problem we try to avoid.
+     */
+    if (jList->n < optsPtr->pivot) {
+        int anyForbidden;
+        Line_T *newJ;
+        DiffOptions_T opts = *optsPtr;
+        opts.rFrom1 = firstI;
+        opts.rTo1   = lastI;
+        opts.rFrom2 = firstJ;
+        opts.rTo2   = lastJ;
+        newJ = LcsCoreInner(interp, lastI, n, P, E, &opts, 1, &anyForbidden);
+        for (i = firstI; i <= lastI; i++) {
+            if (newJ[i] != 0) {
+                J[i] = newJ[i];
+            }
+        }
+        ckfree((char *) newJ);
+        return;
+    }
+
+    /*
      * Just do a raw sequential matching of forbidden lines.
      * This produces a reasonable, if non-optimal, result.
-     * FIXA: Better algorithm here...
-     * In principle this matching should be a rerun of LCS on the block, with
-     * forbidden lines allowed. It might be reasonable to reuse the current P
-     * and E vectors and call LcsCoreInner in some way.
+     * FIXA: Better algorithm here?
      */ 
     for (j = 0; j < iList->n && j < jList->n; j++) {
         Line_T line1 = iList->Elems[j].line;
@@ -953,6 +982,7 @@ PostProcessForbiddenBlock(
  */
 static void
 PostProcessForbidden(
+    Tcl_Interp *interp,
     const Line_T m,          /* Size of file 1 */
     const Line_T n,          /* Size of file 2 */
     const P_T * const P,     /* P vector */
@@ -999,7 +1029,8 @@ PostProcessForbidden(
                      */
 
                     SortLineList(&jList);
-                    PostProcessForbiddenBlock(J, lastLine1 + 1, i - 1,
+                    PostProcessForbiddenBlock(interp, m, n, P, E,
+                                              J, lastLine1 + 1, i - 1,
                                               firstJ, lastJ,
                                               &iList, &jList, optsPtr);
 
@@ -1054,7 +1085,7 @@ ForbidP(Line_T i, P_T *P, E_T *E)
  * 
  * Returns the J vector as a ckalloc:ed array.
  */
-Line_T *
+static Line_T *
 LcsCoreInner(
     Tcl_Interp *interp,
     Line_T m,      /* number of elements in first sequence */
@@ -1062,6 +1093,7 @@ LcsCoreInner(
     const P_T *P,  /* The P vector [0,m] corresponds to lines in "file 1" */
     const E_T *E,  /* The E vector [0,n] corresponds to lines in "file 2" */
     const DiffOptions_T *optsPtr,
+    int ignoreForbidden,
     int *anyForbidden) /* Out parameter, was any forbidden lines skipped? */
 {
     Candidate_T **K, *c;
@@ -1088,9 +1120,9 @@ LcsCoreInner(
      * merge it into the set of candidates.
      */
 
-    for (i = 1; i <= m; i++) {
+    for (i = optsPtr->rFrom1; i <= m; i++) {
         if (P[i].Eindex != 0) {
-            if (P[i].forbidden) {
+            if (P[i].forbidden && !ignoreForbidden) {
                 *anyForbidden = 1;
             } else {
                 /*printf("Merge i %ld  Pi %ld\n", i , P[i]);*/
@@ -1258,7 +1290,7 @@ LcsCore(
         }
     }
 
-    J = LcsCoreInner(interp, m, n, P, E, optsPtr, &anyForbidden);
+    J = LcsCoreInner(interp, m, n, P, E, optsPtr, 0, &anyForbidden);
 
     if (anyForbidden) {
         /*
@@ -1266,7 +1298,7 @@ LcsCore(
          * may be more lines that can be matched.
          */
 
-        PostProcessForbidden(m, n, P, E, J, optsPtr);
+        PostProcessForbidden(interp, m, n, P, E, J, optsPtr);
     }
     return J;
 }

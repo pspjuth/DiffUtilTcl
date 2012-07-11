@@ -1,3 +1,6 @@
+2012-07-11  Peter Spjuth  <peter.spjuth@gmail.com>
+	Use recursive LCS to post process forbidden matches.
+
 2012-07-10  Peter Spjuth  <peter.spjuth@gmail.com>
 	Lots of restructuring to allow LcsCore to work recursively.
 	Specially, all lines are included in V/E/P vectors even if

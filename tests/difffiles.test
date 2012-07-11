@@ -459,8 +459,9 @@ test difffiles-15.1c {forbidden stressing} -constraints {CDiff} -body {
     lappend l1   a0 b c   a1 b c   a2 b c   a3 b c   a4 b c
     lappend l2   a0   c b a1   c b a2   c b a3   c b a4   c b
     set result [RunTest $l1 $l2 -pivot 4]
-    # TODO: This is currently a bad result
-} -result {{2 2 2 2} {5 2 5 2} {8 2 8 2} {11 2 11 2} {14 2 14 2}}
+    # Some here are fairly arbitrary and could just as well be different
+    # with a tweaked implementation.
+} -result {{2 1 2 0} {4 0 3 1} {5 1 5 0} {7 0 6 1} {8 1 8 0} {10 0 9 1} {11 1 11 0} {13 0 12 1} {14 1 14 0} {16 0 15 1}}
 
 test difffiles-15.2 {forbidden and align} -constraints {CDiff} -body {
     # Forbidden matching must not break align-constraint
@@ -477,11 +478,14 @@ test difffiles-15.3 {forbidden} -constraints {CDiff} -body {
     # Try to stress the postprocessing of forbidden matches
     set l1 {}
     set l2 {}
-    lappend l1   a0 b b c  a1 b c c a2 b b c a3 b c c a4 b c a5   b a6 b c
-    lappend l2   a0 c b b  a1 c c b a2 c c b a3 c b b a4 c b a5 c b a6   c
+    lappend l1  a0   b b c  a1 b c c   a2 b b c   
+    lappend l2  a0 c b b    a1   c c b a2 c   c b
+    lappend l1  a3 b c c   a4 b c   a5   b a6 b c
+    lappend l2  a3   c b b a4   c b a5 c b a6   c
     set result [RunTest $l1 $l2 -pivot 4]
-    # TODO: This is currently a bad result
-} -result {{2 1 2 1} {4 1 4 1} {6 1 6 1} {8 1 8 1} {10 3 10 3} {14 3 14 3} {18 2 18 2} {21 0 21 1} {23 1 24 0}}
+    # Some here are fairly arbitrary and could just as well be different
+    # with a tweaked implementation.
+} -result {{2 0 2 1} {4 1 5 0} {6 1 6 0} {9 0 8 1} {10 2 10 1} {13 0 12 1} {14 1 14 0} {16 1 15 2} {18 1 18 0} {20 0 19 1} {21 0 21 1} {23 1 24 0}}
 
 test difffiles-16.1 {trivial cases} {} {
     set l1 {}
