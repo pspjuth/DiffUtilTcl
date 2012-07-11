@@ -75,7 +75,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
     P_T *P = NULL;
     Tcl_StatBuf buf1, buf2;
     Hash_T h, realh;
-    Line_T j, m, n;
+    Line_T j, m = 0, n = 0;
     Line_T allocedV, allocedP;
     Tcl_Channel ch;
     Tcl_Obj *linePtr;
