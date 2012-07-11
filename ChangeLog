@@ -1,4 +1,7 @@
 2012-07-11  Peter Spjuth  <peter.spjuth@gmail.com>
+	Include debug info to see why C version failed to load in VFS.
+
+2012-07-11  Peter Spjuth  <peter.spjuth@gmail.com>
 	Use recursive LCS to post process forbidden matches.
 
 2012-07-10  Peter Spjuth  <peter.spjuth@gmail.com>

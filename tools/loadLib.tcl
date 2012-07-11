@@ -22,6 +22,7 @@ namespace eval ::DiffUtil {
         set libfile $root[info sharedlibextension]
         set fulllibfile [file join $dir [_platform] $libfile]
         if {[catch {uplevel \#0 [list load $fulllibfile]}]} {
+            set ::DiffUtil::DebugLibFile $fulllibfile
             uplevel \#0 [list source [file join $dir tcl diffutil.tcl]]
         }
     }
