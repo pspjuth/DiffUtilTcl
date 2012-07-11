@@ -235,17 +235,17 @@ lib.vfs/DiffUtil/tcl/diffutil.tcl: tcl/diffutil.tcl
 
 lib.vfs/DiffUtil/Linux-x86_64/$(PKG_LIB_FILE): $(PKG_LIB_FILE)
 	@mkdir -p lib.vfs/DiffUtil/Linux-x86_64
-	rm lib.vfs/DiffUtil/Linux-x86_64/*.so
+	rm -f lib.vfs/DiffUtil/Linux-x86_64/*.so
 	cp $(PKG_LIB_FILE) lib.vfs/DiffUtil/Linux-x86_64
 
 lib.vfs/DiffUtil/Linux-x86/$(PKG_LIB_FILE): $(PKG_LIB_FILE)
 	@mkdir -p lib.vfs/DiffUtil/Linux-x86
-	rm lib.vfs/DiffUtil/Linux-x86/*.so
+	rm -f lib.vfs/DiffUtil/Linux-x86/*.so
 	cp $(PKG_LIB_FILE) lib.vfs/DiffUtil/Linux-x86
 
 lib.vfs/DiffUtil/Windows-x86/lib$(PKG_LIB_FILE): $(PKG_LIB_FILE)
 	@mkdir -p lib.vfs/DiffUtil/Windows-x86
-	rm lib.vfs/DiffUtil/Windows-x86/*.dll
+	rm -f lib.vfs/DiffUtil/Windows-x86/*.dll
 	cp $(PKG_LIB_FILE) lib.vfs/DiffUtil/Windows-x86/lib$(PKG_LIB_FILE)
 
 vfs: binaries lib.vfs/DiffUtil/pkgIndex.tcl lib.vfs/DiffUtil/tcl/diffutil.tcl lib.vfs/DiffUtil/loadLib.tcl 
