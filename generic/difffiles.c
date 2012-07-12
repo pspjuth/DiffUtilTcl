@@ -73,24 +73,33 @@ ReadAndHashFiles(Tcl_Interp *interp,
     V_T *V = NULL;
     E_T *E = NULL;
     P_T *P = NULL;
-    Tcl_StatBuf buf1, buf2;
+    Tcl_StatBuf *statBuf;
+    Tcl_WideUInt fSize1, fSize2;
     Hash_T h, realh;
     Line_T j, m = 0, n = 0;
     Line_T allocedV, allocedP;
     Tcl_Channel ch;
     Tcl_Obj *linePtr;
 
+    statBuf = Tcl_AllocStatBuf();
+
     /* Stat files first to quickly see if they don't exist */
-    if (Tcl_FSStat(name1Ptr, &buf1) != 0) {
+    if (Tcl_FSStat(name1Ptr, statBuf) != 0) {
         /* FIXA: error message */
         Tcl_SetResult(interp, "bad file", TCL_STATIC);
+        ckfree((char *) statBuf);
         return TCL_ERROR;
     }
-    if (Tcl_FSStat(name2Ptr, &buf2) != 0) {
+    fSize1 = 500000; /* Tcl_GetSizeFromStat(statBuf); In 8.6 */
+
+    if (Tcl_FSStat(name2Ptr, statBuf) != 0) {
         /* FIXA: error message */
         Tcl_SetResult(interp, "bad file", TCL_STATIC);
+        ckfree((char *) statBuf);
         return TCL_ERROR;
     }
+    fSize2 = 500000; /* Tcl_GetSizeFromStat(statBuf); In 8.6 */
+    ckfree((char *) statBuf);
 
     /* Initialize an object to use as line buffer. */
     linePtr = Tcl_NewObj();
@@ -99,7 +108,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
     Tcl_SetObjLength(linePtr, 0);
 
     /* Guess the number of lines in name2 for an inital allocation of V */
-    allocedV = buf2.st_size / 40;
+    allocedV = fSize2 / 40;
     /* If the guess is low, alloc some more to be safe. */
     if (allocedV < 5000) allocedV = 5000;
     V = (V_T *) ckalloc(allocedV * sizeof(V_T));
@@ -156,7 +165,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
      */
 
     /* Guess the number of lines in name1 for an inital allocation of P */
-    allocedP = buf1.st_size / 40;
+    allocedP = fSize1 / 40;
     /* If the guess is low, alloc some more to be safe. */
     if (allocedP < 10000) allocedP = 10000;
     P = (P_T *) ckalloc(allocedP * sizeof(P_T));
