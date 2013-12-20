@@ -388,6 +388,7 @@ corresponds to equal elements in the sequences.
 .PP
 .CS
 
+
 % DiffUtil::diffFiles $file1 $file2
 {{3 2 3 4}}
 

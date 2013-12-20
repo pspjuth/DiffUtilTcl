@@ -9,6 +9,9 @@
 #include <tcl.h>
 #include "diffutil.h"
 
+#undef  TCL_STORAGE_CLASS
+#define TCL_STORAGE_CLASS DLLEXPORT
+
 typedef int (CompareFun) (CONST Tcl_UniChar *,
                           CONST Tcl_UniChar *,
                           unsigned long);
@@ -366,7 +369,7 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
 Tcl_CreateObjCommand(interp, name, func, (ClientData) NULL, \
                      (Tcl_CmdDeleteProc *) NULL)
 
-int
+EXTERN int
 Diffutil_Init(Tcl_Interp *interp)
 {
     if (Tcl_InitStubs(interp, "8.4", 0) == NULL) {
@@ -390,7 +393,7 @@ Diffutil_Init(Tcl_Interp *interp)
     return TCL_OK;
 }
 
-int
+EXTERN int
 Diffutil_SafeInit(Tcl_Interp *interp)
 {
     return TCL_OK;
