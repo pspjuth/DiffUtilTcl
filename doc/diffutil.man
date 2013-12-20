@@ -1,9 +1,9 @@
-[manpage_begin DiffUtil n 0.3.7]
+[manpage_begin DiffUtil n 0.3.8]
 [copyright {2010, Peter Spjuth}]
 [moddesc   {Comparision Utilities}]
 [titledesc {Compare Stuff}]
 [require Tcl 8.4]
-[require DiffUtil [opt 0.3.7]]
+[require DiffUtil [opt 0.3.8]]
 [description]
 [para]
 

@@ -1,4 +1,7 @@
 2013-12-20  Peter Spjuth  <peter.spjuth@gmail.com>
+	Bumped revision to 0.3.8
+
+2013-12-20  Peter Spjuth  <peter.spjuth@gmail.com>
 	Added EXTERN and similar to compile ok on windows.
 	Patch from Andreas Kupries.
 
