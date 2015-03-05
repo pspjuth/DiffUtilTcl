@@ -248,11 +248,17 @@ lib.vfs/DiffUtil/Windows-x86/lib$(PKG_LIB_FILE): $(PKG_LIB_FILE)
 	rm -f lib.vfs/DiffUtil/Windows-x86/*.dll
 	cp $(PKG_LIB_FILE) lib.vfs/DiffUtil/Windows-x86/lib$(PKG_LIB_FILE)
 
+lib.vfs/DiffUtil/Darwin-x86_64/$(PKG_LIB_FILE): $(PKG_LIB_FILE)
+	@mkdir -p lib.vfs/DiffUtil/Darwin-x86_64
+	rm -f lib.vfs/DiffUtil/Darwin-x86_64/*.dylib
+	cp $(PKG_LIB_FILE) lib.vfs/DiffUtil/Darwin-x86_64
+
 vfs: binaries lib.vfs/DiffUtil/pkgIndex.tcl lib.vfs/DiffUtil/tcl/diffutil.tcl lib.vfs/DiffUtil/loadLib.tcl 
 
 vfs32: vfs lib.vfs/DiffUtil/Linux-x86/$(PKG_LIB_FILE)
 vfs64: vfs lib.vfs/DiffUtil/Linux-x86_64/$(PKG_LIB_FILE)
 vfswin: lib.vfs/DiffUtil/Windows-x86/lib$(PKG_LIB_FILE)
+vfsmac: lib.vfs/DiffUtil/Darwin-x86_64/$(PKG_LIB_FILE)
 
 #========================================================================
 # This rule installs platform-independent files, such as header files.
