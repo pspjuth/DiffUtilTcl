@@ -6,7 +6,8 @@ make clean
 make
 make vfswin
 
-./configure --disable-64bit
+# 32-bit compiling needs a 32 bit compiled tcl for linking
+CFLAGS=-m32 ./configure --disable-64bit --with-tcl=/home/peter/tcl/m32/tcl/unix
 make clean
 make
 make vfs32
