@@ -222,7 +222,6 @@ Command-Line Name:	\\fB\\$1\\fR
 Database Name:	\\fB\\$2\\fR
 Database Class:	\\fB\\$3\\fR
 .fi
-.IP
 ..
 '\"	# CS - begin code excerpt
 .de CS
@@ -238,14 +237,14 @@ Database Class:	\\fB\\$3\\fR
 .de UL
 \\$1\l'|0\(ul'\\$2
 ..
-.TH "DiffUtil" n 0.3.8 diffutil "Comparision Utilities"
+.TH "DiffUtil" n 0.3.9 diffutil "Comparision Utilities"
 .BS
 .SH NAME
 DiffUtil \- Compare Stuff
 .SH SYNOPSIS
 package require \fBTcl  8.4\fR
 .sp
-package require \fBDiffUtil  ?0.3.8?\fR
+package require \fBDiffUtil  ?0.3.9?\fR
 .sp
 \fB::DiffUtil::diffFiles\fR ?\fIoptions\fR? \fIfile1\fR \fIfile2\fR
 .sp
@@ -387,16 +386,12 @@ corresponds to equal elements in the sequences.
 .SH EXAMPLES
 .PP
 .CS
-
-
 % DiffUtil::diffFiles $file1 $file2
 {{3 2 3 4}}
-
 .CE
 .SH KEYWORDS
 diff, lcs, longest common substring
 .SH COPYRIGHT
 .nf
 Copyright (c) 2010, Peter Spjuth
-
 .fi

@@ -1,6 +1,6 @@
 The following files contain current revision and needs to be changed
 when bumping revisions:
-configure.in     (AC_INIT)
+configure.ac     (AC_INIT)
 doc/diffutil.man (two places)
 tcl/diffutil.tcl (package provide)
 win/makefile.vc  (DOTVERSION)
