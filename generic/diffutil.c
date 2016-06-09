@@ -150,18 +150,18 @@ CompareMidString(interp, obj1, obj2, res, wordparse, nocase)
 	    }
             if (wordparse) {
                 newt = t;
-                if ((t > 0 && Tcl_UniCharIsWordChar(str1[t-1])) ||
-			(i > 0 && Tcl_UniCharIsWordChar(str2[i-1]))) {
+                if ((t > 0 && !Tcl_UniCharIsSpace(str1[t-1])) ||
+			(i > 0 && !Tcl_UniCharIsSpace(str2[i-1]))) {
                     for (; newt < p1; newt++) {
-                        if (!Tcl_UniCharIsWordChar(str1[newt])) break;
+                        if (Tcl_UniCharIsSpace(str1[newt])) break;
                     }
                 }
 
                 newp1 = p1 - 1;
-                if ((p1 < len1 && Tcl_UniCharIsWordChar(str1[p1])) ||
-			(p2 < len2 && Tcl_UniCharIsWordChar(str2[p2]))) {
+                if ((p1 < len1 && !Tcl_UniCharIsSpace(str1[p1])) ||
+			(p2 < len2 && !Tcl_UniCharIsSpace(str2[p2]))) {
                     for (; newp1 > newt; newp1--) {
-                        if (!Tcl_UniCharIsWordChar(str1[newp1])) break;
+                        if (Tcl_UniCharIsSpace(str1[newp1])) break;
                     }
                 }
                 newp1++;
@@ -296,7 +296,7 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
             if (*s1 != *s2) break;
         }
 	if (wordparse) {
-	    if (Tcl_UniCharIsWordChar(*s1)) {
+	    if (!Tcl_UniCharIsSpace(*s1)) {
 		wordflag = 0;
 	    } else {
 		wordflag = 1;
@@ -326,7 +326,7 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
             if (*(e1 - 1) != *(e2 - 1)) break;
         }
 	if (wordparse) {
-	    if (Tcl_UniCharIsWordChar(*(e1 - 1))) {
+	    if (!Tcl_UniCharIsSpace(*(e1 - 1))) {
 		wordflag = 0;
 	    } else {
 		wordflag = 1;

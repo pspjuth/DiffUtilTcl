@@ -113,6 +113,13 @@ test diffstrings-2.4.2 {words} {TclDiff} {
     RunTest $s1 $s2 -words
 } [list {abc de} {abc de} {f ghi} {} {} {}]
 
+test diffstrings-2.5 {words} {
+    # non-space is considered word char
+    set s1 {NET '/I$1/N$1458' IC2-10}
+    set s2 {NET '/I$1/N$1458' IC2-9}
+    RunTest $s1 $s2 -words
+} [list {NET '/I$1/N$1458' } {NET '/I$1/N$1458' } IC2-10 IC2-9 {} {}]
+
 test diffstrings-3.1 {ignore space} {knownbug} {
     set s1 {  abc d  f ghi }
     set s2 { abc x y ghi  }
