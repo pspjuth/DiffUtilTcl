@@ -1,4 +1,7 @@
 2016-06-09  Peter Spjuth  <peter.spjuth@gmail.com>
+	Updated to latest sampleextension
+
+2016-06-09  Peter Spjuth  <peter.spjuth@gmail.com>
 	Word matching should use non-space as word definition in all
 	versions. (DiffStrings used alnum up to now)
 
