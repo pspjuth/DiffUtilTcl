@@ -26,7 +26,7 @@ CompareFilesObjCmd(
     int ignoreKey = 0, noCase = 0, binary = 0, equal = 0;
     Tcl_Obj *encodingPtr = NULL;
     Tcl_Obj *translationPtr = NULL;
-    Tcl_StatBuf buf1, buf2;
+    Tcl_StatBuf *buf1, *buf2;
     Tcl_Channel ch1 = NULL, ch2 = NULL;
     Tcl_Obj *line1Ptr, *line2Ptr;
     Tcl_WideUInt size1, size2;
@@ -95,23 +95,35 @@ CompareFilesObjCmd(
     }
 
     /* Stat files first to quickly see if they don't exist */
-    if (Tcl_FSStat(file1Ptr, &buf1) != 0) {
+    buf1 = Tcl_AllocStatBuf();
+    buf2 = Tcl_AllocStatBuf();
+    if (Tcl_FSStat(file1Ptr, buf1) != 0) {
         /* FIXA: error message */
         Tcl_SetResult(interp, "bad file", TCL_STATIC);
 	result = TCL_ERROR;
 	goto cleanup;
     }
-    if (Tcl_FSStat(file2Ptr, &buf2) != 0) {
+    if (Tcl_FSStat(file2Ptr, buf2) != 0) {
         /* FIXA: error message */
         Tcl_SetResult(interp, "bad file", TCL_STATIC);
 	result = TCL_ERROR;
 	goto cleanup;
     }
 
-    size1 = (Tcl_WideUInt) buf1.st_size; /*Tcl_GetSizeFromStat(&buf1);*/
-    size2 = (Tcl_WideUInt) buf2.st_size; /*Tcl_GetSizeFromStat(&buf2);*/
-    mode1 = (unsigned) buf1.st_mode; /*Tcl_GetModeFromStat(&buf1);*/
-    mode2 = (unsigned) buf2.st_mode; /*Tcl_GetModeFromStat(&buf2);*/
+#if 1    
+    size1 = (Tcl_WideUInt) buf1->st_size;
+    size2 = (Tcl_WideUInt) buf2->st_size;
+    mode1 = (unsigned) buf1->st_mode;
+    mode2 = (unsigned) buf2->st_mode;
+#else
+    /* These were added in 8.6, use them and demand 8.6 one day. */
+    size1 = Tcl_GetSizeFromStat(buf1);
+    size2 = Tcl_GetSizeFromStat(buf2);
+    mode1 = Tcl_GetModeFromStat(buf1);
+    mode2 = Tcl_GetModeFromStat(buf2);
+#endif
+    ckfree(buf1);
+    ckfree(buf2);
 
     if (S_ISDIR(mode1) || S_ISDIR(mode2)) {
 	equal = 0;
