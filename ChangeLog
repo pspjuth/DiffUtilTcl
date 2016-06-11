@@ -1,4 +1,7 @@
 2016-06-11  Peter Spjuth  <peter.spjuth@gmail.com>
+	Updated to TEA 3.10
+
+2016-06-11  Peter Spjuth  <peter.spjuth@gmail.com>
         Use Tcl_AllocStatBuf to hopefully avoid some crashes on Windows.
 	The next step here would be to use Statbuf support in 8.6 and bump
 	dependency to 8.6.
