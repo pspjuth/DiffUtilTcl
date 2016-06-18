@@ -107,6 +107,7 @@ proc cand {list1 list2 args} {
     file delete -force _1 _2
     visualize $list1 $list2
 }
+# Invert order
 proc candi {list1 list2 args} {
     eval [list cand $list2 $list1] $args
 }

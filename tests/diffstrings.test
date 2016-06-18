@@ -30,6 +30,32 @@ proc RunTest {str1 str2 args} {
     }
     return $apa
 }
+# Run just one version
+proc RunTest1 {str1 str2 args} {
+    set c [catch {eval DiffUtil::diffStrings $args \$str1 \$str2} apa]
+    return $apa
+}
+# Run just one version
+proc RunTest2 {str1 str2 args} {
+    set c [catch {eval DiffUtil::diffStrings2 $args \$str1 \$str2} apa]
+    return $apa
+}
+# Remove spaces before calling, to allow visual formatting in test cases
+proc RunTestNoSp {str1 str2 args} {
+    set s1 [string map {{ } {}} $str1]
+    set s2 [string map {{ } {}} $str2]
+    return [RunTest $s1 $s2 {*}$args]
+}
+proc RunTestNoSp1 {str1 str2 args} {
+    set s1 [string map {{ } {}} $str1]
+    set s2 [string map {{ } {}} $str2]
+    return [RunTest1 $s1 $s2 {*}$args]
+}
+proc RunTestNoSp2 {str1 str2 args} {
+    set s1 [string map {{ } {}} $str1]
+    set s2 [string map {{ } {}} $str2]
+    return [RunTest2 $s1 $s2 {*}$args]
+}
 
 if {[info commands DiffUtil::diffStrings2] == ""} {
     interp alias {} DiffUtil::diffStrings2 {} DiffUtil::diffStrings
@@ -37,8 +63,12 @@ if {[info commands DiffUtil::diffStrings2] == ""} {
 
 #----------------------------------------------------------------------
 
-test diffstrings-1.1 {error cases} -body {
+test diffstrings-1.0a {error cases} -body {
     DiffUtil::diffStrings a
+} -returnCodes 1 -result "wrong # args*" -match glob
+
+test diffstrings-1.0b {error cases} -body {
+    DiffUtil::diffStrings2 a
 } -returnCodes 1 -result "wrong # args*" -match glob
 
 test diffstrings-1.1 {substring} {
@@ -54,9 +84,9 @@ test diffstrings-1.2 {substring} {
 } [list {} {} {} abcd efghij efghij {} kl {} {}]
 
 test diffstrings-1.3 {x} {
-    set s1 [string map {{ } {}} {sks   fliuslkjuf   hslk  flkj}]
-    set s2 [string map {{ } {}} {sksjdhfliu   jufliuhslkxhflkj}]
-    RunTest $s1 $s2
+    set s1 {sks   fliuslkjuf   hslk  flkj}
+    set s2 {sksjdhfliu   jufliuhslkxhflkj}
+    RunTestNoSp $s1 $s2
 } [list sks sks {} jdh fliu fliu slk {} juf juf {} liu hslk hslk {} xh flkj flkj]
 
 test diffstrings-1.4 {equal} {
@@ -65,19 +95,26 @@ test diffstrings-1.4 {equal} {
     RunTest $s1 $s2
 } [list {abc def} {abc def}]
 
-test diffstrings-1.5 {long substring that is not a solution} {knownbug} {
-    set s1 [string map {{ } {}} {s     abc efg ijk mnopeterj}]
-    set s2 [string map {{ } {}} {speterabcdefghijklmno     j}]
-    RunTest $s1 $s2
+test diffstrings-1.5a {long substring that is not a solution} {
+    # Known bug: no good in 1-version
+    set s1 {s abcefgijkmno peter                 j}
+    set s2 {s              peter abcdefghijklmno j}
+    RunTestNoSp1 $s1 $s2
+} [list s s abcefgijkmno {} peter peter {} abcdefghijklmno j j]
+
+test diffstrings-1.5b {long substring that is not a solution} {CDiff} {
+    set s1 {s     abc efg ijk mnopeterj}
+    set s2 {speterabcdefghijklmno     j}
+    RunTestNoSp2 $s1 $s2
 } [list s s {} peter abc abc {} d efg efg {} h ijk ijk {} l mno mno peter {} j j]
 
-test diffstrings-1.5 {middle addition} {
+test diffstrings-1.6 {middle addition} {
     set s1 {abc def}
     set s2 {abc xyz def}
     RunTest $s1 $s2
 } [list {abc } {abc } {} {xyz } {def} {def}]
 
-test diffstrings-1.6 {middle change} {
+test diffstrings-1.7 {middle change} {
     set s1 {abc qqqqqqqq def}
     set s2 {abc wwwwwwww def}
     RunTest $s1 $s2
@@ -101,10 +138,17 @@ test diffstrings-2.3 {words} {
     RunTest $s1 $s2 -words
 } [list {abc } {abc } def daf { ghi } { ghi } jkl jil { mno} { mno}]
 
-test diffstrings-2.4.1 {words} {CDiff knownbug} {
+test diffstrings-2.4.1a {words} {CDiff} {
+    # Known bug: words is no good in 1-version
     set s1 {abc def ghi}
     set s2 {abc de}
-    RunTest $s1 $s2 -words
+    RunTest1 $s1 $s2 -words
+} [list {abc de} {abc de} {f ghi} {} {} {}]
+
+test diffstrings-2.4.1b {words} {CDiff} {
+    set s1 {abc def ghi}
+    set s2 {abc de}
+    RunTest2 $s1 $s2 -words
 } [list {abc } {abc } {def ghi} {de} {} {}]
 
 test diffstrings-2.4.2 {words} {TclDiff} {
@@ -120,17 +164,31 @@ test diffstrings-2.5 {words} {
     RunTest $s1 $s2 -words
 } [list {NET '/I$1/N$1458' } {NET '/I$1/N$1458' } IC2-10 IC2-9 {} {}]
 
-test diffstrings-3.1 {ignore space} {knownbug} {
+test diffstrings-3.1a {ignore space} {} {
     set s1 {  abc d  f ghi }
     set s2 { abc x y ghi  }
-    RunTest $s1 $s2
+    RunTest1 $s1 $s2
 } [list { } { } { } {} {abc } {abc } {d  f} {x y} { ghi} { ghi} {} { } { } { }]
 
-test diffstrings-3.2 {ignore space} {knownbug} {
+test diffstrings-3.1b {ignore space} {CDiff} {
+    # Known bug: ignore space is no good in 2-version
     set s1 {  abc d  f ghi }
     set s2 { abc x y ghi  }
-    RunTest $s1 $s2 -b
+    RunTest2 $s1 $s2
+} [list { } { } { } {} {abc } {abc } d x { } { } { f} y { ghi } { ghi } {} { } {} {}]
+
+test diffstrings-3.2a {ignore space} {
+    set s1 {  abc d  f ghi }
+    set s2 { abc x y ghi  }
+    RunTest1 $s1 $s2 -b
 } [list {  abc } { abc } {d  f} {x y} { ghi } { ghi  }]
+
+test diffstrings-3.2b {ignore space} {CDiff} {
+    # Known bug: ignore space is no good in 2-version
+    set s1 {  abc d  f ghi }
+    set s2 { abc x y ghi  }
+    RunTest2 $s1 $s2 -b
+} [list {} {} { } {} { abc } { abc } d x { } { } { f} y { ghi } { ghi } {} { } {} {}]
 
 test diffstrings-4.1 {ignore case} {
     set s1 {Zabc dWRTUf ghiQ}
