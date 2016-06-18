@@ -284,20 +284,21 @@ Ignore all spaces.
 Ignore empty lines in initial compare step. I.e. empty lines are considered
 not equal at first. Multiple equal lines gives longer runtimes and by avoiding
 the very common empty line, runtimes are improved. With \fI-b\fR or \fI-w\fR,
-all-space lines are considered empty.
+all-space lines are considered empty. This is similar to having a \fI-pivot\fR
+value of 1 just for empty lines.
 .TP
 \fB-pivot\fR \fIvalue\fR
 Ignore common lines in initial compare step. Multiple equal lines gives longer
 runtime and by avoiding them runtime is improved.  The pivot \fIvalue\fR
-says how many equal lines there must be in \fIfile2\fR before those lines are
-disregarded. The default is 100.
+says how many equal lines there at most may be in \fIfile2\fR for those
+lines to be regarded. The default is 100.
 .TP
 \fB-nodigit\fR
 Consider any sequence of digits equal.
 .TP
 \fB-align\fR \fIlist\fR
 Align lines. The argument is a list with an even number of elements. Each
-pair is a line number in the first and second file. Those lines are considered
+pair is line numbers in the first and second file. Those lines are considered
 equal and matching, regardless of their contents.
 .TP
 \fB-range\fR \fIlist\fR

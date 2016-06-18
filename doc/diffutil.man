@@ -44,20 +44,21 @@ Ignore all spaces.
 Ignore empty lines in initial compare step. I.e. empty lines are considered
 not equal at first. Multiple equal lines gives longer runtimes and by avoiding
 the very common empty line, runtimes are improved. With [arg -b] or [arg -w],
-all-space lines are considered empty.
+all-space lines are considered empty. This is similar to having a [arg -pivot]
+value of 1 just for empty lines.
 
 [opt_def -pivot [arg value]]
 Ignore common lines in initial compare step. Multiple equal lines gives longer
 runtime and by avoiding them runtime is improved.  The pivot [arg value]
-says how many equal lines there must be in [arg file2] before those lines are
-disregarded. The default is 100.
+says how many equal lines there at most may be in [arg file2] for those
+lines to be regarded. The default is 100.
 
 [opt_def -nodigit]
 Consider any sequence of digits equal.
 
 [opt_def -align [arg list]]
 Align lines. The argument is a list with an even number of elements. Each
-pair is a line number in the first and second file. Those lines are considered
+pair is line numbers in the first and second file. Those lines are considered
 equal and matching, regardless of their contents.
 
 [opt_def -range [arg list]]

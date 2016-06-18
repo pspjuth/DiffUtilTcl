@@ -153,17 +153,18 @@ space, except at beginning of line where it is completely ignored.</p></dd>
 <dd><p>Ignore empty lines in initial compare step. I.e. empty lines are considered
 not equal at first. Multiple equal lines gives longer runtimes and by avoiding
 the very common empty line, runtimes are improved. With <i class="arg">-b</i> or <i class="arg">-w</i>,
-all-space lines are considered empty.</p></dd>
+all-space lines are considered empty. This is similar to having a <i class="arg">-pivot</i>
+value of 1 just for empty lines.</p></dd>
 <dt><b class="option">-pivot</b> <i class="arg">value</i></dt>
 <dd><p>Ignore common lines in initial compare step. Multiple equal lines gives longer
 runtime and by avoiding them runtime is improved.  The pivot <i class="arg">value</i>
-says how many equal lines there must be in <i class="arg">file2</i> before those lines are
-disregarded. The default is 100.</p></dd>
+says how many equal lines there at most may be in <i class="arg">file2</i> for those
+lines to be regarded. The default is 100.</p></dd>
 <dt><b class="option">-nodigit</b></dt>
 <dd><p>Consider any sequence of digits equal.</p></dd>
 <dt><b class="option">-align</b> <i class="arg">list</i></dt>
 <dd><p>Align lines. The argument is a list with an even number of elements. Each
-pair is a line number in the first and second file. Those lines are considered
+pair is line numbers in the first and second file. Those lines are considered
 equal and matching, regardless of their contents.</p></dd>
 <dt><b class="option">-range</b> <i class="arg">list</i></dt>
 <dd><p>Diff only a range of the files. The list is {first1 last1 first2 last2}</p></dd>
