@@ -139,7 +139,7 @@ test diffstrings-2.3 {words} {
 } [list {abc } {abc } def daf { ghi } { ghi } jkl jil { mno} { mno}]
 
 test diffstrings-2.4.1a {words} {CDiff} {
-    # Known bug: words is no good in 1-version
+    # Known bug: words is not so good in 1-version
     set s1 {abc def ghi}
     set s2 {abc de}
     RunTest1 $s1 $s2 -words
@@ -164,31 +164,73 @@ test diffstrings-2.5 {words} {
     RunTest $s1 $s2 -words
 } [list {NET '/I$1/N$1458' } {NET '/I$1/N$1458' } IC2-10 IC2-9 {} {}]
 
+test diffstrings-2.6.1 {words} {
+    set s1 {apa bepa cepa depa hurg}
+    set s2 {apa bipa cepa dipa hurg}
+    RunTest $s1 $s2
+} [list {apa b} {apa b} e i {pa cepa d} {pa cepa d} e i {pa hurg} {pa hurg}]
+
+test diffstrings-2.6.2 {words} {
+    set s1 {apa bepa cepa depa hurg}
+    set s2 {apa bipa cepa dipa hurg}
+    RunTest $s1 $s2 -words
+} [list {apa } {apa } bepa bipa { cepa } { cepa } depa dipa { hurg} { hurg}]
+
+test diffstrings-2.7.2a {words} {
+    # Known: 1 do not handle this well
+    set s1 { apa  bepa   cepa  depa   hurg}
+    set s2 { apa   bipa  cepa  dipa   hurg }
+    RunTest1 $s1 $s2 -words -b
+} [list { apa  } { apa  } {bepa } { bipa} {  cepa  } {  cepa  } depa dipa {   hurg} {   hurg }]
+
+test diffstrings-2.7.2b {words} {CDiff} {
+    set s1 { apa  bepa   cepa  depa   hurg}
+    set s2 { apa   bipa  cepa  dipa   hurg }
+    RunTest2 $s1 $s2 -words -b
+} [list { apa  } { apa   } bepa bipa {   cepa  } {  cepa  } depa dipa {   hurg} {   hurg} {} { } {} {}]
+
+test diffstrings-2.7.3a {words} {
+    # Known: 1 do not handle this well
+    set s1 { apa  bepa   cepa  depa   hurg}
+    set s2 { apa   bipa  cepa  dipa   hurg }
+    RunTest1 $s1 $s2 -words -w
+} [list { apa  } { apa  } {bepa } { bipa} {  cepa  } {  cepa  } depa dipa {   hurg} {   hurg }]
+
+test diffstrings-2.7.3b {words} {CDiff} {
+    # Known: words + -w behaves like -b
+    set s1 { apa  bepa   cepa  depa   hurg}
+    set s2 { apa   bipa  cepa  dipa   hurg }
+    RunTest2 $s1 $s2 -words -w
+} [list { apa  } { apa   } bepa bipa {   cepa  } {  cepa  } depa dipa {   hurg} {   hurg} {} { } {} {}]
+
+
 test diffstrings-3.1a {ignore space} {} {
+    # First try without
     set s1 {  abc d  f ghi }
     set s2 { abc x y ghi  }
     RunTest1 $s1 $s2
 } [list { } { } { } {} {abc } {abc } {d  f} {x y} { ghi} { ghi} {} { } { } { }]
 
 test diffstrings-3.1b {ignore space} {CDiff} {
-    # Known bug: ignore space is no good in 2-version
+    # Known difference: More granularity in 2-version
     set s1 {  abc d  f ghi }
     set s2 { abc x y ghi  }
     RunTest2 $s1 $s2
 } [list { } { } { } {} {abc } {abc } d x { } { } { f} y { ghi } { ghi } {} { } {} {}]
 
 test diffstrings-3.2a {ignore space} {
+    # Same as 3.1 but with ignore
     set s1 {  abc d  f ghi }
     set s2 { abc x y ghi  }
     RunTest1 $s1 $s2 -b
 } [list {  abc } { abc } {d  f} {x y} { ghi } { ghi  }]
 
 test diffstrings-3.2b {ignore space} {CDiff} {
-    # Known bug: ignore space is no good in 2-version
+    # Known difference: More granularity in 2-version
     set s1 {  abc d  f ghi }
     set s2 { abc x y ghi  }
     RunTest2 $s1 $s2 -b
-} [list {} {} { } {} { abc } { abc } d x { } { } { f} y { ghi } { ghi } {} { } {} {}]
+} [list {  abc } { abc } d x {  } { } f y { ghi } { ghi  }]
 
 test diffstrings-4.1 {ignore case} {
     set s1 {Zabc dWRTUf ghiQ}
@@ -209,13 +251,15 @@ test diffstrings-4.3 {ignore case} {
 } [list {AjkHFAk} {AjkhfAk} {ja} {qq} {aslkJADADl} {AslkJAdaDl} {kh} {sx} {aDkhA} {aDkhA} {LD} {ft} {KJHDA} {KJHDA}]
 
 test diffstrings-5.1 {performance} {
-    set s1 {AjkHFAkjaaslkJADADlkhaDkhALDKJHDA}
-    set s2 {AjkhfAkqqAslkJAdaDlsxaDkhAftKJHDA}
+    set s1 {AjkHFAk jaaslkJADADl khaDkhA LDKJHDA}
+    set s2 {AjkhfAk qqAslkJAdaDls xaDkh AftKJHDA}
 
     set n 1000
     puts [time {DiffUtil::diffStrings $s1 $s2} $n]
     puts [time {DiffUtil::diffStrings2 $s1 $s2} $n]
     puts [time {DiffUtil::diffStrings -nocase $s1 $s2} $n]
     puts [time {DiffUtil::diffStrings2 -nocase $s1 $s2} $n]
+    puts [time {DiffUtil::diffStrings -b $s1 $s2} $n]
+    puts [time {DiffUtil::diffStrings2 -b $s1 $s2} $n]
     set a ""
 } {}

@@ -101,6 +101,71 @@ PrepareStringsLcs(Tcl_Interp *interp,
 }
 
 /*
+ * Split a string into a list where each element is good as a chunk
+ * for comparison.
+ * E.g. if ws is ignored, any stretch of whitespace becomes one element.
+ * If nothing is ignored, it will be one element per character.
+ */
+Tcl_Obj *
+SplitString(Tcl_Obj *strPtr,
+            DiffOptions_T *optsPtr)
+{
+    int state = 0;
+    int length, chsize, isSpace;
+    char *string, *str, *startWord, *endWord;
+    Tcl_UniChar c;
+    Tcl_Obj *resPtr;
+    int igSpace = (optsPtr->ignore & (IGNORE_SPACE_CHANGE | IGNORE_ALL_SPACE));
+    int word = optsPtr->wordparse;
+
+    resPtr = Tcl_NewListObj(0, NULL);
+    Tcl_IncrRefCount(resPtr);
+    
+    string = Tcl_GetStringFromObj(strPtr, &length);
+    str = string;
+    startWord = str;
+    while (*str != 0) {
+        endWord = str;
+        chsize = Tcl_UtfToUniChar(str, &c);
+        isSpace = Tcl_UniCharIsSpace(c);
+        str += chsize;
+        if (state == 0) {
+            if (igSpace && isSpace) {
+                state = 1;
+                continue;
+            }
+            if (word && !isSpace) {
+                state = 2;
+                continue;
+            }
+        }
+        if (state == 1 && isSpace) {
+            continue;
+        }
+        if (state == 2 && !isSpace) {
+            continue;
+        }
+        if (state == 0) {
+            /* The just seen char is part of the chunk */
+            endWord = str;
+        }
+        Tcl_ListObjAppendElement(
+            NULL, resPtr,
+            Tcl_NewStringObj(startWord, endWord-startWord));
+        startWord = endWord;
+        str = endWord;
+        state = 0;
+    }
+    if (startWord < str) {
+        /* Last chunk */
+        Tcl_ListObjAppendElement(
+            NULL, resPtr,
+            Tcl_NewStringObj(startWord, str-startWord));
+    }
+    return resPtr;
+}
+
+/*
  * The main string LCS routine returns the J vector.
  * J is ckalloc:ed and need to be freed by the caller.
  */
@@ -220,6 +285,92 @@ CompareStrings1(Tcl_Interp *interp,
 }
 
 /*
+ * Make a string by joining a subrange of a list.
+ */
+static Tcl_Obj *
+JoinRange(Tcl_Obj **elemPtrs, int from, int to)
+{
+    Tcl_Obj *resPtr;
+    int i;
+
+    resPtr = Tcl_NewObj();
+    for (i = from; i <= to; i++) {
+	Tcl_AppendObjToObj(resPtr, elemPtrs[i]);
+    }
+    return resPtr;
+}
+
+/*
+ * Compare Strings through list chunks.
+ */
+static void
+CompareStringsL(Tcl_Interp *interp,
+                Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
+                DiffOptions_T *optsPtr,
+                Tcl_Obj **resPtr)
+{
+    Tcl_Obj *list1Ptr, *list2Ptr, *listResPtr;
+    int chunk, from1, from2, to1, to2;
+    int ch1, ch2, ch3, ch4;
+    int length1, length2, lengthr, lengthc;
+    Tcl_Obj **elem1Ptrs, **elem2Ptrs, **elemRPtrs, **elemCPtrs;
+
+    /* Do it chunk-wise through list diff */
+    list1Ptr = SplitString(str1Ptr, optsPtr);
+    list2Ptr = SplitString(str2Ptr, optsPtr);
+    optsPtr->resultStyle = Result_Diff;
+    optsPtr->firstIndex = 0;
+    CompareLists(interp, list1Ptr, list2Ptr, optsPtr, &listResPtr);
+    /* Go through the chunks */
+    *resPtr = Tcl_NewListObj(0, NULL);
+    Tcl_ListObjGetElements(NULL, list1Ptr, &length1, &elem1Ptrs);
+    Tcl_ListObjGetElements(NULL, list2Ptr, &length2, &elem2Ptrs);
+    /*printf("Split l1 %d l2 %d\n", length1, length2);
+    printf("L1 %s\n", Tcl_GetString(list1Ptr));
+    printf("L2 %s\n", Tcl_GetString(list2Ptr));*/
+
+    Tcl_ListObjGetElements(NULL, listResPtr, &lengthr, &elemRPtrs);
+    from1 = from2 = 0;
+    for (chunk = 0; chunk < lengthr; chunk++) {
+        Tcl_ListObjGetElements(NULL, elemRPtrs[chunk], &lengthc, &elemCPtrs);
+        Tcl_GetIntFromObj(interp, elemCPtrs[0], &ch1);
+        Tcl_GetIntFromObj(interp, elemCPtrs[1], &ch2);
+        Tcl_GetIntFromObj(interp, elemCPtrs[2], &ch3);
+        Tcl_GetIntFromObj(interp, elemCPtrs[3], &ch4);
+        /*printf("Chunk %d %d %d %d\n", ch1, ch2, ch3, ch4);*/
+
+        /* Pre chunk */
+        to1 = ch1 - 1;
+        to2 = ch3 - 1;
+        Tcl_ListObjAppendElement(interp, *resPtr,
+                                 JoinRange(elem1Ptrs, from1, to1));
+        Tcl_ListObjAppendElement(interp, *resPtr,
+                                 JoinRange(elem2Ptrs, from2, to2));
+        /* Chunk */
+        from1 = ch1;
+        from2 = ch3;
+        to1 = ch1 + ch2 - 1;
+        to2 = ch3 + ch4 - 1;
+        Tcl_ListObjAppendElement(interp, *resPtr,
+                                 JoinRange(elem1Ptrs, from1, to1));
+        Tcl_ListObjAppendElement(interp, *resPtr,
+                                 JoinRange(elem2Ptrs, from2, to2));
+        from1 = to1+1;
+        from2 = to2+1;
+    }
+    /* Post last chunk */
+    to1 = length1 - 1;
+    to2 = length2 - 1;
+    Tcl_ListObjAppendElement(interp, *resPtr,
+                             JoinRange(elem1Ptrs, from1, to1));
+    Tcl_ListObjAppendElement(interp, *resPtr,
+                             JoinRange(elem2Ptrs, from2, to2));
+
+    Tcl_DecrRefCount(list1Ptr);
+    Tcl_DecrRefCount(list2Ptr);
+}
+
+/*
  * String LCS routine.
  * returns a list of substrings from alternating strings
  * str1sub1 str2sub1 str1sub2 str2sub2...
@@ -241,15 +392,6 @@ CompareStrings3(Tcl_Interp *interp,
     int startblock1, startblock2;
     int startchange1, startchange2;
 
-#if 0
-    /* FIXA */
-    int i, j, length1, length2, chsize1, chsize2, len1, len2;
-    char *string1, *string2, *str1, *str2;
-    int skip1start = 0, skip2start = 0;
-    Tcl_UniChar c1, c2;
-    const int nocase = optsPtr->ignore | IGNORE_CASE;
-#endif
-
     len1 = Tcl_GetCharLength(str1Ptr);
     len2 = Tcl_GetCharLength(str2Ptr);
 
@@ -267,47 +409,15 @@ CompareStrings3(Tcl_Interp *interp,
         }
         return;
     }
-
-#if 0
-    /*
-     * Start by detecting leading and trailing equalities to lessen
-     * the load on the LCS algorithm
-     */
-    string1 = Tcl_GetStringFromObj(str1Ptr, &length1);
-    string2 = Tcl_GetStringFromObj(str2Ptr, &length2);
-    str1 = string1;
-    str2 = string2;
-    if (optsPtr->ignore & (IGNORE_SPACE_CHANGE | IGNORE_ALL_SPACE)) {
-        /* Skip all leading white-space */
-        while (*str1 != 0) {
-            chsize1 = Tcl_UtfToUniChar(str1, &c1);
-            if (!Tcl_UniCharIsSpace(c1)) break;
-            str1 += chsize1;
-            skip1start++;
-        }
-        while (*str2 != 0) {
-            chsize2 = Tcl_UtfToUniChar(str2, &c2);
-            if (!Tcl_UniCharIsSpace(c2)) break;
-            str2 += chsize2;
-            skip2start++;
-        }
+    
+    if ((optsPtr->ignore & (IGNORE_SPACE_CHANGE | IGNORE_ALL_SPACE)) ||
+        optsPtr->wordparse) {
+        /* Do it chunk-wise through list diff */
+        CompareStringsL(interp, str1Ptr, str2Ptr, optsPtr, resPtr);
+        return;
     }
-    /* Skip leading equalities */
-    while (*str1 != 0 && *str2 != 0) {
-        chsize1 = Tcl_UtfToUniChar(str1, &c1);
-        chsize2 = Tcl_UtfToUniChar(str2, &c2);
-        if (c1 != c2 &&
-            (!nocase ||
-             Tcl_UniCharToLower(c1) != Tcl_UniCharToLower(c2))) break;
-        str1 += chsize1;
-        str2 += chsize2;
-        skip1start++;
-        skip2start++;
-    }
-    len1 = length1 - (str1 - string1);
-    len2 = length2 - (str2 - string2);
-#endif
 
+    /* Char by char will work */
     CompareStrings1(interp, str1Ptr, str2Ptr, optsPtr, &J, &m, &n);
 
     /*
@@ -326,7 +436,8 @@ CompareStrings3(Tcl_Interp *interp,
     while (1) {
         /* Do equal chars first, so scan until a mismatch */
         while (current1 <= m || current2 <= n) {
-            if (J[current1] == 0 || J[current1] != current2) break;
+            if (J[current1] == 0) break;
+            if (J[current1] != current2) break;
             current1++;
             current2++;
         }
