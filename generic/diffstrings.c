@@ -220,69 +220,6 @@ CompareStrings1(Tcl_Interp *interp,
 }
 
 /*
- * String LCS routine that returns a list of chunks.
- */
-static void
-CompareStrings2(Tcl_Interp *interp,
-               Tcl_Obj *str1Ptr, Tcl_Obj *str2Ptr,
-               DiffOptions_T *optsPtr,
-               Tcl_Obj **resPtr)
-{
-    Line_T m, n, *J;
-
-    CompareStrings1(interp, str1Ptr, str2Ptr, optsPtr, &J, &m, &n);
-
-    /*
-     * Now we have a list of matching chars in J.
-     * Generate a list of insert/delete/change opers.
-     */
-
-    *resPtr = Tcl_NewListObj(0, NULL);
-    /* Take care of trivial cases first */
-    if ((m == 0 && n > 0) || (m > 0 && n == 0)) {
-	AppendChunk(interp, *resPtr, optsPtr, 1, m, 1, n);
-    } else if (m > 0 && n > 0) {
-        Line_T current1, current2, n1, n2;
-        Line_T startblock1, startblock2;
-
-        startblock1 = startblock2 = 1;
-        current1 = current2 = 0;
-
-        while (current1 < m || current2 < n) {
-            /* Scan string 1 until next match */
-            while (current1 < m) {
-                current1++;
-                if (J[current1] != 0) break;
-            }
-            /* Scan string 2 until next match */
-            while (current2 < n) {
-                current2++;
-                if (J[current1] == current2) break;
-            }
-            if (J[current1] != current2) continue;
-
-            n1 = current1 - startblock1;
-            n2 = current2 - startblock2;
-            if (n1 > 0 || n2 > 0) {
-                AppendChunk(interp, *resPtr, optsPtr,
-			startblock1, n1, startblock2, n2);
-            }
-            startblock1 = current1 + 1;
-            startblock2 = current2 + 1;
-        }
-        /* Scrape up the last */
-        n1 = m - startblock1 + 1;
-        n2 = n - startblock2 + 1;
-        if (n1 > 0 || n2 > 0) {
-            AppendChunk(interp, *resPtr, optsPtr,
-		    startblock1, n1, startblock2, n2);
-        }
-    }
-
-    ckfree((char *) J);
-}
-
-/*
  * String LCS routine.
  * returns a list of substrings from alternating strings
  * str1sub1 str2sub1 str1sub2 str2sub2...
