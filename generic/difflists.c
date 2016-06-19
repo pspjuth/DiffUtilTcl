@@ -98,7 +98,7 @@ HashLists(Tcl_Interp *interp,
 }
 
 /* Do the diff lists operation */
-static int
+int
 CompareLists(
 	Tcl_Interp *interp,
 	Tcl_Obj *list1Ptr,

@@ -114,6 +114,11 @@ extern Tcl_Obj * BuildResultFromJ(Tcl_Interp *interp,
 			Line_T m, Line_T n, Line_T const *J);
 extern int       CompareObjects(Tcl_Obj *obj1Ptr, Tcl_Obj *obj2Ptr,
 			DiffOptions_T const *optsPtr);
+extern int       CompareLists(Tcl_Interp *interp,
+                              Tcl_Obj *list1Ptr,
+                              Tcl_Obj *list2Ptr,
+                              DiffOptions_T *optsPtr,
+                              Tcl_Obj **resPtr);
 extern void      Hash(Tcl_Obj *objPtr,
                         DiffOptions_T const *optsPtr, int left,
                         Hash_T *result, Hash_T *real);
