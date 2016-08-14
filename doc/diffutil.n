@@ -1,75 +1,82 @@
 '\"
-'\" Generated from file 'doc/diffutil.man' by tcllib/doctools with format 'nroff'
+'\" Generated from file 'diffutil\&.man' by tcllib/doctools with format 'nroff'
 '\" Copyright (c) 2010, Peter Spjuth
 '\"
-'\" The definitions below are for supplemental macros used in Tcl/Tk
-'\" manual entries.
-'\"
-'\" .AP type name in/out ?indent?
-'\"	Start paragraph describing an argument to a library procedure.
-'\"	type is type of argument (int, etc.), in/out is either "in", "out",
-'\"	or "in/out" to describe whether procedure reads or modifies arg,
-'\"	and indent is equivalent to second arg of .IP (shouldn't ever be
-'\"	needed;  use .AS below instead)
-'\"
-'\" .AS ?type? ?name?
-'\"	Give maximum sizes of arguments for setting tab stops.  Type and
-'\"	name are examples of largest possible arguments that will be passed
-'\"	to .AP later.  If args are omitted, default tab stops are used.
-'\"
-'\" .BS
-'\"	Start box enclosure.  From here until next .BE, everything will be
-'\"	enclosed in one large box.
-'\"
-'\" .BE
-'\"	End of box enclosure.
-'\"
-'\" .CS
-'\"	Begin code excerpt.
-'\"
-'\" .CE
-'\"	End code excerpt.
-'\"
-'\" .VS ?version? ?br?
-'\"	Begin vertical sidebar, for use in marking newly-changed parts
-'\"	of man pages.  The first argument is ignored and used for recording
-'\"	the version when the .VS was added, so that the sidebars can be
-'\"	found and removed when they reach a certain age.  If another argument
-'\"	is present, then a line break is forced before starting the sidebar.
-'\"
-'\" .VE
-'\"	End of vertical sidebar.
-'\"
-'\" .DS
-'\"	Begin an indented unfilled display.
-'\"
-'\" .DE
-'\"	End of indented unfilled display.
-'\"
-'\" .SO
-'\"	Start of list of standard options for a Tk widget.  The
-'\"	options follow on successive lines, in four columns separated
-'\"	by tabs.
-'\"
-'\" .SE
-'\"	End of list of standard options for a Tk widget.
-'\"
-'\" .OP cmdName dbName dbClass
-'\"	Start of description of a specific option.  cmdName gives the
-'\"	option's name as specified in the class command, dbName gives
-'\"	the option's name in the option database, and dbClass gives
-'\"	the option's class in the option database.
-'\"
-'\" .UL arg1 arg2
-'\"	Print arg1 underlined, then print arg2 normally.
-'\"
-'\" RCS: @(#) $Id: man.macros,v 1.1 2009/01/30 04:56:47 andreas_kupries Exp $
-'\"
-'\"	# Set up traps and other miscellaneous stuff for Tcl/Tk man pages.
+.TH "DiffUtil" n 0\&.3\&.9 diffutil "Comparision Utilities"
+.\" The -*- nroff -*- definitions below are for supplemental macros used
+.\" in Tcl/Tk manual entries.
+.\"
+.\" .AP type name in/out ?indent?
+.\"	Start paragraph describing an argument to a library procedure.
+.\"	type is type of argument (int, etc.), in/out is either "in", "out",
+.\"	or "in/out" to describe whether procedure reads or modifies arg,
+.\"	and indent is equivalent to second arg of .IP (shouldn't ever be
+.\"	needed;  use .AS below instead)
+.\"
+.\" .AS ?type? ?name?
+.\"	Give maximum sizes of arguments for setting tab stops.  Type and
+.\"	name are examples of largest possible arguments that will be passed
+.\"	to .AP later.  If args are omitted, default tab stops are used.
+.\"
+.\" .BS
+.\"	Start box enclosure.  From here until next .BE, everything will be
+.\"	enclosed in one large box.
+.\"
+.\" .BE
+.\"	End of box enclosure.
+.\"
+.\" .CS
+.\"	Begin code excerpt.
+.\"
+.\" .CE
+.\"	End code excerpt.
+.\"
+.\" .VS ?version? ?br?
+.\"	Begin vertical sidebar, for use in marking newly-changed parts
+.\"	of man pages.  The first argument is ignored and used for recording
+.\"	the version when the .VS was added, so that the sidebars can be
+.\"	found and removed when they reach a certain age.  If another argument
+.\"	is present, then a line break is forced before starting the sidebar.
+.\"
+.\" .VE
+.\"	End of vertical sidebar.
+.\"
+.\" .DS
+.\"	Begin an indented unfilled display.
+.\"
+.\" .DE
+.\"	End of indented unfilled display.
+.\"
+.\" .SO ?manpage?
+.\"	Start of list of standard options for a Tk widget. The manpage
+.\"	argument defines where to look up the standard options; if
+.\"	omitted, defaults to "options". The options follow on successive
+.\"	lines, in three columns separated by tabs.
+.\"
+.\" .SE
+.\"	End of list of standard options for a Tk widget.
+.\"
+.\" .OP cmdName dbName dbClass
+.\"	Start of description of a specific option.  cmdName gives the
+.\"	option's name as specified in the class command, dbName gives
+.\"	the option's name in the option database, and dbClass gives
+.\"	the option's class in the option database.
+.\"
+.\" .UL arg1 arg2
+.\"	Print arg1 underlined, then print arg2 normally.
+.\"
+.\" .QW arg1 ?arg2?
+.\"	Print arg1 in quotes, then arg2 normally (for trailing punctuation).
+.\"
+.\" .PQ arg1 ?arg2?
+.\"	Print an open parenthesis, arg1 in quotes, then arg2 normally
+.\"	(for trailing punctuation) and then a closing parenthesis.
+.\"
+.\"	# Set up traps and other miscellaneous stuff for Tcl/Tk man pages.
 .if t .wh -1.3i ^B
 .nr ^l \n(.l
 .ad b
-'\"	# Start an argument description
+.\"	# Start an argument description
 .de AP
 .ie !"\\$4"" .TP \\$4
 .el \{\
@@ -78,7 +85,7 @@
 .\}
 .ta \\n()Au \\n()Bu
 .ie !"\\$3"" \{\
-\&\\$1	\\fI\\$2\\fP	(\\$3)
+\&\\$1 \\fI\\$2\\fP (\\$3)
 .\".b
 .\}
 .el \{\
@@ -91,7 +98,7 @@
 .\}
 .\}
 ..
-'\"	# define tabbing values for .AP
+.\"	# define tabbing values for .AP
 .de AS
 .nr )A 10n
 .if !"\\$1"" .nr )A \\w'\\$1'u+3n
@@ -101,9 +108,9 @@
 .nr )C \\n()Bu+\\w'(in/out)'u+2n
 ..
 .AS Tcl_Interp Tcl_CreateInterp in/out
-'\"	# BS - start boxed text
-'\"	# ^y = starting y location
-'\"	# ^b = 1
+.\"	# BS - start boxed text
+.\"	# ^y = starting y location
+.\"	# ^b = 1
 .de BS
 .br
 .mk ^y
@@ -113,7 +120,7 @@
 .if n \l'\\n(.lu\(ul'
 .if n .fi
 ..
-'\"	# BE - end boxed text (draw box now)
+.\"	# BE - end boxed text (draw box now)
 .de BE
 .nf
 .ti 0
@@ -133,16 +140,16 @@
 .br
 .nr ^b 0
 ..
-'\"	# VS - start vertical sidebar
-'\"	# ^Y = starting y location
-'\"	# ^v = 1 (for troff;  for nroff this doesn't matter)
+.\"	# VS - start vertical sidebar
+.\"	# ^Y = starting y location
+.\"	# ^v = 1 (for troff;  for nroff this doesn't matter)
 .de VS
 .if !"\\$2"" .br
 .mk ^Y
 .ie n 'mc \s12\(br\s0
 .el .nr ^v 1u
 ..
-'\"	# VE - end of vertical sidebar
+.\"	# VE - end of vertical sidebar
 .de VE
 .ie n 'mc
 .el \{\
@@ -157,9 +164,9 @@
 .\}
 .nr ^v 0
 ..
-'\"	# Special macro to handle page bottom:  finish off current
-'\"	# box/sidebar if in box/sidebar mode, then invoked standard
-'\"	# page bottom macro.
+.\"	# Special macro to handle page bottom:  finish off current
+.\"	# box/sidebar if in box/sidebar mode, then invoked standard
+.\"	# page bottom macro.
 .de ^B
 .ev 2
 'ti 0
@@ -186,34 +193,36 @@
 .mk ^Y
 .\}
 ..
-'\"	# DS - begin display
+.\"	# DS - begin display
 .de DS
 .RS
 .nf
 .sp
 ..
-'\"	# DE - end display
+.\"	# DE - end display
 .de DE
 .fi
 .RE
 .sp
 ..
-'\"	# SO - start of list of standard options
+.\"	# SO - start of list of standard options
 .de SO
+'ie '\\$1'' .ds So \\fBoptions\\fR
+'el .ds So \\fB\\$1\\fR
 .SH "STANDARD OPTIONS"
 .LP
 .nf
-.ta 4c 8c 12c
+.ta 5.5c 11c
 .ft B
 ..
-'\"	# SE - end of list of standard options
+.\"	# SE - end of list of standard options
 .de SE
 .fi
 .ft R
 .LP
-See the \\fBoptions\\fR manual entry for details on the standard options.
+See the \\*(So manual entry for details on the standard options.
 ..
-'\"	# OP - start of full description for a single option
+.\"	# OP - start of full description for a single option
 .de OP
 .LP
 .nf
@@ -222,29 +231,52 @@ Command-Line Name:	\\fB\\$1\\fR
 Database Name:	\\fB\\$2\\fR
 Database Class:	\\fB\\$3\\fR
 .fi
+.IP
 ..
-'\"	# CS - begin code excerpt
+.\"	# CS - begin code excerpt
 .de CS
 .RS
 .nf
 .ta .25i .5i .75i 1i
 ..
-'\"	# CE - end code excerpt
+.\"	# CE - end code excerpt
 .de CE
 .fi
 .RE
 ..
+.\"	# UL - underline word
 .de UL
 \\$1\l'|0\(ul'\\$2
 ..
-.TH "DiffUtil" n 0.3.9 diffutil "Comparision Utilities"
+.\"	# QW - apply quotation marks to word
+.de QW
+.ie '\\*(lq'"' ``\\$1''\\$2
+.\"" fix emacs highlighting
+.el \\*(lq\\$1\\*(rq\\$2
+..
+.\"	# PQ - apply parens and quotation marks to word
+.de PQ
+.ie '\\*(lq'"' (``\\$1''\\$2)\\$3
+.\"" fix emacs highlighting
+.el (\\*(lq\\$1\\*(rq\\$2)\\$3
+..
+.\"	# QR - quoted range
+.de QR
+.ie '\\*(lq'"' ``\\$1''\\-``\\$2''\\$3
+.\"" fix emacs highlighting
+.el \\*(lq\\$1\\*(rq\\-\\*(lq\\$2\\*(rq\\$3
+..
+.\"	# MT - "empty" string
+.de MT
+.QW ""
+..
 .BS
 .SH NAME
 DiffUtil \- Compare Stuff
 .SH SYNOPSIS
-package require \fBTcl  8.4\fR
+package require \fBTcl  8\&.4\fR
 .sp
-package require \fBDiffUtil  ?0.3.9?\fR
+package require \fBDiffUtil  ?0\&.3\&.9?\fR
 .sp
 \fB::DiffUtil::diffFiles\fR ?\fIoptions\fR? \fIfile1\fR \fIfile2\fR
 .sp
@@ -254,145 +286,149 @@ package require \fBDiffUtil  ?0.3.9?\fR
 .SH DESCRIPTION
 .PP
 This package provides utilites for comparisons of strings, lists
-and files.
+and files\&.
 The base comparison is a Longest Common Substring algorithm based
-on J. W. Hunt and M. D. McIlroy, "An algorithm for differential
-file comparison," Comp. Sci. Tech. Rep. #41, Bell Telephone
-Laboratories (1976). Available on the Web at the second
-author's personal site: http://www.cs.dartmouth.edu/~doug/
+on J\&. W\&. Hunt and M\&. D\&. McIlroy, "An algorithm for differential
+file comparison," Comp\&. Sci\&. Tech\&. Rep\&. #41, Bell Telephone
+Laboratories (1976)\&. Available on the Web at the second
+author's personal site: http://www\&.cs\&.dartmouth\&.edu/~doug/
 .SH COMMANDS
 .TP
 \fB::DiffUtil::diffFiles\fR ?\fIoptions\fR? \fIfile1\fR \fIfile2\fR
-Compare two files line by line.
-The return value depends on the \fI-result\fR option, see below.
+Compare two files line by line\&.
+The return value depends on the \fI-result\fR option, see below\&.
 .RS
 .TP
 \fB-nocase\fR
-Ignore case.
+Ignore case\&.
 .TP
 \fB-i\fR
-Ignore case.
+Ignore case\&.
 .TP
 \fB-b\fR
-Ignore space changes. Any sequence of whitespace is treated as a single
-space, except at beginning of line where it is completely ignored.
+Ignore space changes\&. Any sequence of whitespace is treated as a single
+space, except at beginning of line where it is completely ignored\&.
 .TP
 \fB-w\fR
-Ignore all spaces.
+Ignore all spaces\&.
 .TP
 \fB-noempty\fR
-Ignore empty lines in initial compare step. I.e. empty lines are considered
-not equal at first. Multiple equal lines gives longer runtimes and by avoiding
-the very common empty line, runtimes are improved. With \fI-b\fR or \fI-w\fR,
-all-space lines are considered empty. This is similar to having a \fI-pivot\fR
-value of 1 just for empty lines.
+Ignore empty lines in initial compare step\&. I\&.e\&. empty lines are considered
+not equal at first\&. Multiple equal lines gives longer runtimes and by avoiding
+the very common empty line, runtimes are improved\&. With \fI-b\fR or \fI-w\fR,
+all-space lines are considered empty\&. This is similar to having a \fI-pivot\fR
+value of 1 just for empty lines\&.
 .TP
 \fB-pivot\fR \fIvalue\fR
-Ignore common lines in initial compare step. Multiple equal lines gives longer
-runtime and by avoiding them runtime is improved.  The pivot \fIvalue\fR
+Ignore common lines in initial compare step\&. Multiple equal lines gives longer
+runtime and by avoiding them runtime is improved\&.  The pivot \fIvalue\fR
 says how many equal lines there at most may be in \fIfile2\fR for those
-lines to be regarded. The default is 100.
+lines to be regarded\&. The default is 100\&.
 .TP
 \fB-nodigit\fR
-Consider any sequence of digits equal.
+Consider any sequence of digits equal\&.
 .TP
 \fB-align\fR \fIlist\fR
-Align lines. The argument is a list with an even number of elements. Each
-pair is line numbers in the first and second file. Those lines are considered
-equal and matching, regardless of their contents.
+Align lines\&. The argument is a list with an even number of elements\&. Each
+pair is line numbers in the first and second file\&. Those lines are considered
+equal and matching, regardless of their contents\&.
 .TP
 \fB-range\fR \fIlist\fR
-Diff only a range of the files. The list is {first1 last1 first2 last2}
+Diff only a range of the files\&. The list is {first1 last1 first2 last2}
 .TP
 \fB-regsub\fR \fIlist\fR
-Apply a search/replace regular expression before comparing. The list consists
-of an even number of elements. Each pair is a regular expression and a
-substitution, as used in \fBregsub -all\fR. Multiple pairs are allowed
-and multiple \fI-regsub\fR are allowed. All patterns will be applied in order
-on each line.
+Apply a search/replace regular expression before comparing\&. The list consists
+of an even number of elements\&. Each pair is a regular expression and a
+substitution, as used in \fBregsub -all\fR\&. Multiple pairs are allowed
+and multiple \fI-regsub\fR are allowed\&. All patterns will be applied in order
+on each line\&.
 .TP
 \fB-regsubleft\fR \fIlist\fR
-Like \fI-regsub\fR but only applied to the first file.
+Like \fI-regsub\fR but only applied to the first file\&.
 .TP
 \fB-regsubright\fR \fIlist\fR
-Like \fI-regsub\fR but only applied to the second file.
+Like \fI-regsub\fR but only applied to the second file\&.
 .TP
 \fB-result\fR \fIstyle\fR
-Select result style. The default is \fIdiff\fR.
+Select result style\&. The default is \fIdiff\fR\&.
 .RS
 .TP
 \fBdiff\fR
-Returns a list of differences, each in a four element list.
+Returns a list of differences, each in a four element list\&.
 {LineNumber1 NumberOfLines1 LineNumber2 NumberOfLines2}
-The first line in a file is number 1.
+The first line in a file is number 1\&.
 .TP
 \fBmatch\fR
-The return value is a list of two lists of equal length. The first
+The return value is a list of two lists of equal length\&. The first
 sublist is of line numbers in \fIfile1\fR, and the second sublist is
-of line numbers in \fIfile2\fR.  Each corresponding pair of line numbers
-corresponds to equal lines in the files.
+of line numbers in \fIfile2\fR\&.  Each corresponding pair of line numbers
+corresponds to equal lines in the files\&.
 .RE
 .TP
 \fB-encoding\fR \fIencoding\fR
-Apply encoding when reading files. This works as for \fBfconfigure\fR.
+Apply encoding when reading files\&. This works as for \fBfconfigure\fR\&.
 .TP
 \fB-translation\fR \fIvalue\fR
-Apply translation when reading files. This works as for \fBfconfigure\fR.
+Apply translation when reading files\&. This works as for \fBfconfigure\fR\&.
 .RE
 .TP
 \fB::DiffUtil::diffLists\fR ?\fIoptions\fR? \fIlist1\fR \fIlist2\fR
-Compare two lists element by element.
-The return value depends on the \fI-result\fR option, see below.
+Compare two lists element by element\&.
+The return value depends on the \fI-result\fR option, see below\&.
 .RS
 .TP
 \fB-nocase\fR
-Ignore case.
+Ignore case\&.
 .TP
 \fB-i\fR
-Ignore case.
+Ignore case\&.
 .TP
 \fB-b\fR
-Ignore space changes.
+Ignore space changes\&.
 .TP
 \fB-w\fR
-Ignore all spaces.
+Ignore all spaces\&.
 .TP
 \fB-noempty\fR
-Ignore empty elements in initial compare step. I.e. empty elements are considered
-not equal at first. Multiple equal elements give longer runtimes and by avoiding
-the very common empty element, runtimes are improved. With \fI-b\fR or \fI-w\fR,
-all-space elements are considered empty.
+Ignore empty elements in initial compare step\&. I\&.e\&. empty elements are considered
+not equal at first\&. Multiple equal elements give longer runtimes and by avoiding
+the very common empty element, runtimes are improved\&. With \fI-b\fR or \fI-w\fR,
+all-space elements are considered empty\&.
 Empty elements that obviously matches are noted as equal in a post processing
-step, but empty elements within change blocks will be reported as changes.
+step, but empty elements within change blocks will be reported as changes\&.
 .TP
 \fB-nodigit\fR
-Consider any sequence of digits equal.
+Consider any sequence of digits equal\&.
 .TP
 \fB-result\fR \fIstyle\fR
-Select result style. The default is \fIdiff\fR.
+Select result style\&. The default is \fIdiff\fR\&.
 .RS
 .TP
 \fBdiff\fR
-Returns a list of differences, each in a four element list.
+Returns a list of differences, each in a four element list\&.
 {ElementIndex1 NumberOfElements1 ElementIndex2 NumberOfElements2}
 .TP
 \fBmatch\fR
-The return value is a list of two lists of equal length. The first
+The return value is a list of two lists of equal length\&. The first
 sublist is of indices in \fIlist1\fR, and the second sublist is
-of indices in \fIlist2\fR.  Each corresponding pair of indices
-corresponds to equal elements in the sequences.
+of indices in \fIlist2\fR\&.  Each corresponding pair of indices
+corresponds to equal elements in the sequences\&.
 .RE
 .RE
 .PP
 .SH EXAMPLES
 .PP
 .CS
+
+
 % DiffUtil::diffFiles $file1 $file2
 {{3 2 3 4}}
+
 .CE
 .SH KEYWORDS
 diff, lcs, longest common substring
 .SH COPYRIGHT
 .nf
 Copyright (c) 2010, Peter Spjuth
+
 .fi
