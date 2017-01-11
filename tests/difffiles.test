@@ -546,3 +546,20 @@ test difffiles-16.3b {trivial cases} {CDiff} {
     set l2 {}
     RunTest $l1 $l2 -result match
 } [list {} {}]
+
+test difffiles-17.1 {gzip read} {CDiff} {
+    set ch [open _diff_1 wb]
+    zlib push gzip $ch
+    puts $ch [join {a b c} \n]
+    close $ch
+    set ch [open _diff_2 wb]
+    zlib push gzip $ch
+    puts $ch [join {a d c} \n]
+    close $ch
+    set apa [catch {DiffUtil::diffFiles -gz _diff_1 _diff_2} res]
+    file delete -force _diff_1 _diff_2
+    if {$apa} {
+        return [list $apa $res]
+    }
+    return $res
+} [list {2 1 2 1}]

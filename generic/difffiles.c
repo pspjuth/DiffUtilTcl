@@ -17,11 +17,21 @@
 typedef struct {
     Tcl_Obj *encodingPtr;
     Tcl_Obj *translationPtr;
+    int     gzip;
 } FileOptions_T;
 
 /* Helper to get a filled in FileOptions_T */
-#define InitFileOptions_T(opts) {opts.encodingPtr = NULL; opts.translationPtr = NULL;}
+#define InitFileOptions_T(opts) {opts.encodingPtr = NULL; opts.translationPtr = NULL; opts.gzip = 0;}
 
+/*
+ * Close a channel that was opened by OpenReadChannel.
+ */
+static void
+CloseReadChannel(Tcl_Interp *interp,
+                 Tcl_Channel ch)
+{
+    Tcl_UnregisterChannel(interp, ch);
+}
 /*
  * Open a file for reading and configure the channel.
  */
@@ -35,11 +45,30 @@ OpenReadChannel(Tcl_Interp *interp,
     if (ch == NULL) {
         return NULL;
     }
+    Tcl_RegisterChannel(interp, ch);
+
+    if (fileOptsPtr->gzip) {
+        /* zlib push gunzip $ch */
+        Tcl_Obj *res;
+        res = Tcl_NewListObj(0, NULL);
+        Tcl_IncrRefCount(res);
+        Tcl_ListObjAppendElement(interp, res, Tcl_NewStringObj("zlib", -1));
+        Tcl_ListObjAppendElement(interp, res, Tcl_NewStringObj("push", -1));
+        Tcl_ListObjAppendElement(interp, res, Tcl_NewStringObj("gunzip", -1));
+        Tcl_ListObjAppendElement(interp, res,
+                                 Tcl_NewStringObj(Tcl_GetChannelName(ch), -1));
+        if (Tcl_EvalObjEx(interp, res, TCL_EVAL_DIRECT) != TCL_OK) {
+            CloseReadChannel(interp, ch);
+            return NULL;
+        }
+        Tcl_DecrRefCount(res);
+    }
+
     if (fileOptsPtr->translationPtr != NULL) {
 	char *valueName = Tcl_GetString(fileOptsPtr->translationPtr);
 	if (Tcl_SetChannelOption(interp, ch, "-translation", valueName)
 		!= TCL_OK) {
-            Tcl_Close(interp, ch);
+            CloseReadChannel(interp, ch);
             return NULL;
 	}
     }
@@ -51,7 +80,7 @@ OpenReadChannel(Tcl_Interp *interp,
 	char *valueName = Tcl_GetString(fileOptsPtr->encodingPtr);
 	if (Tcl_SetChannelOption(interp, ch, "-encoding", valueName)
 		!= TCL_OK) {
-            Tcl_Close(interp, ch);
+            CloseReadChannel(interp, ch);
             return NULL;
 	}
     }
@@ -149,7 +178,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
             V = (V_T *) ckrealloc((char *) V, allocedV * sizeof(V_T));
         }
     }
-    Tcl_Close(interp, ch);
+    CloseReadChannel(interp, ch);
 
     /*
      * Sort the V vector on hash/serial to allow fast search.
@@ -216,7 +245,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
                                   allocedP * sizeof(P_T));
         }
     }
-    Tcl_Close(interp, ch);
+    CloseReadChannel(interp, ch);
 
     /* Clean up */
     cleanup:
@@ -285,6 +314,7 @@ CompareFiles(
     Tcl_IncrRefCount(line2Ptr);
     Tcl_SetObjLength(line2Ptr, 1000);
 
+    /* Assume open will work since it worked earlier */
     ch1 = OpenReadChannel(interp, name1Ptr, fileOptsPtr);
     ch2 = OpenReadChannel(interp, name2Ptr, fileOptsPtr);
 
@@ -338,8 +368,8 @@ CompareFiles(
 	}
     }
 
-    Tcl_Close(interp, ch1);
-    Tcl_Close(interp, ch2);
+    CloseReadChannel(interp, ch1);
+    CloseReadChannel(interp, ch2);
     Tcl_DecrRefCount(line1Ptr);
     Tcl_DecrRefCount(line2Ptr);
 
@@ -368,12 +398,12 @@ DiffFilesObjCmd(
     static CONST char *options[] = {
 	"-b", "-w", "-i", "-nocase", "-align", "-encoding", "-range",
         "-noempty", "-nodigit", "-pivot", "-regsub", "-regsubleft",
-	"-regsubright", "-result", "-translation", (char *) NULL
+	"-regsubright", "-result", "-translation", "-gz", (char *) NULL
     };
     enum options {
 	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_ENCODING, OPT_RANGE,
         OPT_NOEMPTY, OPT_NODIGIT, OPT_PIVOT, OPT_REGSUB, OPT_REGSUBLEFT,
-	OPT_REGSUBRIGHT, OPT_RESULT, OPT_TRANSLATION
+	OPT_REGSUBRIGHT, OPT_RESULT, OPT_TRANSLATION, OPT_GZ
     };
     static CONST char *resultOptions[] = {
 	"diff", "match", (char *) NULL
@@ -409,6 +439,9 @@ DiffFilesObjCmd(
 	    break;
 	  case OPT_NOEMPTY:
             opts.noempty = 1;
+            break;
+          case OPT_GZ:
+            fileOpts.gzip = 1;
             break;
           case OPT_PIVOT:
             t++;

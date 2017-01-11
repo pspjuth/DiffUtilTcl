@@ -95,6 +95,8 @@ corresponds to equal lines in the files.
 Apply encoding when reading files. This works as for [cmd fconfigure].
 [opt_def -translation [arg value]]
 Apply translation when reading files. This works as for [cmd fconfigure].
+[opt_def -gz]
+Apply gunzip decompression when reading files. Requires zlib.
 
 [list_end]
 

@@ -370,6 +370,9 @@ Apply encoding when reading files\&. This works as for \fBfconfigure\fR\&.
 .TP
 \fB-translation\fR \fIvalue\fR
 Apply translation when reading files\&. This works as for \fBfconfigure\fR\&.
+.TP
+\fB-gz\fR
+Apply gunzip decompression when reading files\&. Requires zlib\&.
 .RE
 .TP
 \fB::DiffUtil::diffLists\fR ?\fIoptions\fR? \fIlist1\fR \fIlist2\fR
