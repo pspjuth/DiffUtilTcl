@@ -285,18 +285,8 @@ CompareFiles(
     Tcl_IncrRefCount(line2Ptr);
     Tcl_SetObjLength(line2Ptr, 1000);
 
-    ch1 = Tcl_FSOpenFileChannel(interp, name1Ptr, "r", 0);
-    ch2 = Tcl_FSOpenFileChannel(interp, name2Ptr, "r", 0);
-    if (fileOptsPtr->encodingPtr != NULL) {
-	char *valueName = Tcl_GetString(fileOptsPtr->encodingPtr);
-	Tcl_SetChannelOption(interp, ch1, "-encoding", valueName);
-	Tcl_SetChannelOption(interp, ch2, "-encoding", valueName);
-    }
-    if (fileOptsPtr->translationPtr != NULL) {
-	char *valueName = Tcl_GetString(fileOptsPtr->translationPtr);
-	Tcl_SetChannelOption(interp, ch1, "-translation", valueName);
-	Tcl_SetChannelOption(interp, ch2, "-translation", valueName);
-    }
+    ch1 = OpenReadChannel(interp, name1Ptr, fileOptsPtr);
+    ch2 = OpenReadChannel(interp, name2Ptr, fileOptsPtr);
 
     /* Skip start if there is a range */
     if (optsPtr->rFrom1 > 1) {
