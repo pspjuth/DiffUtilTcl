@@ -81,7 +81,7 @@ proc DiffUtil::LocateDiffExe {{appFile {}}} {
         if {[info exists diffexe]} return
         set diffname diff
     }
-    if {![string equal [auto_execok $diffname] ""]} {
+    if {[auto_execok $diffname] ne ""} {
         set diffexe $diffname
         set implementation "tcl,[file tail $diffexe]"
         return
@@ -135,7 +135,7 @@ proc DiffUtil::ExecDiffFiles {diffopts file1 file2 {start1 1} {start2 1}} {
 
     if {$noDiff} {
         if {[catch {package require struct::list}]} {
-            return -code error "Could not locate any external diff executable."
+            return -code error "Could not locate struct::list fallback."
         }
         # Fall back on LCS from tcllib
         set implementation "tcl,lcs"
