@@ -81,6 +81,7 @@ typedef struct {
     int last;        /* True on the last element of each class */
     int count;       /* On the first in each class, keeps the number
 		      * of lines in the class. Otherwise zero. */
+    Line_T first;    /* Index of first item in this class */
     Hash_T hash;     /* Keep the hash for reference */
     Hash_T realhash; /* Keep the realhash for reference */
     int    forbidden; /* True if this element cannot match initially. */

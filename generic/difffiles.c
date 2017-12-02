@@ -228,8 +228,8 @@ ReadAndHashFiles(Tcl_Interp *interp,
         /* Binary search for hash in V */
         j = BSearchVVector(V, n, h, optsPtr);
         if (V[j].hash == h) {
-	    /* Search back to the first in the class */
-            while (!E[j-1].last) j--;
+	    /* Find the first in the class */
+	    j = E[j].first;
             P[m].Eindex = j;
             /*printf("P %ld = %ld\n", m, j);*/
         }
@@ -296,6 +296,7 @@ CompareFiles(
 	return TCL_OK;
     }
 
+    /*printf("Doing LcsCore\n"); */
     J = LcsCore(interp, m, n, P, E, optsPtr);
 
     ckfree((char *) E);

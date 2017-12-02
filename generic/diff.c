@@ -1334,6 +1334,7 @@ BuildEVector(const V_T *V, Line_T n, const DiffOptions_T *optsPtr)
     E = (E_T *) ckalloc((n + 1) * sizeof(E_T));
     E[0].serial = 0;
     E[0].last = 1; /* This works as a guard when scanning backwards through E */
+    E[0].first = 0;
     E[0].count = 0;
     E[0].forbidden = 1;
     first = 1;
@@ -1343,6 +1344,7 @@ BuildEVector(const V_T *V, Line_T n, const DiffOptions_T *optsPtr)
         E[j].realhash = V[j].realhash;
         E[j].forbidden = 0;
         E[j].count = 0;
+        E[j].first = first;
         E[first].count++;
 
         if (j == n) {
