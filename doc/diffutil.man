@@ -2,7 +2,7 @@
 [copyright {2010, Peter Spjuth}]
 [moddesc   {Comparision Utilities}]
 [titledesc {Compare Stuff}]
-[require Tcl 8.4]
+[require Tcl 8.6]
 [require DiffUtil [opt 0.3.11]]
 [description]
 [para]

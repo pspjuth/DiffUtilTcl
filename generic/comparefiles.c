@@ -104,8 +104,8 @@ CompareFilesObjCmd(
 	result = TCL_ERROR;
 	goto cleanup;
     }
-    size1 = (Tcl_WideUInt) statBuf->st_size;/*Tcl_GetSizeFromStat(statBuf);In 8.6*/
-    mode1 = (unsigned) statBuf->st_mode; /*Tcl_GetModeFromStat(statBuf);In 8.6*/
+    size1 = Tcl_GetSizeFromStat(statBuf);
+    mode1 = Tcl_GetModeFromStat(statBuf);
     if (Tcl_FSStat(file2Ptr, statBuf) != 0) {
         /* FIXA: error message */
         Tcl_SetResult(interp, "bad file", TCL_STATIC);
@@ -113,8 +113,8 @@ CompareFilesObjCmd(
 	result = TCL_ERROR;
 	goto cleanup;
     }
-    size2 = (Tcl_WideUInt) statBuf->st_size;/*Tcl_GetSizeFromStat(statBuf);In 8.6*/
-    mode2 = (unsigned) statBuf->st_mode; /*Tcl_GetModeFromStat(statBuf);In 8.6*/
+    size2 = Tcl_GetSizeFromStat(statBuf);
+    mode2 = Tcl_GetModeFromStat(statBuf);
     ckfree((char *) statBuf);
 
     if (S_ISDIR(mode1) || S_ISDIR(mode2)) {

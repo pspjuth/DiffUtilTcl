@@ -1,4 +1,7 @@
 2017-12-02  Peter Spjuth  <peter.spjuth@gmail.com>
+	Require Tcl 8.6.
+
+2017-12-02  Peter Spjuth  <peter.spjuth@gmail.com>
 	Bumped revision to 0.3.11
 	Changed default pivot to 10.
 

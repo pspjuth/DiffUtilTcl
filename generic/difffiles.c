@@ -119,7 +119,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
         ckfree((char *) statBuf);
         return TCL_ERROR;
     }
-    fSize1 = 500000; /* Tcl_GetSizeFromStat(statBuf); In 8.6 */
+    fSize1 = Tcl_GetSizeFromStat(statBuf);
 
     if (Tcl_FSStat(name2Ptr, statBuf) != 0) {
         /* FIXA: error message */
@@ -127,7 +127,7 @@ ReadAndHashFiles(Tcl_Interp *interp,
         ckfree((char *) statBuf);
         return TCL_ERROR;
     }
-    fSize2 = 500000; /* Tcl_GetSizeFromStat(statBuf); In 8.6 */
+    fSize2 = Tcl_GetSizeFromStat(statBuf);
     ckfree((char *) statBuf);
 
     /* Initialize an object to use as line buffer. */

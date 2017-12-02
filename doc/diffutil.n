@@ -274,7 +274,7 @@ Database Class:	\\fB\\$3\\fR
 .SH NAME
 DiffUtil \- Compare Stuff
 .SH SYNOPSIS
-package require \fBTcl  8\&.4\fR
+package require \fBTcl  8\&.6\fR
 .sp
 package require \fBDiffUtil  ?0\&.3\&.11?\fR
 .sp
