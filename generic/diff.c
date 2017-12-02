@@ -993,7 +993,7 @@ PostProcessForbidden(
     /* lastLine tracks the last matching line, so the line after is the start
      * of a change block. */
     Line_T lastLine1 = 0, lastLine2 = 0;
-    Line_T i, j, firstJ, lastJ;
+    Line_T i, j, firstJ, lastJ, serJ;
     LineList_T iList, jList;
 
     InitLineList(&iList);
@@ -1012,13 +1012,12 @@ PostProcessForbidden(
                 /* Figure out the range in the right file */
                 firstJ = lastLine2 + 1;
                 lastJ = i > m ? n : J[i] - 1;
-                
-                for (j = 1; j <= n; j++) {
-                    if (E[j].serial >= firstJ && E[j].serial <= lastJ) {
-                        /* Line is within range. Is it forbidden? */
-                        if (E[j].forbidden) {
-                            AddToLineList(&jList, E[j].serial, E[j].hash);
-                        }
+
+                for (serJ = firstJ; serJ <= lastJ; serJ++) {
+                    j = E[serJ].serToE;
+                    /* Line is within range. Is it forbidden? */
+                    if (E[j].forbidden) {
+                        AddToLineList(&jList, E[j].serial, E[j].hash);
                     }
                 }
 
@@ -1337,6 +1336,7 @@ BuildEVector(const V_T *V, Line_T n, const DiffOptions_T *optsPtr)
     E[0].first = 0;
     E[0].count = 0;
     E[0].forbidden = 1;
+    E[0].serToE = 0;
     first = 1;
     for (j = 1; j <= n; j++) {
         E[j].serial   = V[j].serial;
@@ -1345,6 +1345,7 @@ BuildEVector(const V_T *V, Line_T n, const DiffOptions_T *optsPtr)
         E[j].forbidden = 0;
         E[j].count = 0;
         E[j].first = first;
+        E[E[j].serial].serToE = j;
         E[first].count++;
 
         if (j == n) {

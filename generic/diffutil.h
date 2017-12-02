@@ -75,6 +75,11 @@ typedef struct {
  * A type to implement the E vector in the LCS algorithm.
  * The E vector mirrors the sorted V vector and holds equivalence
  * classes of lines in "file 2".
+ *
+ * The field serToE is a bit special in that when used E should be
+ * indexed with a serial to look up the E index with that serial.
+ * It would be purer to keep it in its own array but it is very
+ * convenient to keep it in E.
  */
 typedef struct {
     Line_T serial;
@@ -85,6 +90,7 @@ typedef struct {
     Hash_T hash;     /* Keep the hash for reference */
     Hash_T realhash; /* Keep the realhash for reference */
     int    forbidden; /* True if this element cannot match initially. */
+    Line_T serToE;   /* Lookup from serial to E index */
 } E_T;
 
 /*
