@@ -1,4 +1,7 @@
 2017-12-02  Peter Spjuth  <peter.spjuth@gmail.com>
+	Changed default pivot to 10.
+
+2017-12-02  Peter Spjuth  <peter.spjuth@gmail.com>
 	Optimised post process. Ludicrous speedup on large files.
 	Optimised reading. Ludicrous speedup on large files.
 

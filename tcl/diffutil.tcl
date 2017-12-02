@@ -297,7 +297,7 @@ proc DiffUtil::diffFiles {args} {
     set opts(-align) {}
     set opts(-range) {}
     set opts(-noempty)  0  ;# Allowed but ignored
-    set opts(-pivot)  100  ;# Allowed but ignored
+    set opts(-pivot)  10   ;# Allowed but ignored
     set opts(-regsubREL) {}
     set opts(-regsubSubL) {}
     set opts(-regsubRER) {}

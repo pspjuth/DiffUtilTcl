@@ -323,7 +323,7 @@ value of 1 just for empty lines\&.
 Ignore common lines in initial compare step\&. Multiple equal lines gives longer
 runtime and by avoiding them runtime is improved\&.  The pivot \fIvalue\fR
 says how many equal lines there at most may be in \fIfile2\fR for those
-lines to be regarded\&. The default is 100\&.
+lines to be regarded\&. The default is 10\&.
 .TP
 \fB-nodigit\fR
 Consider any sequence of digits equal\&.
