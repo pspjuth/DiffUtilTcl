@@ -299,18 +299,20 @@ testl: binaries libraries
 # An experiment to do profiling.
 # To do profiling the package must be statically linked.
 # A tclsh built for profiling and static linking is needed.
+# Configure the Tcl build like this:
+# CFLAGS=-pg ./configure --prefix=/home/peter/tcl/prof/install --disable-shared --enable-symbols
 # Configure this package like this:
-# SHLIB_LD_FLAGS=-pg CFLAGS=-pg ./configure --prefix=/home/peter/tcl --enable-symbols --with-tcl=/home/peter/tcl/prof/install/lib --disable-shared
+# SHLIB_LD_FLAGS=-pg CFLAGS=-pg ./configure --prefix=/home/peter/tcl --enable-symbols --with-tcl=/home/peter/tcl/prof/install/lib --disable-shared --disable-stubs
 
-TCL_DBGX = g
-APA_LIBS		= -ldl  -lieee -lm
+TCL_DBGX = 
+APA_LIBS		= -ldl  -lieee -lm -lpthread -lz
 APA = $(PACKAGE_NAME)$(PACKAGE_VERSION)$(TCL_DBGX)
 static: $(PKG_LIB_FILE) tclAppInit.o
-	${CC} -static -shared-libgcc -pg tclAppInit.o -L/home/peter/tcl/prof/tcl/unix -ltcl8.5${TCL_DBGX} -L$(top_builddir) -l$(APA) ${APA_LIBS} \
+	${CC} -static -shared-libgcc -pg tclAppInit.o -L/home/peter/tcl/prof/tcl/unix -ltcl8.7${TCL_DBGX} -L$(top_builddir) -l$(APA) ${APA_LIBS} \
 		${CC_SEARCH_FLAGS} -o static
 
 profile: static
-	static `@CYGPATH@ $(srcdir)/tests/big.tcl` $(TESTFLAGS)
+	./static `@CYGPATH@ $(srcdir)/tests/big.tcl` $(TESTFLAGS)
 	gprof static > profile.txt
 
 # Syntax check of tcl parts
