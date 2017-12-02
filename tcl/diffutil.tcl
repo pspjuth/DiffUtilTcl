@@ -11,7 +11,7 @@
 # $Revision: 1.12 $
 #----------------------------------------------------------------------
 
-package provide DiffUtil 0.3.11
+package provide DiffUtil 0.4.0
 
 namespace eval DiffUtil {
     namespace export diffFiles diffStrings
