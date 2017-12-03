@@ -1239,7 +1239,7 @@ LcsCoreInner(
 
     while (c != NULL) {
         /* Sanity check */
-        if (c->line1 < 0 || c->line1 > m) {
+        if (c->line1 > m) {
             Tcl_Panic("Bad line number when constructing J vector");
         }
         J[c->line1] = c->line2;
