@@ -419,7 +419,7 @@ test difffiles-11.4 {channel config} {CDiff} {
 test difffiles-12.1 {stack space bug} -body {
     # These files consume lots of candidate stack and crashed an earlier
     # version of diffUtil.
-    DiffUtil::diffFiles -b tests/candbug1.txt tests/candbug2.txt
+    DiffUtil::diffFiles -b [file join [configure -testdir] candbug1.txt] [file join [configure -testdir] candbug2.txt]
     return 0
 } -result {0}
 
@@ -451,7 +451,7 @@ test difffiles-13.2 {long runtime bug} -constraints {} -body {
 
 test difffiles-14.1 {pivot bug} -constraints CDiff -body {
     # These files caused an error in post-processing of forbidden lines
-    set x [DiffUtil::diffFiles -pivot 100 tests/pivot1.txt tests/pivot2.txt]
+    set x [DiffUtil::diffFiles -pivot 100 [file join [configure -testdir] pivot1.txt] [file join [configure -testdir] pivot2.txt]]
     llength $x
 } -result {160}
 
