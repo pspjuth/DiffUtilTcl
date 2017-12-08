@@ -25,7 +25,7 @@ author's personal site: http://www.cs.dartmouth.edu/~doug/
 Compare two files line by line.
 The return value depends on the [arg -result] option, see below.
 
-[list_begin opt]
+[list_begin options]
 
 [opt_def -nocase]
 Ignore case.
@@ -106,7 +106,7 @@ Apply gunzip decompression when reading files. Requires zlib.
 Compare two lists element by element.
 The return value depends on the [arg -result] option, see below.
 
-[list_begin opt]
+[list_begin options]
 
 [opt_def -nocase]
 Ignore case.
