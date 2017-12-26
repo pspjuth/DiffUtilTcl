@@ -3,7 +3,6 @@ when bumping revisions:
 configure.ac     (AC_INIT)
 doc/diffutil.man (two places)
 tcl/diffutil.tcl (package provide)
-win/makefile.vc  (DOTVERSION)
 
 Then rerun
 autoconf
