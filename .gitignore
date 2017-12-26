@@ -8,3 +8,6 @@ config.log
 *.o
 *.so
 *.dylib
+win/Release*
+win/version*.vc
+win/*.out
