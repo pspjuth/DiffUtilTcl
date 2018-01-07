@@ -14,6 +14,11 @@
 #include <sys/stat.h>
 #include "diffutil.h"
 
+/* Visual C++ does not define S_ISDIR */
+#ifndef S_ISDIR
+#define S_ISDIR(mode_) (((mode_) & _S_IFMT) == _S_IFDIR)
+#endif
+
 int
 CompareFilesObjCmd(
     ClientData dummy,    	/* Not used. */

@@ -26,6 +26,13 @@ typedef enum {
     IN_NONE, IN_SPACE, IN_NUMBER
 } In_T;
 
+/* 
+ * max already defined by Visual C++, but reuse our def just in case 
+ * semantics differ.
+ */
+#ifdef max
+#undef max /* Unset to prevent preprocessor warnings */
+#endif
 #define max(a,b) ((a) > (b) ? (a) : (b))
 
 /* A type to implement the Candidates in the LCS algorithm */
