@@ -28,7 +28,12 @@ proc RunTest {data1 data2 args} {
     puts -nonewline $ch $data2
     close $ch
 
-    set apa [catch {DiffUtil::compareFiles {*}$args _diff_1 _diff_2} res]
+    set ch1 [open _diff_1 rb]
+    set ch2 [open _diff_2 rb]
+
+    set apa [catch {DiffUtil::compareStreams {*}$args $ch1 $ch2} res]
+    close $ch1
+    close $ch2
     file delete -force _diff_1 _diff_2
     if {$apa} {
         return [list $apa $res]
@@ -38,60 +43,36 @@ proc RunTest {data1 data2 args} {
 
 #----------------------------------------------------------------------
 
-test comparefiles-1.1 {standard cases} {
+test comparestreams-1.1 {standard cases} {
     set l1 {abcd}
     set l2 {abcd}
     RunTest $l1 $l2
 } 1
 
-test comparefiles-1.2 {standard cases, error} -body {
+test comparestreams-1.2 {standard cases, error} -body {
     set l1 {a b c d   f g h i j k l}
     set l2 {  b c d e f g x y   k l}
     RunTest $l1 $l2 -hubba
 } -result [list 1 {bad option "-hubba"*}] -match glob
 
-test comparefiles-1.3 {standard cases, error} -body {
-    DiffUtil::compareFiles a
+test comparestreams-1.3 {standard cases, error} -body {
+    DiffUtil::compareStreams a
 } -returnCodes 1 -result "wrong # args*" -match glob
 
-test comparefiles-1.4 {standard cases} {
+test comparestreams-1.4 {standard cases} {
     set l1 {abcd}
     set l2 {abcde}
     RunTest $l1 $l2
 } 0
 
-test comparefiles-1.5 {standard cases} {
+test comparestreams-1.5 {standard cases} {
     set l1 {abcd}
     set l2 {abce}
     RunTest $l1 $l2
 } 0
 
-test comparefiles-1.6 {standard cases} {
+test comparestreams-1.6 {standard cases} {
     set l1 {abcd}
     set l2 {abcD}
     list [RunTest $l1 $l2] [RunTest $l1 $l2 -nocase]
-} {0 1}
-
-test comparefiles-2.1 {channel config} {CDiff} {
-    set l1 {a b c}
-    set l2 {a d c}
-    RunTest $l1 $l2 -encoding iso8859-1 -translation lf
-} 0
-
-test comparefiles-2.2 {channel config} -constraints {CDiff} -body {
-    set l1 {a b c}
-    set l2 {a d c}
-    RunTest $l1 $l2 -encoding gurkmeja
-} -result {1 {unknown encoding "gurkmeja"}}
-
-test comparefiles-2.3 {channel config} -constraints {CDiff} -body {
-    set l1 {a b c}
-    set l2 {a d c}
-    RunTest $l1 $l2 -translation gurkmeja
-} -result {1 {bad value for -translation: must be one of auto, binary, cr, lf, crlf, or platform}}
-
-test comparefiles-2.4 {channel config} {CDiff} {
-    set l1 "a \xc2\x82 c"
-    set l2 "a \x82 c"
-    list [RunTest $l1 $l2 -translation binary] [RunTest $l1 $l2 -encoding utf-8]
 } {0 1}

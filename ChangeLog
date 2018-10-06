@@ -1,3 +1,6 @@
+2018-10-06  Peter Spjuth  <peter.spjuth@gmail.com>
+	Started on compareStreams command.
+
 2017-12-02  Peter Spjuth  <peter.spjuth@gmail.com>
 	Bumped revision to 0.4.0
 	Require Tcl 8.6.
