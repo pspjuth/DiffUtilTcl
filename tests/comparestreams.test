@@ -76,3 +76,48 @@ test comparestreams-1.6 {standard cases} {
     set l2 {abcD}
     list [RunTest $l1 $l2] [RunTest $l1 $l2 -nocase]
 } {0 1}
+
+test comparestreams-2.1 {keywords} {
+    set l1 {abcd}
+    set l2 {abcD}
+    list [RunTest $l1 $l2] [RunTest $l1 $l2 -ignorekey]
+} {0 0}
+
+test comparestreams-2.2 {keywords} {
+    set l1 {abcd $apa$}
+    set l2 {abcd $apa: hej$}
+    list [RunTest $l1 $l2] [RunTest $l1 $l2 -ignorekey]
+} {0 1}
+
+test comparestreams-2.3 {keywords} {
+    set l1 {abcd $apa::$}
+    set l2 {abcd $apa: hej$}
+    list [RunTest $l1 $l2] [RunTest $l1 $l2 -ignorekey]
+} {0 1}
+
+test comparestreams-2.4 {keywords vs namespace vars} {
+    set l1 {abcd $apa::hej$apa::hopp}
+    set l2 {abcd $apa::haj$apa::hipp}
+    list [RunTest $l1 $l2] [RunTest $l1 $l2 -ignorekey]
+} {0 0}
+
+test comparestreams-2.5 {keywords} {
+    set l1 {abcd $apa: hejsan$ hopp}
+    set l2 {abcd $apa: hoppsan$ hopp}
+    list [RunTest $l1 $l2] [RunTest $l1 $l2 -ignorekey]
+} {0 1}
+
+test comparestreams-2.6 {keywords} {
+    # Longer version of 2.5. Handle larger than block size.
+    set l1 {abcd $apa: hejsan$ hopp}
+    set l2 {abcd $apa: hoppsan$ hopp}
+    append l1 [string repeat gurka 20000]
+    append l2 [string repeat gurka 20000]
+    list [RunTest $l1 $l2] [RunTest $l1 $l2 -ignorekey]
+} {0 1}
+
+test comparestreams-2.7 {keywords} {
+    set l1 {abcd $apa: hejsan$ hopp $bepa: hugo$ nej}
+    set l2 {abcd $apa: hoppsan$ hopp $bepa: apa$ nej}
+    list [RunTest $l1 $l2] [RunTest $l1 $l2 -ignorekey]
+} {0 1}

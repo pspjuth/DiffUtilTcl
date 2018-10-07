@@ -19,6 +19,8 @@
 #define S_ISDIR(mode_) (((mode_) & _S_IFMT) == _S_IFDIR)
 #endif
 
+const int BlockRead_C = 65536;
+
 typedef struct {
     int ignoreKey;
     int noCase;
@@ -27,6 +29,148 @@ typedef struct {
 
 /* Helper to get a filled in CmpOptions_T */
 #define InitCmpOptions_T(opts) {opts.ignoreKey = 0; opts.noCase = 0; opts.binary = 0;}
+
+/* This is called when a dollar is encountered during ignore-keyword.
+   If return is equal res1/2 says how far we covered and considered equal. */
+static int
+ScanKey(
+    const char *s1,
+    const char *s2,
+    const char *e1,
+    const char *e2,
+    const char **res1,
+    const char **res2)
+{
+    *res1 = s1;
+    *res2 = s2;
+    /* Scan word chars until : or $ ends the keyword.
+       They must be equal up to that point. */
+    while (s1 < e1 && s2 < e2) {
+	if ((*s1 == ':' || *s1 == '$') && (*s2 == ':' || *s2 == '$')) {
+	    /* The keyword part has ended on both sides */
+
+	    /* To be a bit conservative and not confuse keywords with e.g.
+	       Tcl namespace variables we only acknowledge these forms:
+	       keyword$
+	       keyword:$
+	       keyword: .*$
+	       keyword:: .*$
+	    */
+	    if (*s1 == ':') {
+		s1++;
+		/* May be a double colon */
+		if (*s1 == ':') {
+		    s1++;
+		}
+		/* Colon must be followed by space or $ */
+		if (*s1 != ' ' && *s1 != '$') {
+		    return 1;
+		}
+	    }
+	    if (*s2 == ':') {
+		s2++;
+		if (*s2 == ':') {
+		    s2++;
+		}
+		if (*s2 != ' ' && *s2 != '$') {
+		    return 1;
+		}
+	    }
+	    break;
+	}
+	if (*s1 != *s2) {
+	    /* They are not equal keywords */
+	    return 0;
+	}
+	/* Only standard ascii word chars count */
+	if ((*s1 >= 'a' && *s1 <= 'z') || (*s1 >= 'A' && *s1 <= 'Z')) {
+	    s1++;
+	    s2++;
+	} else {
+	    /* This did not count as a keyword but is sofar equal. */
+	    *res1 = s1;
+	    *res2 = s2;
+	    return 1;
+	}
+    }
+    /* Skip all until $ */
+    while (s1 < e1) {
+	if (*s1 == '$') {
+	    break;
+	}
+	s1++;
+    }
+    while (s2 < e2) {
+	if (*s2 == '$') {
+	    break;
+	}
+	s2++;
+    }
+    /* At this point s1/2 should point to the dollar ending the keyword. */
+    if (s1 == e1 || s2 == e2) {
+	/* We reached the end of string without finishing the keyword.
+	   If a potential keyword is at the end we don't care. */
+	return 1;
+    }
+    /* Strings are equal up to this point. Skip the last dollar as well. */
+    *res1 = s1 + 1;
+    *res2 = s2 + 1;
+    return 1;
+}
+
+/* Compare two strings, ignoring keywords. */
+static int
+CompareNoKey(
+    const char *s1,		/* UTF string to compare to s2. */
+    const char *s2,		/* UTF string s2 is compared to. */
+    unsigned long len1,		/* Number of bytes to compare. */
+    unsigned long len2,
+    CmpOptions_T *cmpOptions)
+{
+    Tcl_UniChar ch1 = 0, ch2 = 0;
+    const char *end1 = s1 + len1;
+    const char *end2 = s2 + len2;
+    const char *scan1, *scan2;
+    /* A full block read might have cut off a UTF char. Stop a bit early. */
+    if (len1 >= BlockRead_C) {
+	end1 = end1 - 3;
+    }
+    if (len2 >= BlockRead_C) {
+	end2 = end2 - 3;
+    }
+
+    while (s1 < end1 && s2 < end2) {
+	s1 += Tcl_UtfToUniChar(s1, &ch1);
+	s2 += Tcl_UtfToUniChar(s2, &ch2);
+	if (ch1 != ch2) {
+	    if (cmpOptions->noCase) {
+		ch1 = Tcl_UniCharToLower(ch1);
+		ch2 = Tcl_UniCharToLower(ch2);
+		if (ch1 != ch2) {
+		    return 0;
+		}
+	    } else {
+		return 0;
+	    }
+	}
+	if (ch1 == '$') {
+	    if (!ScanKey(s1, s2, end1, end2, &scan1, &scan2)) {
+		/* If ScanKey said not equal, we trust it unless we use
+		   less strict rules */
+		if (!cmpOptions->noCase) {
+		    return 0;
+		}
+	    }
+	    s1 = scan1;
+	    s2 = scan2;
+	}
+    }
+    if (s1 >= end1 && s2 >= end2) {
+	return 1;
+    }
+    /* How to tell surrounding what we consumed? FIXA */
+    return 1;
+}
 
 static int
 CompareStreams(
@@ -38,6 +182,7 @@ CompareStreams(
     Tcl_Obj *line1Ptr, *line2Ptr;
     int charactersRead1, charactersRead2;
     int length1, length2;
+    int firstblock;
     char *string1, *string2;
     
     /* Initialize an object to use as line buffer. */
@@ -54,9 +199,10 @@ CompareStreams(
     }
 
     equal = 1;
-    while (1) {
-	charactersRead1 = Tcl_ReadChars(ch1, line1Ptr, 65536, 0);
-	charactersRead2 = Tcl_ReadChars(ch2, line2Ptr, 65536, 0);
+    firstblock = 1;
+    while (equal) {
+	charactersRead1 = Tcl_ReadChars(ch1, line1Ptr, BlockRead_C, 0);
+	charactersRead2 = Tcl_ReadChars(ch2, line2Ptr, BlockRead_C, 0);
 	if (charactersRead1 <= 0 && charactersRead2 <= 0) {
 	    /* Nothing more to check */
 	    break;
@@ -78,8 +224,16 @@ CompareStreams(
 	    string1 = Tcl_GetStringFromObj(line1Ptr, &length1);
 	    string2 = Tcl_GetStringFromObj(line2Ptr, &length2);
 	}
-	if (cmpOptions->ignoreKey) {
-
+	/* Limit ignoreKey to first block to not have ridiculous
+	 * performance on large files. */
+	if (firstblock && cmpOptions->ignoreKey) {
+	    int eq = CompareNoKey(string1, string2, length1, length2,
+				  cmpOptions);
+	    if (!eq) {
+		equal = 0;
+		break;
+	    }
+	    /* TBD Compensate for any change in length */
 	} else {
 	    if (length1 != length2) {
 		equal = 0;
@@ -102,6 +256,7 @@ CompareStreams(
 		}
 	    }
 	}
+	firstblock = 0;
     }
 
     Tcl_DecrRefCount(line1Ptr);
