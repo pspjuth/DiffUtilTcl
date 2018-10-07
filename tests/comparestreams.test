@@ -121,3 +121,19 @@ test comparestreams-2.7 {keywords} {
     set l2 {abcd $apa: hoppsan$ hopp $bepa: apa$ nej}
     list [RunTest $l1 $l2] [RunTest $l1 $l2 -ignorekey]
 } {0 1}
+
+test comparestreams-2.8 {keywords} {
+    set base1 {abcd $apa: hejsan$ hopp}
+    set base2 {abcd $apa: hoppsan$ hopp}
+    set lastOk 0
+    # This will eventually fail when the keyword reaches the block size.
+    for {set l 65500} {$l < 65540} {incr l} {
+        set s1 [string repeat x $l]$base1
+        set s2 [string repeat x $l]$base2
+        if {[RunTest $s1 $s2 -ignorekey]} {
+            set lastOk $l
+        }
+    }
+    # Check that it worked long enough, but not too long
+    expr {$lastOk > 65510 && $lastOk != 65539 ? 1 : $lastOk}
+} {1}

@@ -31,7 +31,9 @@ typedef struct {
 #define InitCmpOptions_T(opts) {opts.ignoreKey = 0; opts.noCase = 0; opts.binary = 0;}
 
 /* This is called when a dollar is encountered during ignore-keyword.
-   If return is equal res1/2 says how far we covered and considered equal. */
+   If return is equal res1/2 says how far we covered and considered equal.
+   This do not bother with encoding since the chars we are interested in
+   are the same in ascii/binary/utf8. */
 static int
 ScanKey(
     const char *s1,
@@ -58,6 +60,9 @@ ScanKey(
 	    */
 	    if (*s1 == ':') {
 		s1++;
+		if (s1 + 1 >= e1) {
+		    return 1;
+		}
 		/* May be a double colon */
 		if (*s1 == ':') {
 		    s1++;
@@ -69,6 +74,9 @@ ScanKey(
 	    }
 	    if (*s2 == ':') {
 		s2++;
+		if (s2 + 1 >= e2) {
+		    return 1;
+		}
 		if (*s2 == ':') {
 		    s2++;
 		}
@@ -118,30 +126,31 @@ ScanKey(
     return 1;
 }
 
-/* Compare two strings, ignoring keywords. */
+/* Compare two strings, ignoring keywords.
+   If return is true, they are equal up to the point of res1/2. */
 static int
 CompareNoKey(
     const char *s1,		/* UTF string to compare to s2. */
     const char *s2,		/* UTF string s2 is compared to. */
     unsigned long len1,		/* Number of bytes to compare. */
     unsigned long len2,
-    CmpOptions_T *cmpOptions)
+    CmpOptions_T *cmpOptions,
+    const char **res1,
+    const char **res2)
 {
     Tcl_UniChar ch1 = 0, ch2 = 0;
     const char *end1 = s1 + len1;
     const char *end2 = s2 + len2;
     const char *scan1, *scan2;
-    /* A full block read might have cut off a UTF char. Stop a bit early. */
-    if (len1 >= BlockRead_C) {
-	end1 = end1 - 3;
-    }
-    if (len2 >= BlockRead_C) {
-	end2 = end2 - 3;
-    }
 
     while (s1 < end1 && s2 < end2) {
-	s1 += Tcl_UtfToUniChar(s1, &ch1);
-	s2 += Tcl_UtfToUniChar(s2, &ch2);
+	if (cmpOptions->binary) {
+	    ch1 = *(s1++);
+	    ch2 = *(s2++);
+	} else {
+	    s1 += Tcl_UtfToUniChar(s1, &ch1);
+	    s2 += Tcl_UtfToUniChar(s2, &ch2);
+	}
 	if (ch1 != ch2) {
 	    if (cmpOptions->noCase) {
 		ch1 = Tcl_UniCharToLower(ch1);
@@ -165,10 +174,8 @@ CompareNoKey(
 	    s2 = scan2;
 	}
     }
-    if (s1 >= end1 && s2 >= end2) {
-	return 1;
-    }
-    /* How to tell surrounding what we consumed? FIXA */
+    *res1 = s1;
+    *res2 = s2;
     return 1;
 }
 
@@ -183,7 +190,7 @@ CompareStreams(
     int charactersRead1, charactersRead2;
     int length1, length2;
     int firstblock;
-    char *string1, *string2;
+    const char *string1, *string2;
     
     /* Initialize an object to use as line buffer. */
     line1Ptr = Tcl_NewObj();
@@ -224,39 +231,84 @@ CompareStreams(
 	    string1 = Tcl_GetStringFromObj(line1Ptr, &length1);
 	    string2 = Tcl_GetStringFromObj(line2Ptr, &length2);
 	}
-	/* Limit ignoreKey to first block to not have ridiculous
-	 * performance on large files. */
+	/* Limit ignoreKey to first block to simplify.
+	   No need to handle keywords crossing block boundary and a bit
+	   better performance on large files. */
 	if (firstblock && cmpOptions->ignoreKey) {
+	    const char *res1, *res2;
+	    unsigned long rem1, rem2;
 	    int eq = CompareNoKey(string1, string2, length1, length2,
-				  cmpOptions);
+				  cmpOptions, &res1, &res2);
 	    if (!eq) {
 		equal = 0;
 		break;
 	    }
-	    /* TBD Compensate for any change in length */
-	} else {
-	    if (length1 != length2) {
-		equal = 0;
-		break;
+	    firstblock = 0;
+	    /* Did we consume everything? */
+	    if (res1 >= string1 + length1 && res2 >= string2 + length2) {
+		continue;
 	    }
-	    if (cmpOptions->binary) {
-		if (strncmp(string1, string2, length1) != 0) {
+	    /* Compensate for any change in length. */
+	    rem1 = length1 - (res1 - string1);
+	    rem2 = length2 - (res2 - string2);
+	    /* Only one side should have anything left. */
+	    if (rem1 > 0 && rem2 > 0) { Tcl_Panic("PANIC"); }
+	    if (rem1 > 0) {
+		unsigned long chars1;
+		/* Adjust side 1 */
+		string1 = res1;
+		length1 = rem1;
+		chars1 = Tcl_NumUtfChars(string1, length1);
+		/* Read extra characters from side 2 */
+		charactersRead2 = Tcl_ReadChars(ch2, line2Ptr, chars1, 0);
+		if (charactersRead2 <= 0) {
 		    equal = 0;
 		    break;
 		}
-	    } else if (cmpOptions->noCase) {
-		if (Tcl_UtfNcasecmp(string1, string2, length1) != 0) {
+		if (cmpOptions->binary) {
+		    string2 = (char *) Tcl_GetByteArrayFromObj(line2Ptr, &length2);
+		} else {
+		    string2 = Tcl_GetStringFromObj(line2Ptr, &length2);
+		}
+	    } else { /* rem2 > 0 */
+		unsigned long chars2;
+		/* Adjust side 2 */
+		string2 = res2;
+		length2 = rem2;
+		chars2 = Tcl_NumUtfChars(string2, length2);
+		/* Read extra characters from side 1 */
+		charactersRead1 = Tcl_ReadChars(ch1, line1Ptr, chars2, 0);
+		if (charactersRead1 <= 0) {
 		    equal = 0;
 		    break;
 		}
-	    } else {
-		if (Tcl_UtfNcmp(string1, string2, length1) != 0) {
-		    equal = 0;
-		    break;
+		if (cmpOptions->binary) {
+		    string1 = (char *) Tcl_GetByteArrayFromObj(line1Ptr, &length1);
+		} else {
+		    string1 = Tcl_GetStringFromObj(line1Ptr, &length1);
 		}
 	    }
 	}
-	firstblock = 0;
+	if (length1 != length2) {
+	    equal = 0;
+	    break;
+	}
+	if (cmpOptions->binary) {
+	    if (strncmp(string1, string2, length1) != 0) {
+		equal = 0;
+		break;
+	    }
+	} else if (cmpOptions->noCase) {
+	    if (Tcl_UtfNcasecmp(string1, string2, length1) != 0) {
+		equal = 0;
+		break;
+	    }
+	} else {
+	    if (Tcl_UtfNcmp(string1, string2, length1) != 0) {
+		equal = 0;
+		break;
+	    }
+	}
     }
 
     Tcl_DecrRefCount(line1Ptr);

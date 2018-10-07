@@ -146,6 +146,48 @@ corresponds to equal elements in the sequences.
 
 [list_end]
 
+[call [cmd "::DiffUtil::compareFiles"] \
+        [opt [arg options]] [arg file1] [arg file2]]
+
+Compare two files.
+The return value is a boolean which is true when equal.
+
+[list_begin options]
+
+[opt_def -nocase]
+Ignore case.
+
+[opt_def -ignorekey]
+Ignore keyword substitutions. This is limited to the first 60k of the file.
+
+[opt_def -encoding [arg enc]]
+Read files with this encoding. (As in fconfigure -encoding.)
+
+[opt_def -translation [arg trans]]
+Read files with this translation. (As in fconfigure -translation.)
+
+[list_end]
+
+[call [cmd "::DiffUtil::compareStreams"] \
+        [opt [arg options]] [arg ch1] [arg ch2]]
+
+Compare two channel streams.
+The return value is a boolean which is true when equal.
+
+[list_begin options]
+
+[opt_def -nocase]
+Ignore case.
+
+[opt_def -ignorekey]
+Ignore keyword substitutions. This is limited to the first 60k read.
+
+[opt_def -binary]
+Treat stream as binary data. Normally this means it is configured
+with -translation binary.
+
+[list_end]
+
 [list_end]
 
 [section EXAMPLES]

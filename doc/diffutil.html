@@ -122,6 +122,8 @@
 <ul class="doctools_syntax">
 <li><a href="#1"><b class="cmd">::DiffUtil::diffFiles</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">file1</i> <i class="arg">file2</i></a></li>
 <li><a href="#2"><b class="cmd">::DiffUtil::diffLists</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">list1</i> <i class="arg">list2</i></a></li>
+<li><a href="#3"><b class="cmd">::DiffUtil::compareFiles</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">file1</i> <i class="arg">file2</i></a></li>
+<li><a href="#4"><b class="cmd">::DiffUtil::compareStreams</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">ch1</i> <i class="arg">ch2</i></a></li>
 </ul>
 </div>
 </div>
@@ -231,6 +233,31 @@ sublist is of indices in <i class="arg">list1</i>, and the second sublist is
 of indices in <i class="arg">list2</i>.  Each corresponding pair of indices
 corresponds to equal elements in the sequences.</p></dd>
 </dl></dd>
+</dl></dd>
+<dt><a name="3"><b class="cmd">::DiffUtil::compareFiles</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">file1</i> <i class="arg">file2</i></a></dt>
+<dd><p>Compare two files.
+The return value is a boolean which is true when equal.</p>
+<dl class="doctools_options">
+<dt><b class="option">-nocase</b></dt>
+<dd><p>Ignore case.</p></dd>
+<dt><b class="option">-ignorekey</b></dt>
+<dd><p>Ignore keyword substitutions. This is limited to the first 60k of the file.</p></dd>
+<dt><b class="option">-encoding</b> <i class="arg">enc</i></dt>
+<dd><p>Read files with this encoding. (As in fconfigure -encoding.)</p></dd>
+<dt><b class="option">-translation</b> <i class="arg">trans</i></dt>
+<dd><p>Read files with this translation. (As in fconfigure -translation.)</p></dd>
+</dl></dd>
+<dt><a name="4"><b class="cmd">::DiffUtil::compareStreams</b> <span class="opt">?<i class="arg">options</i>?</span> <i class="arg">ch1</i> <i class="arg">ch2</i></a></dt>
+<dd><p>Compare two channel streams.
+The return value is a boolean which is true when equal.</p>
+<dl class="doctools_options">
+<dt><b class="option">-nocase</b></dt>
+<dd><p>Ignore case.</p></dd>
+<dt><b class="option">-ignorekey</b></dt>
+<dd><p>Ignore keyword substitutions. This is limited to the first 60k read.</p></dd>
+<dt><b class="option">-binary</b></dt>
+<dd><p>Treat stream as binary data. Normally this means it is configured
+with -translation binary.</p></dd>
 </dl></dd>
 </dl>
 </div>

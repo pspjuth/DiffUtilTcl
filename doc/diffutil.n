@@ -282,6 +282,10 @@ package require \fBDiffUtil  ?0\&.4\&.0?\fR
 .sp
 \fB::DiffUtil::diffLists\fR ?\fIoptions\fR? \fIlist1\fR \fIlist2\fR
 .sp
+\fB::DiffUtil::compareFiles\fR ?\fIoptions\fR? \fIfile1\fR \fIfile2\fR
+.sp
+\fB::DiffUtil::compareStreams\fR ?\fIoptions\fR? \fIch1\fR \fIch2\fR
+.sp
 .BE
 .SH DESCRIPTION
 .PP
@@ -417,6 +421,40 @@ sublist is of indices in \fIlist1\fR, and the second sublist is
 of indices in \fIlist2\fR\&.  Each corresponding pair of indices
 corresponds to equal elements in the sequences\&.
 .RE
+.RE
+.TP
+\fB::DiffUtil::compareFiles\fR ?\fIoptions\fR? \fIfile1\fR \fIfile2\fR
+Compare two files\&.
+The return value is a boolean which is true when equal\&.
+.RS
+.TP
+\fB-nocase\fR
+Ignore case\&.
+.TP
+\fB-ignorekey\fR
+Ignore keyword substitutions\&. This is limited to the first 60k of the file\&.
+.TP
+\fB-encoding\fR \fIenc\fR
+Read files with this encoding\&. (As in fconfigure -encoding\&.)
+.TP
+\fB-translation\fR \fItrans\fR
+Read files with this translation\&. (As in fconfigure -translation\&.)
+.RE
+.TP
+\fB::DiffUtil::compareStreams\fR ?\fIoptions\fR? \fIch1\fR \fIch2\fR
+Compare two channel streams\&.
+The return value is a boolean which is true when equal\&.
+.RS
+.TP
+\fB-nocase\fR
+Ignore case\&.
+.TP
+\fB-ignorekey\fR
+Ignore keyword substitutions\&. This is limited to the first 60k read\&.
+.TP
+\fB-binary\fR
+Treat stream as binary data\&. Normally this means it is configured
+with -translation binary\&.
 .RE
 .PP
 .SH EXAMPLES
