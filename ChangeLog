@@ -1,3 +1,6 @@
+2019-03-27  Peter Spjuth  <peter.spjuth@gmail.com>
+	Always allow post processing for small blocks.
+
 2018-10-07  Peter Spjuth  <peter.spjuth@gmail.com>
 	Bumped revision to 0.4.1
 	Working compareStreams command.
@@ -66,7 +69,7 @@
 	a range is set.
 
 2012-07-02  Peter Spjuth  <peter.spjuth@gmail.com>
-	Handle alignment withing postprocessing of forbidden matches.
+	Handle alignment within postprocessing of forbidden matches.
 
 2012-06-26  Peter Spjuth  <peter.spjuth@gmail.com>
 	Bug-fix in postprocessing of forbidden lines.

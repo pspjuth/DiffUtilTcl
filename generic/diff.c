@@ -948,10 +948,11 @@ PostProcessForbiddenBlock(
     /*
      * In principle this matching should be a rerun of LCS on the block, with
      * forbidden lines allowed.
-     * If the group is larger than the pivot, we do not want to recurse to LCS
+     * If the group is much larger than the pivot, we do not want to recurse to LCS
      * since that would just repeat the timing problem we try to avoid.
+     * Small lists are ok (we should not skip this when pivot=1).
      */
-    if (jList->n < optsPtr->pivot) {
+    if (jList->n < 20 || jList->n < optsPtr->pivot * 2) { /* TBD how much larger is ok? */
         int anyForbidden;
         Line_T *newJ;
         DiffOptions_T opts = *optsPtr;
@@ -973,7 +974,7 @@ PostProcessForbiddenBlock(
      * Just do a raw sequential matching of forbidden lines.
      * This produces a reasonable, if non-optimal, result.
      * FIXA: Better algorithm here?
-     */ 
+     */
     for (j = 0; j < iList->n && j < jList->n; j++) {
         Line_T line1 = iList->Elems[j].line;
         Line_T line2 = jList->Elems[j].line;
@@ -1087,7 +1088,7 @@ ForbidP(Line_T i, P_T *P, E_T *E)
  * It is independent of data since it only works on hashes.
  *
  * This is the inner part of it, which do not meddle with forbidden lines.
- * It respects them, but do not add or clean up any forbidden lines.
+ * It normally respects them, but do not add or clean up any forbidden lines.
  * 
  * Returns the J vector as a ckalloc:ed array.
  */
@@ -1100,7 +1101,7 @@ LcsCoreInner(
     const E_T *E,  /* The E vector [0,n] corresponds to lines in "file 2" */
     const DiffOptions_T *optsPtr,
     int ignoreForbidden,
-    int *anyForbidden) /* Out parameter, was any forbidden lines skipped? */
+    int *anyForbidden) /* Out parameter: Was any forbidden lines skipped? */
 {
     Candidate_T **K, *c;
     Line_T i, k, *J;
