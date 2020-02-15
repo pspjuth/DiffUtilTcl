@@ -1,3 +1,6 @@
+2020-02-15  Peter Spjuth  <peter.spjuth@gmail.com>
+	DiffStrings should not lose any part even when ignoring space.
+
 2019-03-27  Peter Spjuth  <peter.spjuth@gmail.com>
 	Always allow post processing for small blocks.
 

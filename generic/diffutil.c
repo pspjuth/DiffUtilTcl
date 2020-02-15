@@ -344,8 +344,20 @@ DiffStringsObjCmd(dummy, interp, objc, objv)
 
     res = Tcl_NewListObj(0, NULL);
     Tcl_IncrRefCount(res);
-    Tcl_ListObjAppendElement(interp, res, Tcl_NewUnicodeObj(line1, s1-line1));
-    Tcl_ListObjAppendElement(interp, res, Tcl_NewUnicodeObj(line2, s2-line2));
+
+    if (e1 == s1 && e2 == s2) {
+	/* Entire line was equal */
+	Tcl_ListObjAppendElement(interp, res,
+		Tcl_NewUnicodeObj(line1, len1));
+	Tcl_ListObjAppendElement(interp, res,
+		Tcl_NewUnicodeObj(line2, len2));
+    } else {
+	/* Cut out the first equal part */
+	Tcl_ListObjAppendElement(interp, res,
+		Tcl_NewUnicodeObj(line1, s1-line1));
+	Tcl_ListObjAppendElement(interp, res,
+		Tcl_NewUnicodeObj(line2, s2-line2));
+    }
 
     if (e1 > s1 || e2 > s2) {
 	mid1 = Tcl_NewUnicodeObj(s1, e1 - s1);

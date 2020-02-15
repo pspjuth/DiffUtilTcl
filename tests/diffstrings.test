@@ -232,6 +232,35 @@ test diffstrings-3.2b {ignore space} {CDiff} {
     RunTest2 $s1 $s2 -b
 } [list {  abc } { abc } d x {  } { } f y { ghi } { ghi  }]
 
+test diffstrings-3.3a {ignore space} {
+    # Space change at end of line
+    set s1 {  abdef}
+    set s2 {  abdef  }
+    RunTest1 $s1 $s2 -b
+} [list {  abdef} {  abdef  }]
+
+test diffstrings-3.3b {ignore space} {
+    # Space change at end of line
+    set s1 {  abdef}
+    set s2 {  abdef  }
+    RunTest2 $s1 $s2 -b
+    # Not sure this is correct. TODO
+} [list {  abdef} {  abdef} {} {  } {} {}]
+
+test diffstrings-3.4 {ignore space} {
+    # Space change at beginning of line
+    set s1 {  abdef}
+    set s2 {   abdef}
+    RunTest $s1 $s2 -b
+} [list {  abdef} {   abdef}]
+
+test diffstrings-3.5 {ignore space} {
+    # Space change at both ends
+    set s1 {  abdef  }
+    set s2 {   abcef   }
+    RunTest $s1 $s2 -b
+} [list {  ab} {   ab} d c {ef  } {ef   }]
+
 test diffstrings-4.1 {ignore case} {
     set s1 {Zabc dWRTUf ghiQ}
     set s2 {zabc xwrtuy ghiq}
