@@ -1,4 +1,7 @@
 2021-02-11  Peter Spjuth  <peter.spjuth@gmail.com>
+	Bumped revision to 0.4.2
+
+2021-02-11  Peter Spjuth  <peter.spjuth@gmail.com>
 	Added -lines option to diffFiles, to keep file contents.
 	This allows a handler to only read each file once, saving
 	I/O and not have a potential problem with files changing.

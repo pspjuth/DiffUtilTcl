@@ -2,7 +2,7 @@
 '\" Generated from file 'diffutil\&.man' by tcllib/doctools with format 'nroff'
 '\" Copyright (c) 2010, Peter Spjuth
 '\"
-.TH "DiffUtil" n 0\&.4\&.1 diffutil "Comparision Utilities"
+.TH "DiffUtil" n 0\&.4\&.2 diffutil "Comparision Utilities"
 .\" The -*- nroff -*- definitions below are for supplemental macros used
 .\" in Tcl/Tk manual entries.
 .\"
@@ -276,7 +276,7 @@ DiffUtil \- Compare Stuff
 .SH SYNOPSIS
 package require \fBTcl  8\&.6\fR
 .sp
-package require \fBDiffUtil  ?0\&.4\&.1?\fR
+package require \fBDiffUtil  ?0\&.4\&.2?\fR
 .sp
 \fB::DiffUtil::diffFiles\fR ?\fIoptions\fR? \fIfile1\fR \fIfile2\fR
 .sp

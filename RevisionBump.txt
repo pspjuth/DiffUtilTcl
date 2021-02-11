@@ -10,3 +10,5 @@ configure
 make clean
 make
 make vfs
+
+Note in ChangeLog
