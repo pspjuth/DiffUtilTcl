@@ -377,6 +377,10 @@ Apply translation when reading files\&. This works as for \fBfconfigure\fR\&.
 .TP
 \fB-gz\fR
 Apply gunzip decompression when reading files\&. Requires zlib\&.
+.TP
+\fB-lines\fR \fIvarname\fR
+Keep the data read from the files\&. A two element list with the lines from
+each file is put in the given variable\&.
 .RE
 .TP
 \fB::DiffUtil::diffLists\fR ?\fIoptions\fR? \fIlist1\fR \fIlist2\fR

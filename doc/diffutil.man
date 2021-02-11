@@ -97,6 +97,9 @@ Apply encoding when reading files. This works as for [cmd fconfigure].
 Apply translation when reading files. This works as for [cmd fconfigure].
 [opt_def -gz]
 Apply gunzip decompression when reading files. Requires zlib.
+[opt_def -lines [arg varname]]
+Keep the data read from the files. A two element list with the lines from
+each file is put in the given variable.
 
 [list_end]
 

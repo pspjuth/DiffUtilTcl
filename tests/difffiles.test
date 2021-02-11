@@ -563,3 +563,10 @@ test difffiles-17.1 {gzip read} {CDiff} {
     }
     return $res
 } [list {2 1 2 1}]
+
+test difffiles-18.1 {lines option} -constraints {CDiff} -body {
+    set l1 {a b c {}    d {} e f g}
+    set l2 {a b c {} {} d    e f g}
+    RunTest $l1 $l2 -lines ::linesList
+    set ::linesList
+} -result [list {a b c {} d {} e f g} {a b c {} {} d e f g}]

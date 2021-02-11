@@ -298,6 +298,7 @@ proc DiffUtil::diffFiles {args} {
     set opts(-range) {}
     set opts(-noempty)  0  ;# Allowed but ignored
     set opts(-pivot)  10   ;# Allowed but ignored
+    set opts(-lines) {}    ;# Allowed but mostly ignored
     set opts(-regsubREL) {}
     set opts(-regsubSubL) {}
     set opts(-regsubRER) {}
@@ -349,6 +350,7 @@ proc DiffUtil::diffFiles {args} {
             -regsubleft -
             -regsubright -
             -pivot -
+            -lines -
             -range { set value $arg }
             -noempty { set opts($arg) 1 }
             -nodigit {
@@ -361,6 +363,11 @@ proc DiffUtil::diffFiles {args} {
                 return -code error "bad option \"$arg\""
             }
         }
+    }
+    # Fake this enough to not cause immediate problems upstream
+    if {$opts(-lines) ne ""} {
+        upvar 1 $opts(-lines) linesVar
+        set linesVar [list {} {}]
     }
 
     # The simple case

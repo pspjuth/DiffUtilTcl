@@ -18,10 +18,12 @@ typedef struct {
     Tcl_Obj *encodingPtr;
     Tcl_Obj *translationPtr;
     int     gzip;
+    Tcl_Obj *lines1Ptr;
+    Tcl_Obj *lines2Ptr;
 } FileOptions_T;
 
 /* Helper to get a filled in FileOptions_T */
-#define InitFileOptions_T(opts) {opts.encodingPtr = NULL; opts.translationPtr = NULL; opts.gzip = 0;}
+#define InitFileOptions_T(opts) {opts.encodingPtr = NULL; opts.translationPtr = NULL; opts.gzip = 0; opts.lines1Ptr = NULL; opts.lines2Ptr = NULL;}
 
 /*
  * Close a channel that was opened by OpenReadChannel.
@@ -168,6 +170,13 @@ ReadAndHashFiles(Tcl_Interp *interp,
         } else {
             Hash(linePtr, optsPtr, 0, &V[n].hash, &V[n].realhash);
         }
+	if (fileOptsPtr->lines2Ptr) {
+	    Tcl_ListObjAppendElement(NULL, fileOptsPtr->lines2Ptr, linePtr);
+	    Tcl_DecrRefCount(linePtr);
+	    linePtr = Tcl_NewObj();
+	    Tcl_IncrRefCount(linePtr);
+	    Tcl_SetObjLength(linePtr, 40);
+	}
         /* Stop if we have reached an end range */
         if (optsPtr->rTo2 > 0 && optsPtr->rTo2 <= n) break;
 
@@ -224,6 +233,13 @@ ReadAndHashFiles(Tcl_Interp *interp,
             P[m].hash = h;
             P[m].realhash = realh;
         }
+	if (fileOptsPtr->lines1Ptr) {
+	    Tcl_ListObjAppendElement(NULL, fileOptsPtr->lines1Ptr, linePtr);
+	    Tcl_DecrRefCount(linePtr);
+	    linePtr = Tcl_NewObj();
+	    Tcl_IncrRefCount(linePtr);
+	    Tcl_SetObjLength(linePtr, 40);
+	}
 
         /* Binary search for hash in V */
         j = BSearchVVector(V, n, h, optsPtr);
@@ -394,15 +410,18 @@ DiffFilesObjCmd(
 {
     int index, resultStyle, t, result = TCL_OK;
     Tcl_Obj *resPtr, *file1Ptr, *file2Ptr;
+    Tcl_Obj *linesPtr = NULL, *linesVarObj = NULL;
     DiffOptions_T opts;
     FileOptions_T fileOpts;
     static CONST char *options[] = {
 	"-b", "-w", "-i", "-nocase", "-align", "-encoding", "-range",
+	"-lines",
         "-noempty", "-nodigit", "-pivot", "-regsub", "-regsubleft",
 	"-regsubright", "-result", "-translation", "-gz", (char *) NULL
     };
     enum options {
 	OPT_B, OPT_W, OPT_I, OPT_NOCASE, OPT_ALIGN, OPT_ENCODING, OPT_RANGE,
+	OPT_LINES,
         OPT_NOEMPTY, OPT_NODIGIT, OPT_PIVOT, OPT_REGSUB, OPT_REGSUBLEFT,
 	OPT_REGSUBRIGHT, OPT_RESULT, OPT_TRANSLATION, OPT_GZ
     };
@@ -507,6 +526,22 @@ DiffFilesObjCmd(
                 goto cleanup;
             }
             break;
+	  case OPT_LINES:
+            t++;
+            if (t >= (objc - 2)) {
+                /* FIXA error message */
+                Tcl_SetResult(interp, "missing value", TCL_STATIC);
+                result = TCL_ERROR;
+                goto cleanup;
+            }
+	    linesVarObj = objv[t];
+	    linesPtr = Tcl_NewListObj(0, NULL);
+	    Tcl_IncrRefCount(linesPtr);
+	    fileOpts.lines1Ptr = Tcl_NewListObj(0, NULL);
+	    fileOpts.lines2Ptr = Tcl_NewListObj(0, NULL);
+	    Tcl_ListObjAppendElement(NULL, linesPtr, fileOpts.lines1Ptr);
+	    Tcl_ListObjAppendElement(NULL, linesPtr, fileOpts.lines2Ptr);
+	    break;
 	  case OPT_ALIGN:
             t++;
             if (t >= (objc - 2)) {
@@ -565,9 +600,19 @@ DiffFilesObjCmd(
         result = TCL_ERROR;
         goto cleanup;
     }
+    if (linesPtr != NULL) {
+	if (Tcl_ObjSetVar2(interp, linesVarObj, NULL, linesPtr, TCL_LEAVE_ERR_MSG) == NULL) {
+	    result = TCL_ERROR;
+	    goto cleanup;
+	}
+    }
+
     Tcl_SetObjResult(interp, resPtr);
 
     cleanup:
+    if (linesPtr != NULL) {
+	Tcl_DecrRefCount(linesPtr);
+    }
     if (opts.regsubLeftPtr != NULL) {
 	Tcl_DecrRefCount(opts.regsubLeftPtr);
     }

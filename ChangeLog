@@ -1,3 +1,8 @@
+2021-02-11  Peter Spjuth  <peter.spjuth@gmail.com>
+	Added -lines option to diffFiles, to keep file contents.
+	This allows a handler to only read each file once, saving
+	I/O and not have a potential problem with files changing.
+
 2020-02-15  Peter Spjuth  <peter.spjuth@gmail.com>
 	DiffStrings should not lose any part even when ignoring space.
 
